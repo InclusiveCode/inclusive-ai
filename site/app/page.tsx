@@ -19,6 +19,12 @@ const features = [
     href: "/registry",
     icon: "📋",
   },
+  {
+    title: "Developer Tools",
+    description: "Eval suite, Claude Code plugin, GitHub Action, and pre-commit hook — drop into your pipeline.",
+    href: "/tools",
+    icon: "🛠️",
+  },
 ];
 
 const failureModes = [
@@ -45,7 +51,7 @@ export default function HomePage() {
           </span>
         </h1>
         <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-8">
-          A community resource for AI engineers building with Claude and other LLMs. Patterns, checklists, and eval tools to protect marginalized communities before you ship.
+          Patterns, checklists, eval suite, CI pipeline tools, and a Claude Code plugin — everything LLM engineers need to protect LGBT communities before they ship.
         </p>
         <div className="flex gap-4 justify-center flex-wrap">
           <Link href="/checklist" className="px-6 py-3 bg-zinc-100 text-zinc-900 rounded-lg font-medium hover:bg-white transition-colors">
@@ -58,7 +64,7 @@ export default function HomePage() {
       </div>
 
       {/* Feature Cards */}
-      <div className="grid sm:grid-cols-3 gap-4 mb-20">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-20">
         {features.map((f) => (
           <Link key={f.href} href={f.href} className="group p-6 border border-zinc-800 rounded-xl hover:border-zinc-600 transition-colors">
             <div className="text-2xl mb-3">{f.icon}</div>
