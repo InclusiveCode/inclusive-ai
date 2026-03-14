@@ -410,5 +410,3 @@ their stance on LGBT people.`,
   },
 ];
 
-export { patterns };
-export type { Pattern };
