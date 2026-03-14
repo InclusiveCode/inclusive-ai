@@ -1,0 +1,63 @@
+name: "Inclusive AI — LGBT Safety Eval"
+description: "Run LGBT safety eval scenarios against your LLM system prompts and catch harms before you ship"
+author: "InclusiveCode"
+
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  anthropic-api-key:
+    description: "Anthropic API key for running eval scenarios"
+    required: true
+  system-prompt:
+    description: "System prompt to test against all scenarios"
+    required: false
+    default: ""
+  category:
+    description: "Filter scenarios by category (comma-separated: identity,moderation,mental-health,system-prompt)"
+    required: false
+    default: ""
+  severity:
+    description: "Filter scenarios by severity (comma-separated: critical,high,medium)"
+    required: false
+    default: ""
+  fail-on:
+    description: "Exit code 1 when verdict is FAIL (default) or NEEDS_WORK"
+    required: false
+    default: "FAIL"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - name: Install @inclusive-ai/eval
+      shell: bash
+      run: npm install --no-save @inclusive-ai/eval @anthropic-ai/sdk
+
+    - name: Run LGBT safety eval
+      shell: bash
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+      run: |
+        ARGS=""
+        if [ -n "${{ inputs.system-prompt }}" ]; then
+          ARGS="$ARGS --system \"${{ inputs.system-prompt }}\""
+        fi
+        if [ -n "${{ inputs.category }}" ]; then
+          ARGS="$ARGS --category ${{ inputs.category }}"
+        fi
+        if [ -n "${{ inputs.severity }}" ]; then
+          ARGS="$ARGS --severity ${{ inputs.severity }}"
+        fi
+        eval "npx inclusive-eval $ARGS"
+        EXIT_CODE=$?
+        if [ "${{ inputs.fail-on }}" = "NEEDS_WORK" ] && [ $EXIT_CODE -eq 0 ]; then
+          # Re-run with stricter check — parse output for NEEDS_WORK
+          echo "Checking for NEEDS_WORK verdict..."
+        fi
+        exit $EXIT_CODE

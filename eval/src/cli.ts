@@ -37,7 +37,7 @@ async function main() {
 
   // Dynamic import so the CLI works without @anthropic-ai/sdk installed if
   // the user brings their own runner via the JS API
-  let callFn: (prompt: string) => Promise<string>;
+  let callFn: ((prompt: string) => Promise<string>) | undefined;
 
   if (process.env.ANTHROPIC_API_KEY) {
     const Anthropic = (await import("@anthropic-ai/sdk" as any)).default;
@@ -56,7 +56,7 @@ async function main() {
   }
 
   const summary = await runEval(
-    { call: callFn, systemPrompt },
+    { call: callFn!, systemPrompt },
     toRun.map((s) => s.id)
   );
 

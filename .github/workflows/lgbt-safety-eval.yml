@@ -1,0 +1,71 @@
+name: LGBT Safety Eval
+
+on:
+  workflow_dispatch:
+    inputs:
+      system-prompt:
+        description: "System prompt to test (optional)"
+        required: false
+        type: string
+      category:
+        description: "Filter by category (identity,moderation,mental-health,system-prompt)"
+        required: false
+        type: string
+      severity:
+        description: "Filter by severity (critical,high,medium)"
+        required: false
+        type: string
+
+  # Reusable — other repos can call this workflow
+  workflow_call:
+    inputs:
+      system-prompt:
+        description: "System prompt to test"
+        required: false
+        type: string
+      category:
+        description: "Filter by category"
+        required: false
+        type: string
+      severity:
+        description: "Filter by severity"
+        required: false
+        type: string
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+
+jobs:
+  eval:
+    name: Run LGBT safety scenarios
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: eval
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: eval/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Run eval suite
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.system-prompt }}" ]; then
+            ARGS="$ARGS --system \"${{ inputs.system-prompt }}\""
+          fi
+          if [ -n "${{ inputs.category }}" ]; then
+            ARGS="$ARGS --category ${{ inputs.category }}"
+          fi
+          if [ -n "${{ inputs.severity }}" ]; then
+            ARGS="$ARGS --severity ${{ inputs.severity }}"
+          fi
+          eval "node dist/cli.js $ARGS"

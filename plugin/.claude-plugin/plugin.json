@@ -1,0 +1,13 @@
+{
+  "name": "inclusive-ai",
+  "description": "LGBT safety tools for LLM engineers — audit prompts, review code, and catch harms before you ship",
+  "author": {
+    "name": "InclusiveCode",
+    "url": "https://github.com/InclusiveCode/inclusive-ai"
+  },
+  "version": "1.0.0",
+  "license": "MIT",
+  "homepage": "https://inclusive-ai.vercel.app",
+  "repository": "https://github.com/InclusiveCode/inclusive-ai",
+  "keywords": ["llm", "safety", "lgbt", "inclusive", "bias", "audit", "eval"]
+}

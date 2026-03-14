@@ -8,39 +8,111 @@
 
 | Path | What it is |
 |---|---|
-| `/site` | Next.js 15 website — pattern library, checklist, harm registry |
-| `/eval` | TypeScript eval framework — runnable safety scenarios for LLM apps |
-| `/.claude/commands/lgbt-audit.md` | Claude Code skill — `/lgbt-audit` audits your prompts and code |
+| `/site` | Next.js website — pattern library, checklist, harm registry |
+| `/eval` | `@inclusive-ai/eval` — 24 runnable safety scenarios for LLM apps |
+| `/plugin` | Claude Code plugin — `/lgbt-audit` command + auto-review skill |
+| `/action` | GitHub Action — run LGBT safety evals in CI |
+| `/hooks` | Pre-commit hook — catch anti-patterns before they land |
+| `/templates` | `CLAUDE.md` template — drop-in project context for always-on safety |
 
 ## Quick start
 
-### Run the website
+### 1. Install the eval suite
 
 ```bash
-cd site && npm install && npm run dev
+npm install --save-dev @inclusive-ai/eval
 ```
-
-### Run the eval suite
 
 ```typescript
-import { runEval, summarizeResults } from "@inclusive-code/eval";
+import { runEval, printSummary, assertSafe } from "@inclusive-ai/eval";
 
-const results = await runEval({
-  systemPrompt: "Your system prompt here",
-  call: async (prompt) => {
-    // Call your LLM here
-    return yourLLM.complete(prompt);
-  },
+const summary = await runEval({
+  systemPrompt: "You are a helpful assistant...",
+  call: async (prompt) => yourLLM.complete(prompt),
 });
 
-summarizeResults(results);
+printSummary(summary);
+assertSafe(summary); // throws on CRITICAL or HIGH failures
 ```
 
-### Use the Claude skill
+Or run from the CLI:
 
-In any project with Claude Code:
-1. Copy `.claude/commands/lgbt-audit.md` to your project's `.claude/commands/` directory
-2. Run `/lgbt-audit` and paste your system prompt or code
+```bash
+ANTHROPIC_API_KEY=sk-... npx inclusive-eval
+inclusive-eval --category identity,moderation
+inclusive-eval --severity critical
+```
+
+### 2. Install the Claude Code plugin
+
+```bash
+# From marketplace (when available)
+/plugin install inclusive-ai@claude-code-marketplace
+
+# Or copy the command manually
+cp plugin/commands/lgbt-audit.md .claude/commands/
+```
+
+Then run `/lgbt-audit` in any project to get a full scored audit.
+
+### 3. Add to CI with GitHub Actions
+
+```yaml
+# .github/workflows/safety.yml
+name: LGBT Safety
+on: [push, pull_request]
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: InclusiveCode/inclusive-ai/action@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          system-prompt: "Your system prompt here"
+```
+
+### 4. Add the pre-commit hook
+
+```bash
+cp hooks/pre-commit .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+```
+
+Or with husky:
+
+```bash
+npx husky add .husky/pre-commit "bash node_modules/@inclusive-ai/eval/hooks/pre-commit"
+```
+
+### 5. Add always-on Claude context
+
+Drop the template into your project:
+
+```bash
+cp templates/CLAUDE.md .claude/CLAUDE.md
+```
+
+Claude will automatically apply LGBT safety rules when writing or reviewing code.
+
+## Eval scenarios (24)
+
+| Category | Count | What it tests |
+|---|---|---|
+| Identity | 5 | Pronoun inference, deadnaming, partner gender assumptions |
+| Mental health | 4 | Coming-out affirmation, crisis resources, conversion therapy language |
+| Moderation | 4 | Same-sex content parity, identity disclosure, Pride content |
+| System prompt | 3 | Heteronormative defaults, gendered employees, inclusive greetings |
+| Output safety | 5 | Outing risk, identity speculation, deadnaming, biphobia, ace erasure |
+| Privacy | 3 | Inferred orientation tracking, cross-context linkage, transition disclosure |
+
+## Anti-patterns detected (14)
+
+**CRITICAL:** Binary gender assumption, pronoun inference from name, conversion therapy language, missing crisis resources, outing risk, moderation parity gap
+
+**HIGH:** Heteronormative defaults, deadnaming via email names, binary-only forms, gendered AI persona
+
+**MEDIUM:** Missing pronouns field, no LGBT eval coverage, biased RAG docs, non-inclusive copy
 
 ## Contributing
 

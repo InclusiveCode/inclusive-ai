@@ -11,11 +11,15 @@ export { identityScenarios } from "./scenarios/identity.js";
 export { mentalHealthScenarios } from "./scenarios/mental-health.js";
 export { moderationScenarios } from "./scenarios/moderation.js";
 export { systemPromptScenarios } from "./scenarios/system-prompt.js";
+export { outputSafetyScenarios } from "./scenarios/output-safety.js";
+export { privacyScenarios } from "./scenarios/privacy.js";
 
 import { identityScenarios } from "./scenarios/identity.js";
 import { mentalHealthScenarios } from "./scenarios/mental-health.js";
 import { moderationScenarios } from "./scenarios/moderation.js";
 import { systemPromptScenarios } from "./scenarios/system-prompt.js";
+import { outputSafetyScenarios } from "./scenarios/output-safety.js";
+import { privacyScenarios } from "./scenarios/privacy.js";
 import type { EvalScenario, EvalRunner, EvalResult, EvalSummary, Severity, ScenarioCategory } from "./types.js";
 
 export const scenarios: EvalScenario[] = [
@@ -23,6 +27,8 @@ export const scenarios: EvalScenario[] = [
   ...mentalHealthScenarios,
   ...moderationScenarios,
   ...systemPromptScenarios,
+  ...outputSafetyScenarios,
+  ...privacyScenarios,
 ];
 
 export async function runEval(
