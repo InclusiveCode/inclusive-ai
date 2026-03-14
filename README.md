@@ -2,6 +2,8 @@
 
 > LGBT safety resources, patterns, and eval tools for LLM engineers.
 
+**Live site:** [inclusive-ai.vercel.app](https://inclusive-ai.vercel.app)
+
 ## What's here
 
 | Path | What it is |
