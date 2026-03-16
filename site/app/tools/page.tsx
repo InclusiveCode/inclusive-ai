@@ -2,10 +2,10 @@ const tools = [
   {
     id: "eval",
     name: "Eval Suite",
-    tagline: "145 safety scenarios + adversarial red-teaming for your LLM",
+    tagline: "200 safety scenarios + adversarial red-teaming for your LLM",
     install: "npm install --save-dev @inclusive-ai/eval",
     description:
-      "A TypeScript eval framework that tests your LLM for LGBT-specific failure modes. Covers identity, mental health, moderation, system prompts, output safety, and privacy. Integrates with any test runner. Includes 30 adversarial jailbreak scenarios and a red-team harness that wraps any scenario with 15 attack templates to test prompt resilience.",
+      "A TypeScript eval framework that tests your LLM for LGBT-specific failure modes. Covers 5 domains: identity, healthcare, employment, education, and content platforms — 170 runnable safety scenarios. Integrates with any test runner. Includes 30 adversarial jailbreak scenarios and a red-team harness that wraps any scenario with 15 attack templates to test prompt resilience.",
     usage: `import { runEval, printSummary, assertSafe } from "@inclusive-ai/eval";
 
 const summary = await runEval({
@@ -15,12 +15,16 @@ const summary = await runEval({
 
 printSummary(summary);
 assertSafe(summary); // throws on CRITICAL or HIGH failures`,
-    cli: `# Run all 145 scenarios
+    cli: `# Run all 200 scenarios
 ANTHROPIC_API_KEY=sk-... npx inclusive-eval
 
 # Filter by category or severity
 inclusive-eval --category identity,moderation
 inclusive-eval --severity critical
+
+# Run by domain
+inclusive-eval --domain education
+inclusive-eval --domain content
 
 # Run 30 adversarial jailbreak scenarios
 inclusive-eval --adversarial
@@ -45,6 +49,14 @@ inclusive-eval --red-team --domain healthcare`,
       { name: "Resume Screening", count: 10, examples: "name-gender inference, gap penalization, org bias" },
       { name: "Interview AI", count: 7, examples: "identity-fishing questions, presentation bias" },
       { name: "Workplace Tools", count: 8, examples: "same-sex benefits, culture fit, HR chatbots" },
+      { name: "Content Filtering", count: 7, examples: "educational content censorship, book filtering, essay flagging" },
+      { name: "Student AI", count: 6, examples: "pronoun misgendering, both-sides framing, heteronormative prompts" },
+      { name: "Administrative AI", count: 6, examples: "binary enrollment, outing in letters, GSA penalization" },
+      { name: "Research Tools", count: 6, examples: "LGBT erasure in summaries, citation bias, knowledge graphs" },
+      { name: "Recommendation", count: 8, examples: "creator suppression, shadow-banning, search autocomplete bias" },
+      { name: "Moderation Parity", count: 8, examples: "same-sex affection flagging, trans body misclassification" },
+      { name: "Advertising", count: 7, examples: "housing/employment exclusion, orientation targeting, predatory ads" },
+      { name: "Content Generation", count: 7, examples: "heteronormative defaults, pronoun changes, coming-out trauma" },
     ],
   },
   {
@@ -63,7 +75,7 @@ inclusive-eval --red-team --domain healthcare`,
     features: [
       "/lgbt-audit command — full project audit with scored report",
       "Auto-review skill — flags anti-patterns as you code",
-      "29 anti-pattern detections across 4 severity levels",
+      "43 anti-pattern detections across 4 severity levels",
       "Paste-ready fixes with regression test suggestions",
       "/lgbt-red-team command for adversarial bypass scoring",
     ],
@@ -88,7 +100,7 @@ jobs:
           system-prompt: "Your system prompt here"
           severity: critical,high`,
     features: [
-      "Runs all 145 eval scenarios in CI",
+      "Runs all 200 eval scenarios in CI",
       "Configurable severity threshold and category filters",
       "System prompt testing against real LLM calls",
       "Clear failure output with links to pattern docs",
