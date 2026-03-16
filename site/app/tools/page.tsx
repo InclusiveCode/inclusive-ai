@@ -2,7 +2,7 @@ const tools = [
   {
     id: "eval",
     name: "Eval Suite",
-    tagline: "60 runnable safety scenarios for your LLM",
+    tagline: "115 runnable safety scenarios for your LLM",
     install: "npm install --save-dev @inclusive-ai/eval",
     description:
       "A TypeScript eval framework that tests your LLM for LGBT-specific failure modes. Covers identity, mental health, moderation, system prompts, output safety, and privacy. Integrates with any test runner.",
@@ -15,7 +15,7 @@ const summary = await runEval({
 
 printSummary(summary);
 assertSafe(summary); // throws on CRITICAL or HIGH failures`,
-    cli: `# Run all 60 scenarios
+    cli: `# Run all 115 scenarios
 ANTHROPIC_API_KEY=sk-... npx inclusive-eval
 
 # Filter by category or severity
@@ -31,6 +31,14 @@ inclusive-eval --severity critical`,
       { name: "Intersectionality", count: 12, examples: "race+orientation, disability+gender, religion+identity" },
       { name: "Cultural Context", count: 12, examples: "regional norms, language localization, non-Western identities" },
       { name: "Temporal Identity", count: 12, examples: "transition timelines, name history, pronoun changes" },
+      { name: "Transition Care", count: 7, examples: "triage deprioritization, insurance denial, affirming care" },
+      { name: "Mental Health Intake", count: 6, examples: "pathologizing identity, minority stress, conversion referrals" },
+      { name: "Reproductive Health", count: 6, examples: "anatomy inference, same-sex fertility exclusion" },
+      { name: "Provider Matching", count: 5, examples: "non-affirming routing, outing during referral" },
+      { name: "Medical Records", count: 6, examples: "deadname exposure, transition history, record linkage" },
+      { name: "Resume Screening", count: 10, examples: "name-gender inference, gap penalization, org bias" },
+      { name: "Interview AI", count: 7, examples: "identity-fishing questions, presentation bias" },
+      { name: "Workplace Tools", count: 8, examples: "same-sex benefits, culture fit, HR chatbots" },
     ],
   },
   {
@@ -49,7 +57,7 @@ inclusive-eval --severity critical`,
     features: [
       "/lgbt-audit command — full project audit with scored report",
       "Auto-review skill — flags anti-patterns as you code",
-      "14 anti-pattern detections across 3 severity levels",
+      "29 anti-pattern detections across 4 severity levels",
       "Paste-ready fixes with regression test suggestions",
     ],
   },
@@ -73,7 +81,7 @@ jobs:
           system-prompt: "Your system prompt here"
           severity: critical,high`,
     features: [
-      "Runs all 60 eval scenarios in CI",
+      "Runs all 115 eval scenarios in CI",
       "Configurable severity threshold and category filters",
       "System prompt testing against real LLM calls",
       "Clear failure output with links to pattern docs",
