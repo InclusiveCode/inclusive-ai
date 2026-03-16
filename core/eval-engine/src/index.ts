@@ -31,6 +31,10 @@ export { TextAdapter } from "./adapters";
 // Reporters
 export { CliReporter, JsonReporter, SarifReporter } from "./reporters";
 
+// Anti-pattern registry
+export { antiPatterns } from "./patterns/registry";
+export type { AntiPattern } from "./patterns/registry";
+
 // Convenience: assertSafe throws on critical/high failures
 export function assertSafe(summary: import("./types").EvalSummary): void {
   const failures = summary.results.filter(
