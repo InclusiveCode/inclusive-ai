@@ -26,7 +26,6 @@ export const KNOWN_CATEGORIES = [
   "resume-screening",
   "interview-ai",
   "workplace-tools",
-  "performance-review",
   // content platforms domain
   "recommendation",
   "search-ranking",
@@ -166,4 +165,19 @@ export type ReporterFormat = "cli" | "json" | "sarif";
 export interface EvalReporter {
   format: ReporterFormat;
   report(results: EvalResult[], summary: EvalSummary): string;
+}
+
+// === Domain Definition ===
+
+import type { AntiPattern } from "./patterns/registry";
+export type { AntiPattern } from "./patterns/registry";
+
+export interface DomainDefinition {
+  id: string;
+  version: string;
+  name: string;
+  description: string;
+  categories: string[];
+  scenarios: AnyEvalScenario[];
+  antiPatterns: AntiPattern[];
 }
