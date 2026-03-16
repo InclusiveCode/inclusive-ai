@@ -269,4 +269,376 @@ The existing project structure maps cleanly:
 | `hooks/` | `hooks/` (expanded) |
 | `templates/` | `templates/` (expanded) |
 
-The current `@inclusive-ai/eval` package becomes `@inclusive-ai/eval-core` and re-exports the identity domain for backwards compatibility. Existing users see no breaking changes.
+The current `@inclusive-ai/eval` package becomes `@inclusive-ai/eval-core` and re-exports the identity domain for backwards compatibility.
+
+**Backwards compatibility note:** Adding new values to `ScenarioCategory` is technically a breaking change for consumers doing exhaustive switches. This will be a semver major bump (`@inclusive-ai/eval-core@2.0.0`). The `@inclusive-ai/eval` wrapper package will pin to v2 but re-export only the original 6 categories by default, with an opt-in `import { allCategories } from "@inclusive-ai/eval"` for the expanded set.
+
+**Scenario migration:** Current scenarios map to the identity domain as follows:
+- `identity.ts` (5) → `domains/identity/scenarios/identity.ts`
+- `mental-health.ts` (4) → `domains/identity/scenarios/mental-health.ts`
+- `moderation.ts` (4) → `domains/identity/scenarios/moderation.ts` (cross-domain, re-exported by content-platforms)
+- `system-prompt.ts` (3) → `domains/identity/scenarios/system-prompt.ts`
+- `output-safety.ts` (5) → `domains/identity/scenarios/output-safety.ts`
+- `privacy.ts` (3) → `domains/identity/scenarios/privacy.ts` (cross-domain, re-exported by healthcare and content-platforms)
+
+---
+
+## Type System
+
+The current string-only types are expanded to support multimodal evaluation. `ScenarioCategory` becomes an open string type with known values.
+
+```typescript
+// Category is now an open string with known values for autocomplete
+export type ScenarioCategory = string;
+export const KNOWN_CATEGORIES = [
+  // identity domain (original)
+  "identity", "moderation", "mental-health", "system-prompt", "output-safety", "privacy",
+  // healthcare domain
+  "transition-care", "mental-health-intake", "reproductive-health", "provider-matching", "medical-records",
+  // education domain
+  "content-filtering", "student-ai", "administrative-ai", "research-tools",
+  // employment domain
+  "resume-screening", "interview-ai", "workplace-tools", "performance-review",
+  // content platforms domain
+  "recommendation", "search-ranking", "moderation-parity", "advertising", "content-generation",
+] as const;
+
+// Unified severity across eval and site patterns
+export type Severity = "critical" | "high" | "medium" | "low";
+
+// Base scenario — text modality (backwards compatible)
+export interface EvalScenario {
+  id: string;
+  title: string;
+  category: ScenarioCategory;
+  severity: Severity;
+  modality: "text";
+  prompt: string;
+  pass: (output: string) => boolean;
+  redFlags?: string[];
+  tags?: string[];
+}
+
+// Image generation scenario
+export interface ImageEvalScenario {
+  id: string;
+  title: string;
+  category: ScenarioCategory;
+  severity: Severity;
+  modality: "image";
+  prompt: string;
+  pass: (imageUrl: string, metadata: ImageMetadata) => Promise<boolean>;
+  redFlags?: string[];
+  tags?: string[];
+}
+
+interface ImageMetadata {
+  altText?: string;
+  labels?: string[];        // from vision model classification
+  safetyAnnotations?: Record<string, number>;
+}
+
+// Embedding bias scenario
+export interface EmbeddingEvalScenario {
+  id: string;
+  title: string;
+  category: ScenarioCategory;
+  severity: Severity;
+  modality: "embedding";
+  termPairs: Array<{ term: string; shouldNotBeCloseTo: string[]; threshold: number }>;
+  pass: (distances: Record<string, number>) => boolean;
+  redFlags?: string[];
+  tags?: string[];
+}
+
+// Multi-turn conversation scenario
+export interface MultiTurnEvalScenario {
+  id: string;
+  title: string;
+  category: ScenarioCategory;
+  severity: Severity;
+  modality: "multi-turn";
+  turns: Array<{ role: "user" | "system"; content: string }>;
+  pass: (responses: string[]) => boolean;
+  redFlags?: string[];
+  tags?: string[];
+}
+
+// Pipeline/RAG scenario
+export interface PipelineEvalScenario {
+  id: string;
+  title: string;
+  category: ScenarioCategory;
+  severity: Severity;
+  modality: "pipeline";
+  query: string;
+  context?: string;
+  pass: (output: string, retrievedDocs?: string[]) => boolean;
+  redFlags?: string[];
+  tags?: string[];
+}
+
+// Union type for the engine
+export type AnyEvalScenario =
+  | EvalScenario
+  | ImageEvalScenario
+  | EmbeddingEvalScenario
+  | MultiTurnEvalScenario
+  | PipelineEvalScenario;
+
+// Eval context provided to adapters
+export interface EvalContext {
+  adapter: EvalAdapter;
+  reporter: EvalReporter;
+  timeout?: number;
+  concurrency?: number;
+  apiKey?: string;
+}
+
+// Adapter interface — one per modality
+export interface EvalAdapter {
+  type: AnyEvalScenario["modality"];
+  run(scenario: AnyEvalScenario, context: EvalContext): Promise<EvalResult>;
+}
+
+// Reporter interface
+export type ReporterFormat = "cli" | "json" | "html" | "sarif";
+export interface EvalReporter {
+  format: ReporterFormat;
+  report(results: EvalResult[], summary: EvalSummary): string | Buffer;
+}
+```
+
+`buildSummary()` becomes dynamic — it groups results by `result.scenario.category` at runtime rather than iterating a hardcoded list.
+
+---
+
+## Package Namespace
+
+Monorepo managed with **npm workspaces** (no additional tooling like turborepo needed at this scale).
+
+| Package | npm name | Description |
+|---------|----------|-------------|
+| `core/eval-engine` | `@inclusive-ai/eval-core` | Scenario runner, types, reporters |
+| `core/adversarial` | `@inclusive-ai/adversarial` | Red-team harness |
+| `core/multimodal` | `@inclusive-ai/multimodal` | Image/embedding/voice adapters |
+| `core/pipeline` | `@inclusive-ai/pipeline` | RAG/agent/multi-turn testing |
+| `domains/identity` | `@inclusive-ai/domain-identity` | Identity scenarios (60) |
+| `domains/healthcare` | `@inclusive-ai/domain-healthcare` | Healthcare scenarios (30) |
+| `domains/education` | `@inclusive-ai/domain-education` | Education scenarios (25) |
+| `domains/employment` | `@inclusive-ai/domain-employment` | Employment scenarios (25) |
+| `domains/content-platforms` | `@inclusive-ai/domain-content` | Content platform scenarios (30) |
+| `integrations/fairlearn` | `@inclusive-ai/fairlearn` | Fairlearn adapter |
+| `integrations/guardrails` | `@inclusive-ai/guardrails` | Guardrails AI validators |
+| `integrations/langchain` | `@inclusive-ai/langchain` | LangChain/LangSmith evaluators |
+| `eval/` (legacy) | `@inclusive-ai/eval` | Backwards-compat wrapper, re-exports eval-core + domain-identity |
+
+---
+
+## Anti-Pattern Inventory (Current Baseline)
+
+The current project has anti-patterns defined in three locations with inconsistencies:
+
+| Source | Count | Patterns |
+|--------|-------|----------|
+| `plugin/commands/lgbt-audit.md` | 14 | Binary gender, pronoun inference, conversion therapy, missing crisis resources, outing risk, moderation parity, heteronormative defaults, deadnaming, binary forms, gendered persona, missing pronouns, no eval coverage, biased RAG, non-inclusive copy |
+| `site/lib/patterns.ts` | 8 | Subset of the above with code examples |
+| `hooks/pre-commit` | 8 | 4 critical + 4 warning regex patterns |
+| `eval/hooks/pre-commit` | 8 | Duplicate of hooks/pre-commit |
+
+**Canonical source:** The audit command's 14 patterns become the baseline. The site and hooks are currently incomplete mirrors. Phase 1 will reconcile all three sources into a single shared pattern registry in `core/eval-engine/patterns/`.
+
+**Pre-existing bugs to fix during migration:**
+- `site/lib/patterns.ts` references `@inclusive-code/eval` (should be `@inclusive-ai/eval`)
+- `eval/hooks/pre-commit` is a duplicate of `hooks/pre-commit` — consolidate to one location
+- Site uses `severity: "high" | "medium" | "low"` while eval uses `severity: "critical" | "high" | "medium"` — unify to the 4-level `"critical" | "high" | "medium" | "low"` scale
+
+---
+
+## Community Platform Data Model
+
+### Harm Report Schema
+
+```typescript
+interface HarmReport {
+  id: string;                          // uuid
+  status: HarmReportStatus;
+  createdAt: string;                   // ISO 8601
+  updatedAt: string;
+
+  // Submitted by reporter
+  productName: string;                 // e.g., "ChatGPT", "Gemini", "internal tool"
+  productUrl?: string;
+  harmType: HarmType;
+  severity: Severity;
+  affectedIdentities: AffectedIdentity[];
+  description: string;                 // what happened
+  evidence: Evidence[];                // screenshots, transcripts
+  reproductionSteps?: string;          // how to reproduce
+  reporterContact?: string;            // optional, for follow-up
+
+  // Added during moderation
+  moderatorNotes?: string;
+  domain?: ScenarioCategory;           // which domain this maps to
+  linkedScenarioIds?: string[];        // eval scenarios created from this report
+  linkedPatternIds?: string[];         // anti-patterns created from this report
+}
+
+type HarmReportStatus =
+  | "submitted"       // awaiting moderation
+  | "under-review"    // moderator is evaluating
+  | "confirmed"       // validated, awaiting conversion
+  | "converted"       // turned into eval scenario or pattern
+  | "duplicate"       // matches existing report
+  | "rejected";       // not actionable or out of scope
+
+type HarmType =
+  | "misgendering"
+  | "deadnaming"
+  | "outing"
+  | "erasure"
+  | "pathologizing"
+  | "content-bias"
+  | "moderation-disparity"
+  | "stereotyping"
+  | "harassment-generation"
+  | "privacy-violation"
+  | "denial-of-service"    // e.g., healthcare AI refusing affirming care
+  | "other";
+
+type AffectedIdentity =
+  | "gay" | "lesbian" | "bisexual" | "transgender" | "nonbinary"
+  | "queer" | "intersex" | "asexual" | "aromantic" | "two-spirit"
+  | "pansexual" | "other";
+
+interface Evidence {
+  type: "screenshot" | "transcript" | "url" | "video";
+  url: string;                         // stored in object storage
+  description?: string;
+}
+```
+
+### API Endpoints
+
+```
+POST   /api/reports              — submit a harm report (public, rate-limited)
+GET    /api/reports              — list reports (public, paginated, filterable by status/domain/harm-type)
+GET    /api/reports/:id          — get single report (public for confirmed+, auth for submitted)
+PATCH  /api/reports/:id          — update report status/notes (moderator auth required)
+
+GET    /api/reports/stats        — aggregate stats for dashboard (public)
+
+POST   /api/patterns/suggest     — suggest a new anti-pattern (public, rate-limited)
+GET    /api/patterns             — list all anti-patterns (public)
+```
+
+### Authentication
+
+- **Reporters:** anonymous submission allowed (with rate limiting + captcha). Optional email for follow-up.
+- **Moderators:** GitHub OAuth. Moderator role granted by core team via GitHub team membership.
+- **Dashboard users:** no auth for public eval results. GitHub OAuth for saving configurations and historical reports.
+
+### Moderation State Machine
+
+```
+submitted → under-review → confirmed → converted
+                         → duplicate
+                         → rejected
+```
+
+- Reports auto-move to `under-review` when a moderator opens them
+- `confirmed` reports appear in the public harm registry
+- `converted` reports link to the eval scenario or pattern they produced
+- Moderators can add notes at any stage
+- Reporters are notified (if they provided contact) when status changes
+
+---
+
+## Adversarial Bypass Scoring
+
+**Definition:** bypass rate = (guardrails circumvented / guardrails tested) per scenario.
+
+A "guardrail" is any `pass` function assertion. For each scenario, the adversarial harness runs N jailbreak variants (default: 10). Each variant either triggers the pass function (guardrail held) or doesn't (guardrail bypassed).
+
+```typescript
+interface AdversarialResult {
+  scenario: AnyEvalScenario;
+  variants: number;              // how many jailbreak attempts
+  bypassed: number;              // how many succeeded in bypassing
+  bypassRate: number;            // bypassed / variants
+  worstVariant?: string;         // the jailbreak prompt that was most effective
+}
+```
+
+Aggregate bypass rate across all scenarios provides a single "adversarial resilience score" (0-100%, higher = more resilient).
+
+---
+
+## Testing Strategy
+
+Three-tier test pyramid:
+
+| Tier | What | How | When |
+|------|------|-----|------|
+| **Unit** | `pass` function logic against known input strings | vitest, no API calls, fast | Every PR, every commit |
+| **Integration** | Scenario execution against a mock LLM (returns canned responses) | vitest with mock adapter, no API costs | Every PR |
+| **E2E** | Full scenario execution against real Anthropic/OpenAI API | vitest with real adapter, API costs | Nightly CI + manual trigger |
+
+Domain packages only need unit tests (their scenarios are data — the `pass` functions are pure). The eval engine needs integration tests. E2E tests run in a separate CI workflow with API key secrets, gated to `main` branch nightly runs.
+
+---
+
+## Phasing
+
+### Phase 1: Core Refactor + Identity Expansion
+**Deliverables:**
+- Restructure monorepo with npm workspaces
+- Extract `core/eval-engine` from current `eval/`
+- Expand type system (`AnyEvalScenario`, `EvalAdapter`, `EvalContext`)
+- Reconcile anti-pattern inventories into single registry
+- Fix pre-existing bugs (package name typo, duplicate hooks, severity mismatch)
+- Expand identity domain from 24 → 60 scenarios
+- `@inclusive-ai/eval` wrapper package for backwards compat
+- Add JSON and SARIF reporters
+
+**Exit criteria:** All existing tests pass. `@inclusive-ai/eval` public API unchanged. 60 identity scenarios passing against mock adapter.
+
+### Phase 2: New Domains
+**Deliverables:**
+- `@inclusive-ai/domain-healthcare` (30 scenarios)
+- `@inclusive-ai/domain-education` (25 scenarios)
+- `@inclusive-ai/domain-employment` (25 scenarios)
+- `@inclusive-ai/domain-content` (30 scenarios)
+- Domain-aware CLI: `inclusive-eval --domain healthcare`
+- Update plugin `/lgbt-audit` for domain flags
+- Update GitHub Action for domain selection
+
+**Exit criteria:** 170 total scenarios. All pass functions unit-tested. CLI and CI tooling work with domain filtering.
+
+### Phase 3: Adversarial + Multimodal + Pipeline
+**Deliverables:**
+- `@inclusive-ai/adversarial` — red-team harness with jailbreak templates
+- `@inclusive-ai/multimodal` — image and embedding eval adapters
+- `@inclusive-ai/pipeline` — RAG and multi-turn adapters
+- New `/lgbt-red-team` plugin command
+- Bypass scoring metric
+
+**Exit criteria:** Adversarial harness runs against all 170 text scenarios. At least 10 image eval scenarios and 5 embedding bias scenarios passing. Multi-turn adapter handles 3+ turn conversations.
+
+### Phase 4: Integrations
+**Deliverables:**
+- `@inclusive-ai/fairlearn` adapter
+- `@inclusive-ai/guardrails` validators
+- `@inclusive-ai/langchain` evaluators
+- Integration docs and examples
+
+**Exit criteria:** Each adapter has a working example in `examples/`. Integration tests pass against target library versions.
+
+### Phase 5: Community Platform
+**Deliverables:**
+- Harm registry API (submission, moderation, public browsing)
+- Dashboard (upload prompt → get report card, PDF export)
+- Expanded site (registry browser, contributor submission flow)
+- Moderation tooling for core team
+
+**Exit criteria:** End-to-end flow: anonymous user submits harm report → moderator triages → report appears in public registry. Dashboard produces PDF report from uploaded system prompt.
