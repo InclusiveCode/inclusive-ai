@@ -1,0 +1,1 @@
+export { TextAdapter } from "./text";
