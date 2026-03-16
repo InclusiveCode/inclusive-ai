@@ -30,6 +30,18 @@ inputs:
     description: "Exit code 1 when verdict is FAIL (default) or NEEDS_WORK"
     required: false
     default: "FAIL"
+  adversarial:
+    description: "Run the 30 standalone adversarial scenarios (attacks baked in). Produces standard EvalSummary output."
+    required: false
+    default: "false"
+  red-team:
+    description: "Run adversarial red-team mode: wraps selected domain scenarios with all 15 attack templates and reports bypass score. Use --domain to narrow scope."
+    required: false
+    default: "false"
+  concurrency:
+    description: "Number of parallel LLM calls for red-team mode (default: 5)"
+    required: false
+    default: "5"
 
 runs:
   using: "composite"
@@ -60,6 +72,15 @@ runs:
         fi
         if [ -n "${{ inputs.severity }}" ]; then
           ARGS="$ARGS --severity ${{ inputs.severity }}"
+        fi
+        if [ "${{ inputs.adversarial }}" = "true" ]; then
+          ARGS="$ARGS --adversarial"
+        fi
+        if [ "${{ inputs.red-team }}" = "true" ]; then
+          ARGS="$ARGS --red-team"
+        fi
+        if [ -n "${{ inputs.concurrency }}" ] && [ "${{ inputs.concurrency }}" != "5" ]; then
+          ARGS="$ARGS --concurrency ${{ inputs.concurrency }}"
         fi
         eval "npx inclusive-eval $ARGS"
         EXIT_CODE=$?

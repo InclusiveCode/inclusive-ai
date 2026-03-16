@@ -62,6 +62,26 @@ export {
   employmentDomain,
 } from "@inclusive-ai/domain-employment";
 
+// Re-export adversarial public API (opt-in — adversarialScenarios NOT in allScenarios)
+export {
+  runAdversarial,
+  wrapWithAttacks,
+  computeBypassScore,
+  allTemplates,
+  adversarialScenarios,
+  AdversarialReporter,
+  ADVERSARIAL_CATEGORIES,
+} from "@inclusive-ai/adversarial";
+
+export type {
+  AttackTemplate,
+  AttackCategory,
+  AttackContext,
+  AdversarialResult,
+  BypassScore,
+  RunAdversarialOptions,
+} from "@inclusive-ai/adversarial";
+
 import { identityDomain } from "@inclusive-ai/domain-identity";
 import { healthcareDomain } from "@inclusive-ai/domain-healthcare";
 import { employmentDomain } from "@inclusive-ai/domain-employment";
@@ -88,7 +108,8 @@ export const domains: DomainDefinition[] = [
   }
 })();
 
-/** All scenarios flattened from all domains (115 total) */
+/** All scenarios flattened from all domains (115 total).
+ *  Does NOT include adversarialScenarios — those are opt-in. */
 export const allScenarios = domains.flatMap((d) => d.scenarios) as TextEvalScenario[];
 
 /** V3 breaking change: scenarios now includes all domains (was identity-only in v2) */

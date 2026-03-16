@@ -1,6 +1,6 @@
 {
   "name": "@inclusive-ai/eval",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "LGBT safety eval suite for LLM engineers — catch harms before you ship",
   "type": "module",
   "main": "dist/index.js",
@@ -26,7 +26,8 @@
     "@inclusive-ai/eval-core": "*",
     "@inclusive-ai/domain-identity": "*",
     "@inclusive-ai/domain-healthcare": "*",
-    "@inclusive-ai/domain-employment": "*"
+    "@inclusive-ai/domain-employment": "*",
+    "@inclusive-ai/adversarial": "*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

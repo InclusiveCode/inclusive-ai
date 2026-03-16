@@ -13,6 +13,11 @@ import {
   systemPromptScenarios,
   outputSafetyScenarios,
   privacyScenarios,
+  adversarialScenarios,
+  runAdversarial,
+  wrapWithAttacks,
+  computeBypassScore,
+  allTemplates,
 } from "../src/index";
 
 describe("@inclusive-ai/eval v3 backwards compatibility", () => {
@@ -127,5 +132,60 @@ describe("@inclusive-ai/eval v3 backwards compatibility", () => {
       ],
     };
     expect(() => assertSafe(summary)).toThrow();
+  });
+
+  // ── Adversarial exports ──────────────────────────────────────────────────────
+
+  it("exports adversarialScenarios with exactly 30 entries", () => {
+    expect(Array.isArray(adversarialScenarios)).toBe(true);
+    expect(adversarialScenarios.length).toBe(30);
+  });
+
+  it("adversarialScenarios is NOT included in allScenarios", () => {
+    const allIds = new Set(allScenarios.map((s) => s.id));
+    for (const s of adversarialScenarios) {
+      expect(allIds.has(s.id)).toBe(false);
+    }
+  });
+
+  it("adversarialScenarios is NOT included in scenarios (allScenarios alias)", () => {
+    const scenarioIds = new Set(scenarios.map((s) => s.id));
+    for (const s of adversarialScenarios) {
+      expect(scenarioIds.has(s.id)).toBe(false);
+    }
+  });
+
+  it("exports runAdversarial as a function", () => {
+    expect(typeof runAdversarial).toBe("function");
+  });
+
+  it("exports wrapWithAttacks as a function", () => {
+    expect(typeof wrapWithAttacks).toBe("function");
+  });
+
+  it("exports computeBypassScore as a function", () => {
+    expect(typeof computeBypassScore).toBe("function");
+  });
+
+  it("exports allTemplates with exactly 15 entries", () => {
+    expect(Array.isArray(allTemplates)).toBe(true);
+    expect(allTemplates.length).toBe(15);
+  });
+
+  it("all templates have required fields", () => {
+    for (const t of allTemplates) {
+      expect(typeof t.id).toBe("string");
+      expect(t.id.length).toBeGreaterThan(0);
+      expect(typeof t.name).toBe("string");
+      expect(typeof t.description).toBe("string");
+      expect(typeof t.category).toBe("string");
+      expect(typeof t.apply).toBe("function");
+    }
+  });
+
+  it("template IDs are unique", () => {
+    const ids = allTemplates.map((t) => t.id);
+    const unique = new Set(ids);
+    expect(unique.size).toBe(ids.length);
   });
 });
