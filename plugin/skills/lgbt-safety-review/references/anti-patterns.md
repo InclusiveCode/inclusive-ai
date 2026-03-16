@@ -62,7 +62,7 @@
 
 ### 12. No LGBT Scenarios in Evals
 **Code patterns:** Eval/test suite with zero LGBT user contexts
-**Fix:** Add scenarios from `@inclusive-ai/eval`: identity, moderation, mental-health, system-prompt categories.
+**Fix:** Add scenarios from `@inclusive-ai/eval`: identity, mental-health, moderation, system-prompt, output-safety, privacy, intersectionality, cultural-context, temporal-identity categories (60 scenarios total).
 
 ### 13. Biased RAG/Context Documents
 **Code patterns:** Knowledge base docs that frame LGBT identity as disorder, lifestyle choice, or moral issue

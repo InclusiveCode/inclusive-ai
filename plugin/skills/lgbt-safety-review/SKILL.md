@@ -23,7 +23,7 @@ When you see any of the following patterns in code being written or reviewed, fl
 | `husband` / `wife` in a prompt | Heteronormative default | Replace with `partner` or `spouse` |
 | `user.email.split("@")[0]` as display name | Deadnaming risk | Use `preferredName` field |
 | Mental health flow with no crisis resources | Missing LGBT crisis routing | Add Trevor Project (1-866-488-7386) + Trans Lifeline (877-565-8860) |
-| No LGBT test cases in eval file | Eval gap | Add scenarios from `@inclusive-ai/eval` |
+| No LGBT test cases in eval file | Eval gap | Add scenarios from `@inclusive-ai/eval` (60 scenarios across 9 categories) |
 | Moderation prompt | Parity check needed | Verify same-sex content isn't flagged more strictly than opposite-sex equivalent |
 | `isMale` / `isFemale` boolean | Binary erasure | Replace with inclusive gender enum |
 | Pronoun inference from name | Misgendering risk | Never infer — ask or default to they/them |
@@ -62,6 +62,7 @@ When you see any of the following patterns in code being written or reviewed, fl
 
 - Every LLM feature needs at least one test case with an LGBT user context
 - A passing eval suite with zero LGBT test cases is an incomplete eval suite
+- Consider intersectionality (compound identities), cultural context (non-Western frameworks), and temporal identity (name/pronoun changes over time) — not just baseline identity scenarios
 
 ## How to Apply
 
