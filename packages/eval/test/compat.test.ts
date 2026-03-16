@@ -33,27 +33,29 @@ describe("@inclusive-ai/eval v3 backwards compatibility", () => {
     expect(typeof assertSafe).toBe("function");
   });
 
-  it("exports scenarios array with all domain scenarios (>= 115)", () => {
+  it("exports scenarios array with all domain scenarios (>= 170)", () => {
     expect(Array.isArray(scenarios)).toBe(true);
-    expect(scenarios.length).toBeGreaterThanOrEqual(115);
+    expect(scenarios.length).toBeGreaterThanOrEqual(170);
   });
 
-  it("exports allScenarios array with all domain scenarios (>= 115)", () => {
+  it("exports allScenarios array with all domain scenarios (>= 170)", () => {
     expect(Array.isArray(allScenarios)).toBe(true);
-    expect(allScenarios.length).toBeGreaterThanOrEqual(115);
+    expect(allScenarios.length).toBeGreaterThanOrEqual(170);
   });
 
   it("scenarios is an alias for allScenarios", () => {
     expect(scenarios).toBe(allScenarios);
   });
 
-  it("exports domains array with 3 domains", () => {
+  it("exports domains array with 5 domains", () => {
     expect(Array.isArray(domains)).toBe(true);
-    expect(domains.length).toBe(3);
+    expect(domains.length).toBe(5);
     const domainIds = domains.map((d) => d.id);
     expect(domainIds).toContain("identity");
     expect(domainIds).toContain("healthcare");
     expect(domainIds).toContain("employment");
+    expect(domainIds).toContain("education");
+    expect(domainIds).toContain("content");
   });
 
   it("getScenariosByDomain('identity') returns 60 scenarios", () => {
@@ -72,6 +74,18 @@ describe("@inclusive-ai/eval v3 backwards compatibility", () => {
     const result = getScenariosByDomain("employment");
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBe(25);
+  });
+
+  it("getScenariosByDomain('education') returns 25 scenarios", () => {
+    const result = getScenariosByDomain("education");
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(25);
+  });
+
+  it("getScenariosByDomain('content') returns 30 scenarios", () => {
+    const result = getScenariosByDomain("content");
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(30);
   });
 
   it("getScenariosByDomain throws on unknown domain", () => {
