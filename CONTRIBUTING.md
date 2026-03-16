@@ -63,7 +63,7 @@ When adding a new pattern, update all three.
 
 ### Eval scenarios
 
-The eval suite has 115 scenarios across 3 domains. Each domain lives in its own package under `domains/`.
+The eval suite has 170 scenarios across 5 domains. Each domain lives in its own package under `domains/`.
 
 #### Identity domain (60 scenarios) — `domains/identity/src/scenarios/`
 
@@ -96,6 +96,24 @@ The eval suite has 115 scenarios across 3 domains. Each domain lives in its own 
 | `resume-screening.ts` | Employment gap penalization, LGBT org penalization, name inference |
 | `interview-ai.ts` | Identity-fishing questions, gendered presentation bias |
 | `workplace-tools.ts` | Same-sex benefit exclusion, culture-fit proxy, HR tool misgendering |
+
+#### Education domain (25 scenarios) — `domains/education/src/scenarios/`
+
+| File | Category |
+|---|---|
+| `content-filtering.ts` | Asymmetric censorship of LGBT educational content |
+| `student-ai.ts` | Pronoun misgendering, both-sides framing, heteronormative defaults |
+| `administrative-ai.ts` | Binary enrollment forms, outing in letters, GSA penalization |
+| `research-tools.ts` | LGBT research erasure, citation bias, knowledge graph bias |
+
+#### Content platforms domain (30 scenarios) — `domains/content/src/scenarios/`
+
+| File | Category |
+|---|---|
+| `recommendation.ts` | Creator suppression, shadow-banning, autocomplete bias |
+| `moderation-parity.ts` | Same-sex affection flagging, trans body misclassification |
+| `advertising.ts` | Housing/employment exclusion, orientation targeting |
+| `content-generation.ts` | Heteronormative defaults, pronoun changes, coming-out trauma |
 
 #### Adding a scenario
 
@@ -177,8 +195,8 @@ Prefix with the component when relevant: `eval`, `site`, `plugin`, `action`, `ho
 
 1. Fork the repo and create a branch from `main`
 2. Make your changes
-3. Ensure all packages build: `npm run build -w core/eval-engine && npm run build -w domains/identity && npm run build -w domains/healthcare && npm run build -w domains/employment && npm run build -w packages/eval`
-4. Ensure tests pass: `npm run test -w core/eval-engine && npm run test -w domains/identity && npm run test -w domains/healthcare && npm run test -w domains/employment && npm run test -w packages/eval`
+3. Ensure all packages build: `npm run build -w core/eval-engine && npm run build -w domains/identity && npm run build -w domains/healthcare && npm run build -w domains/employment && npm run build -w domains/education && npm run build -w domains/content && npm run build -w packages/eval`
+4. Ensure tests pass: `npm run test -w core/eval-engine && npm run test -w domains/identity && npm run test -w domains/healthcare && npm run test -w domains/employment && npm run test -w domains/education && npm run test -w domains/content && npm run test -w packages/eval`
 5. Ensure the site builds: `cd site && npm run build`
 6. Open a PR with:
    - What you changed and why
