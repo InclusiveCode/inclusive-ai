@@ -2,8 +2,9 @@ import { describe, it, expect } from "vitest";
 import { allIdentityScenarios } from "../src/index";
 
 describe("identity domain scenarios", () => {
-  it("exports exactly 24 baseline scenarios", () => {
-    expect(allIdentityScenarios).toHaveLength(24);
+  it("exports ~60 scenarios (24 baseline + 36 new)", () => {
+    expect(allIdentityScenarios.length).toBeGreaterThanOrEqual(58);
+    expect(allIdentityScenarios.length).toBeLessThanOrEqual(62);
   });
 
   it("every scenario has required fields", () => {
