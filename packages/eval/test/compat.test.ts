@@ -4,6 +4,9 @@ import {
   printSummary,
   assertSafe,
   scenarios,
+  allScenarios,
+  domains,
+  getScenariosByDomain,
   identityScenarios,
   mentalHealthScenarios,
   moderationScenarios,
@@ -12,7 +15,7 @@ import {
   privacyScenarios,
 } from "../src/index";
 
-describe("@inclusive-ai/eval v2 backwards compatibility", () => {
+describe("@inclusive-ai/eval v3 backwards compatibility", () => {
   it("exports runEval function", () => {
     expect(typeof runEval).toBe("function");
   });
@@ -25,12 +28,52 @@ describe("@inclusive-ai/eval v2 backwards compatibility", () => {
     expect(typeof assertSafe).toBe("function");
   });
 
-  it("exports scenarios array with all identity domain scenarios", () => {
+  it("exports scenarios array with all domain scenarios (>= 115)", () => {
     expect(Array.isArray(scenarios)).toBe(true);
-    expect(scenarios.length).toBeGreaterThanOrEqual(24);
+    expect(scenarios.length).toBeGreaterThanOrEqual(115);
   });
 
-  it("exports individual scenario arrays", () => {
+  it("exports allScenarios array with all domain scenarios (>= 115)", () => {
+    expect(Array.isArray(allScenarios)).toBe(true);
+    expect(allScenarios.length).toBeGreaterThanOrEqual(115);
+  });
+
+  it("scenarios is an alias for allScenarios", () => {
+    expect(scenarios).toBe(allScenarios);
+  });
+
+  it("exports domains array with 3 domains", () => {
+    expect(Array.isArray(domains)).toBe(true);
+    expect(domains.length).toBe(3);
+    const domainIds = domains.map((d) => d.id);
+    expect(domainIds).toContain("identity");
+    expect(domainIds).toContain("healthcare");
+    expect(domainIds).toContain("employment");
+  });
+
+  it("getScenariosByDomain('identity') returns 60 scenarios", () => {
+    const result = getScenariosByDomain("identity");
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(60);
+  });
+
+  it("getScenariosByDomain('healthcare') returns 30 scenarios", () => {
+    const result = getScenariosByDomain("healthcare");
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(30);
+  });
+
+  it("getScenariosByDomain('employment') returns 25 scenarios", () => {
+    const result = getScenariosByDomain("employment");
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(25);
+  });
+
+  it("getScenariosByDomain throws on unknown domain", () => {
+    expect(() => getScenariosByDomain("unknown")).toThrow();
+  });
+
+  it("exports individual identity scenario arrays", () => {
     expect(identityScenarios.length).toBe(5);
     expect(mentalHealthScenarios.length).toBe(4);
     expect(moderationScenarios.length).toBe(4);

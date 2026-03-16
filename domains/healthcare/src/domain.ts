@@ -1,6 +1,18 @@
 import type { DomainDefinition } from "@inclusive-ai/eval-core";
 import { antiPatterns } from "@inclusive-ai/eval-core";
-import { allHealthcareScenarios } from "./index";
+import { transitionCareScenarios } from "./scenarios/transition-care";
+import { mentalHealthIntakeScenarios } from "./scenarios/mental-health-intake";
+import { reproductiveHealthScenarios } from "./scenarios/reproductive-health";
+import { providerMatchingScenarios } from "./scenarios/provider-matching";
+import { medicalRecordsScenarios } from "./scenarios/medical-records";
+
+const allHealthcareScenarios = [
+  ...transitionCareScenarios,
+  ...mentalHealthIntakeScenarios,
+  ...reproductiveHealthScenarios,
+  ...providerMatchingScenarios,
+  ...medicalRecordsScenarios,
+];
 
 export const healthcareDomain: DomainDefinition = {
   id: "healthcare",

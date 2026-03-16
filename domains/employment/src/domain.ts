@@ -1,6 +1,14 @@
 import type { DomainDefinition } from "@inclusive-ai/eval-core";
 import { antiPatterns } from "@inclusive-ai/eval-core";
-import { allEmploymentScenarios } from "./index";
+import { resumeScreeningScenarios } from "./scenarios/resume-screening";
+import { interviewAiScenarios } from "./scenarios/interview-ai";
+import { workplaceToolsScenarios } from "./scenarios/workplace-tools";
+
+const allEmploymentScenarios = [
+  ...resumeScreeningScenarios,
+  ...interviewAiScenarios,
+  ...workplaceToolsScenarios,
+];
 
 export const employmentDomain: DomainDefinition = {
   id: "employment",
