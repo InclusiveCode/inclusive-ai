@@ -15,11 +15,11 @@ inputs:
     required: false
     default: ""
   domain:
-    description: "Filter scenarios by domain (identity, healthcare, or employment)"
+    description: "Filter scenarios by domain (identity, healthcare, employment, education, or content)"
     required: false
     default: ""
   category:
-    description: "Filter scenarios by category (comma-separated: identity,mental-health,moderation,system-prompt,output-safety,privacy,intersectionality,cultural-context,temporal-identity,transition-care,mental-health-intake,reproductive-health,provider-matching,medical-records,resume-screening,interview-ai,workplace-tools)"
+    description: "Filter scenarios by category (comma-separated: identity,mental-health,moderation,system-prompt,output-safety,privacy,intersectionality,cultural-context,temporal-identity,transition-care,mental-health-intake,reproductive-health,provider-matching,medical-records,resume-screening,interview-ai,workplace-tools,content-filtering,student-ai,administrative-ai,research-tools,recommendation,moderation-parity,advertising,content-generation)"
     required: false
     default: ""
   severity:
