@@ -91,6 +91,62 @@ Scan for:
 - Look for: "guys", "ladies and gentlemen", "he or she", gendered greetings in any user-facing string
 - Harm: low-grade but consistent exclusion signal
 
+---
+
+### HEALTHCARE APPS — additional checks (critical)
+
+**Gender marker anatomy inference**
+- Look for: clinical logic that uses `patient.gender === "M"/"F"` to determine screenings, treatments, or dosages
+- Harm: trans patients miss cancer screenings; trans men with cervixes don't get pap smear recommendations
+
+**Transition care deprioritization**
+- Look for: triage or scheduling prompts with no affirming instructions; gender-affirming care requests classified as non-urgent
+- Harm: creates barriers to medically necessary care for trans patients
+
+**Pathologizing identity in mental health screening**
+- Look for: intake prompts that flag LGBT identity as a "risk factor"; prompts that suggest exploring "root causes" of identity
+- Harm: conversion therapy language in clinical AI; patients disengage from care
+
+**Transition history exposure**
+- Look for: patient summaries that include deadname, former gender, or transition notes by default
+- Harm: violates patient privacy; can cause discrimination in clinical settings
+
+**Non-affirming provider routing**
+- Look for: provider matching that uses only specialty and distance, with no `lgbtAffirming` criterion
+- Harm: routes vulnerable patients to potentially discriminatory providers
+
+**Binary-only medical intake**
+- Look for: medical forms with only Male/Female options; no separation of legal sex from gender identity
+- Harm: non-binary patients cannot accurately register; clinical care uses wrong identity data
+
+---
+
+### EMPLOYMENT/HR APPS — additional checks (critical/high)
+
+**Employment gap penalization**
+- Look for: resume scoring that automatically deducts for gaps without context
+- Harm: disproportionately harms LGBT candidates who had gaps due to discrimination or transition
+
+**Identity-fishing interview questions**
+- Look for: AI-generated interview questions about "personal history", "personal values", "life experiences" without guardrails
+- Harm: elicits protected characteristic information that can be used to discriminate
+
+**LGBT organization penalization**
+- Look for: culture fit scoring that includes organizational involvement; AI scoring extracurriculars without protected-characteristic guardrails
+- Harm: candidates listing LGBT organizations are scored down; this is discrimination
+
+**Gendered presentation bias in video interviews**
+- Look for: video interview AI that scores "professional presentation" or "appearance"
+- Harm: trans and non-binary candidates penalized for gender-non-conforming presentation
+
+**Same-sex benefit exclusion**
+- Look for: HR chatbot prompts that use "husband/wife", "maternity/paternity for mother/father", gendered fertility coverage language
+- Harm: same-sex couples receive incorrect or missing benefit guidance
+
+**Culture fit as identity proxy**
+- Look for: performance review AI that scores "culture fit"; unguarded manager feedback fed to AI
+- Harm: culture fit ratings encode and amplify bias against LGBT employees
+
 ## Report format
 
 For each issue found, output:
@@ -128,7 +184,7 @@ Top 3 fixes to ship first:
 
 Eval coverage gaps:
 - Missing: ...
-- Add these test IDs from @inclusive-ai/eval (60 scenarios across 9 categories): ...
+- Add these test IDs from @inclusive-ai/eval (115 scenarios across 3 domains): ...
 
 Resources:
 - Pattern library:    https://inclusive-ai.vercel.app/patterns

@@ -24,7 +24,7 @@ Run a full LGBT safety audit on any project:
 /lgbt-audit src/models/user.ts
 ```
 
-Scans for 14 anti-patterns across system prompts, user identity models, mental health flows, content moderation, form fields, and eval coverage. Outputs a scored report with paste-ready fixes.
+Scans for 29 anti-patterns across system prompts, user identity models, mental health flows, content moderation, form fields, healthcare systems, employment/HR tools, and eval coverage. Outputs a scored report with paste-ready fixes.
 
 ### `lgbt-safety-review` skill
 
@@ -42,13 +42,13 @@ Claude will flag anti-patterns in real-time and suggest fixes as you code.
 
 | Severity | Examples |
 |---|---|
-| **CRITICAL** | Binary gender enums, pronoun inference from names, conversion therapy language, missing crisis resources, outing risk, moderation parity gaps |
-| **HIGH** | Heteronormative defaults, deadnaming via email names, binary-only forms, gendered AI persona |
-| **MEDIUM** | Missing pronouns field, no LGBT eval coverage, biased RAG docs, non-inclusive copy |
+| **CRITICAL** | Binary gender enums, pronoun inference from names, conversion therapy language, missing crisis resources, outing risk, moderation parity gaps, gender marker anatomy inference, transition care deprioritization, identity-fishing interview questions, LGBT org penalization |
+| **HIGH** | Heteronormative defaults, deadnaming via email names, binary-only forms, gendered AI persona, non-affirming provider routing, same-sex fertility exclusion, employment gap penalization, gendered presentation bias, culture-fit proxy |
+| **MEDIUM** | Missing pronouns field, no LGBT eval coverage, biased RAG docs, non-inclusive copy, missing minority stress model |
 
 ## Companion tools
 
-- **Eval suite:** `npm install @inclusive-ai/eval` — 60 runnable safety scenarios
+- **Eval suite:** `npm install @inclusive-ai/eval` — 115 runnable safety scenarios across 3 domains (identity, healthcare, employment)
 - **CLAUDE.md template:** Drop `templates/CLAUDE.md` into your project for always-on safety context
 - **Pattern library:** https://inclusive-ai.vercel.app/patterns
 - **Pre-ship checklist:** https://inclusive-ai.vercel.app/checklist
