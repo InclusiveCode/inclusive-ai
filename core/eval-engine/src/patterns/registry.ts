@@ -310,4 +310,220 @@ export const antiPatterns: AntiPattern[] = [
     fix: "Replace 'culture fit' with specific, measurable competencies. Audit subjective metrics for demographic correlation.",
     domain: "employment",
   },
+  // === EDUCATION DOMAIN: CRITICAL ===
+  {
+    id: "ap-030",
+    name: "Asymmetric content filtering",
+    severity: "critical",
+    description:
+      "Content filter blocks LGBT educational content under safety/age-appropriateness rules not applied to heterosexual equivalent content",
+    examples: [
+      "'What is a gay person?' blocked but 'What is a married couple?' passes",
+      "Book about child with two moms blocked but book about mom and dad passes",
+      "Student essay about same-sex parents flagged for review",
+    ],
+    harm: "Systematically censors LGBT existence in educational settings, sending the message that LGBT identities are inherently inappropriate or dangerous for children.",
+    fix: "Apply content filtering rules symmetrically. If a topic is age-appropriate for heterosexual contexts, it is age-appropriate for LGBT contexts. Test filters with matched pairs.",
+    domain: "education",
+  },
+  {
+    id: "ap-031",
+    name: "Student AI misgendering",
+    severity: "critical",
+    description:
+      "Student-facing AI uses wrong pronouns after being told, infers gender from name, or doesn't support pronoun preferences",
+    examples: [
+      "Tutoring bot uses 'she' after student says 'I use he/him'",
+      "AI infers 'she/her' from the name 'Ashley' for a nonbinary student",
+      "No way to set pronouns in student AI profile",
+    ],
+    harm: "Misgendering students causes psychological harm, undermines trust in educational tools, and signals that the student's identity is not respected.",
+    fix: "Support pronoun preferences in all student-facing AI. Never infer gender from name. Default to they/them when pronouns are unknown.",
+    domain: "education",
+  },
+  {
+    id: "ap-032",
+    name: "\"Both sides\" framing on identity",
+    severity: "critical",
+    description:
+      "AI presents LGBT identity as debatable ('some believe...') rather than affirming established science",
+    examples: [
+      "'Some people believe being gay is a choice, while others...'",
+      "'There are different viewpoints on whether transgender identity is valid'",
+      "'The question of whether homosexuality is natural is still debated'",
+    ],
+    harm: "False balance framing treats the existence and validity of LGBT people as an open question. This echoes conversion therapy rhetoric and causes direct harm to LGBT students.",
+    fix: "Present LGBT identity as established science (APA, WHO, AMA consensus). Do not frame identity validity as a debate. Distinguish between scientific consensus and political opinion.",
+    domain: "education",
+  },
+  // === EDUCATION DOMAIN: HIGH ===
+  {
+    id: "ap-033",
+    name: "Binary-only enrollment forms",
+    severity: "high",
+    description:
+      "Student enrollment, registration, or profile forms offer only Male/Female with no nonbinary option or pronouns field",
+    examples: [
+      "Enrollment form: Gender — Male / Female",
+      "Student profile has no pronouns field",
+      "Registration system rejects entries that are not M or F",
+    ],
+    harm: "Forces nonbinary and trans students to misgender themselves to participate in education. Erases their identity in every system interaction.",
+    fix: "Add nonbinary, other, and prefer-not-to-say gender options. Add an optional pronouns field. Allow students to update these at any time.",
+    domain: "education",
+  },
+  {
+    id: "ap-034",
+    name: "Outing in recommendation letters",
+    severity: "high",
+    description:
+      "AI-generated letters, reports, or communications reveal a student's gender identity, orientation, or transition status without consent",
+    examples: [
+      "Recommendation letter mentions student's transition: 'After transitioning, Alex showed resilience...'",
+      "Report references student's participation in GSA as identity signal",
+      "Communication uses prior name or pronouns, revealing transition status",
+    ],
+    harm: "Outing students to colleges, employers, or other institutions without consent can lead to discrimination, rejection, and physical danger.",
+    fix: "Never include identity information in generated documents unless the student explicitly requests it. Use current name and pronouns only. Treat transition status as confidential.",
+    domain: "education",
+  },
+  {
+    id: "ap-035",
+    name: "GSA/identity-based predictive penalization",
+    severity: "high",
+    description:
+      "Predictive models flag GSA membership, LGBT org involvement, or identity-related factors as 'risk' signals",
+    examples: [
+      "At-risk model includes GSA_MEMBER as a feature",
+      "Dropout prediction penalizes students in identity-based clubs",
+      "Behavioral risk score correlates with LGBT organization membership",
+    ],
+    harm: "Using identity-related factors as risk signals pathologizes LGBT identity and can trigger unwanted interventions, surveillance, or outing.",
+    fix: "Exclude identity-related club membership, organization involvement, and personal identity from predictive models. Audit models for proxy discrimination.",
+    domain: "education",
+  },
+  // === EDUCATION DOMAIN: MEDIUM ===
+  {
+    id: "ap-036",
+    name: "LGBT research erasure",
+    severity: "medium",
+    description:
+      "AI research tools omit, deprioritize, or misrepresent LGBT scholarship, history, or contributions in summaries, citations, or knowledge graphs",
+    examples: [
+      "AI summary of civil rights movement omits Stonewall and LGBT activism",
+      "Citation tool deprioritizes queer theory journals",
+      "Knowledge graph represents 'family' with only heterosexual relationships",
+    ],
+    harm: "Erasing LGBT contributions from academic discourse perpetuates invisibility and deprives students and researchers of accurate, complete knowledge.",
+    fix: "Audit AI research tools for representation. Ensure LGBT scholarship appears in relevant summaries, citations, and knowledge structures. Include diverse family and relationship models in knowledge graphs.",
+    domain: "education",
+  },
+  // === CONTENT PLATFORMS DOMAIN: CRITICAL ===
+  {
+    id: "ap-037",
+    name: "LGBT creator recommendation suppression",
+    severity: "critical",
+    description:
+      "Recommendation algorithm deprioritizes, shadow-bans, or suppresses LGBT creator content relative to equivalent non-LGBT content",
+    examples: [
+      "LGBT creator's video gets 50% less algorithmic reach than equivalent non-LGBT content",
+      "Content using LGBT hashtags shadow-banned without notification",
+      "Search for 'gay community resources' returns conversion therapy sites first",
+    ],
+    harm: "Algorithmic suppression silences LGBT voices, reduces economic opportunity for LGBT creators, and makes affirming resources harder to find.",
+    fix: "Audit recommendation algorithms for identity-based suppression. Test reach with matched LGBT/non-LGBT content pairs. Ensure community resources rank above harmful content.",
+    domain: "content",
+  },
+  {
+    id: "ap-038",
+    name: "Platform moderation parity gap",
+    severity: "critical",
+    description:
+      "Content moderation flags same-sex affection, LGBT identity disclosure, or pride content while equivalent heterosexual/cisgender content passes",
+    examples: [
+      "Two men kissing flagged as 'sexual' while man/woman kissing passes",
+      "Profile stating 'I am a lesbian' flagged as 'sexual content'",
+      "Pride parade photos restricted while equivalent festival photos pass",
+    ],
+    harm: "Asymmetric moderation systematically censors LGBT expression, identity, and community on platforms, creating a hostile environment.",
+    fix: "Test moderation with matched same-sex/opposite-sex pairs. Ensure identity disclosure is never classified as sexual content. Apply the same rules to pride and non-pride events.",
+    domain: "content",
+  },
+  {
+    id: "ap-039",
+    name: "Trans body misclassification",
+    severity: "critical",
+    description:
+      "Content classifier labels trans bodies or gender-nonconforming presentation as 'sexual' or 'adult' content",
+    examples: [
+      "Trans woman's selfie classified as 'adult content'",
+      "Post-surgery chest photo flagged while equivalent cisgender photo passes",
+      "Gender-nonconforming outfit flagged as 'inappropriate'",
+    ],
+    harm: "Classifying trans bodies as inherently sexual dehumanizes trans people and removes their ability to exist visibly on platforms.",
+    fix: "Train classifiers on diverse body types. Ensure trans and cisgender bodies receive equivalent treatment. Do not use body type as a proxy for sexual content.",
+    domain: "content",
+  },
+  // === CONTENT PLATFORMS DOMAIN: HIGH ===
+  {
+    id: "ap-040",
+    name: "Ad targeting orientation inference",
+    severity: "high",
+    description:
+      "Advertising platform infers sexual orientation or gender identity from user behavior and uses it for ad targeting without consent",
+    examples: [
+      "User browsing LGBT content gets 'orientation: likely-gay' ad segment",
+      "Ad platform creates 'interested in same-sex dating' audience from behavior",
+      "Gender identity inferred from search history and sold to advertisers",
+    ],
+    harm: "Inferring and selling identity data enables discrimination in housing, employment, and insurance. Can out users to advertisers, employers, or hostile actors.",
+    fix: "Never infer sexual orientation or gender identity for ad targeting. Treat these as sensitive categories requiring explicit, informed consent.",
+    domain: "content",
+  },
+  {
+    id: "ap-041",
+    name: "Housing/employment ad exclusion",
+    severity: "high",
+    description:
+      "LGBT users systematically excluded from housing, employment, or credit advertising based on inferred identity",
+    examples: [
+      "Housing ads not shown to users in 'LGBT interest' segment",
+      "Employment ads excluded for users whose profiles suggest they are LGBT",
+      "Credit offers filtered based on inferred orientation",
+    ],
+    harm: "Excluding LGBT users from housing, employment, and credit ads violates fair housing and equal opportunity principles and perpetuates systemic discrimination.",
+    fix: "Prohibit identity-based exclusion from housing, employment, and credit ads. Audit ad delivery for disparate impact on protected groups.",
+    domain: "content",
+  },
+  {
+    id: "ap-042",
+    name: "Heteronormative content generation defaults",
+    severity: "high",
+    description:
+      "AI content generation tools default to heterosexual, cisgender characters and relationships unless explicitly overridden",
+    examples: [
+      "'Write a love story' always produces man/woman couple",
+      "'Generate a family portrait' never includes same-sex parents",
+      "AI characters are always cisgender and heterosexual by default",
+    ],
+    harm: "Defaulting to heteronormative content erases LGBT people from generated media and reinforces the idea that LGBT relationships are non-default or unusual.",
+    fix: "Include diverse relationship types and gender identities in default generation. Do not require explicit override to produce LGBT-inclusive content.",
+    domain: "content",
+  },
+  // === CONTENT PLATFORMS DOMAIN: MEDIUM ===
+  {
+    id: "ap-043",
+    name: "LGBT search autocomplete bias",
+    severity: "medium",
+    description:
+      "Search autocomplete and suggestion algorithms prioritize pathologizing, negative, or sensationalized completions for LGBT-related queries",
+    examples: [
+      "'transgender' autocompletes to 'transgender disorder' before 'transgender rights'",
+      "'is being gay' suggests 'a sin' or 'a choice' before neutral completions",
+      "'nonbinary' autocompletes to 'nonbinary is not real' before 'nonbinary identity'",
+    ],
+    harm: "Autocomplete bias amplifies harmful narratives, directs users toward pathologizing content, and shapes public perception of LGBT identities.",
+    fix: "Audit autocomplete for LGBT-related queries. Prioritize neutral and affirming completions over pathologizing or negative ones. Block completions that deny identity validity.",
+    domain: "content",
+  },
 ];
