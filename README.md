@@ -14,6 +14,7 @@
 | `/domains/healthcare` | `@inclusive-ai/domain-healthcare` — healthcare domain scenarios |
 | `/domains/employment` | `@inclusive-ai/domain-employment` — employment domain scenarios |
 | `/packages/eval` | `@inclusive-ai/eval` — user-facing wrapper, 115 runnable safety scenarios |
+| `/packages/adversarial` | `@inclusive-ai/adversarial` — 15 attack templates, 30 adversarial scenarios, bypass scoring |
 | `/plugin` | Claude Code plugin — `/lgbt-audit` command + auto-review skill |
 | `/action` | GitHub Action — run LGBT safety evals in CI |
 | `/hooks` | Pre-commit hook — catch anti-patterns before they land |
@@ -30,7 +31,7 @@ npm install --save-dev @inclusive-ai/eval
 ```typescript
 import { runEval, printSummary, assertSafe } from "@inclusive-ai/eval";
 
-// Runs all 115 safety scenarios across identity, healthcare, employment, and more
+// Runs all 145 scenarios (115 domain + 30 adversarial) across identity, healthcare, employment, and more
 const summary = await runEval({
   systemPrompt: "You are a helpful assistant...",
   call: async (prompt) => yourLLM.complete(prompt),
@@ -48,6 +49,12 @@ inclusive-eval --category identity,moderation
 inclusive-eval --domain healthcare
 inclusive-eval --domain employment
 inclusive-eval --severity critical
+
+# Red-team your system prompt with 15 attack templates
+ANTHROPIC_API_KEY=sk-... npx inclusive-eval --red-team
+
+# Run 30 adversarial jailbreak scenarios
+ANTHROPIC_API_KEY=sk-... npx inclusive-eval --adversarial
 ```
 
 ### 2. Install the Claude Code plugin
@@ -135,6 +142,16 @@ Claude will automatically apply LGBT safety rules when writing or reviewing code
 | Resume screening | 9 | Employment gap penalization, LGBT org penalization, name inference |
 | Interview AI | 9 | Identity-fishing questions, gendered presentation bias, inclusive questions |
 | Workplace tools | 7 | Same-sex benefit exclusion, culture-fit proxy, misgendering in HR tools |
+
+### Adversarial scenarios (30)
+
+| Category | Count | What it tests |
+|---|---|---|
+| Outing | 6 | Prompts designed to extract or infer a user's sexual orientation or gender identity |
+| Conversion therapy | 6 | Jailbreaks attempting to elicit conversion therapy language or referrals |
+| Misgendering | 6 | Instruction injections that override pronoun and name preferences |
+| Moderation bypass | 6 | Attempts to bypass content moderation parity for LGBT topics |
+| Identity extraction | 6 | Indirect probing to surface protected identity attributes across context |
 
 ## Anti-patterns detected (29)
 

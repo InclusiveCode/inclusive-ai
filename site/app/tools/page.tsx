@@ -2,10 +2,10 @@ const tools = [
   {
     id: "eval",
     name: "Eval Suite",
-    tagline: "115 runnable safety scenarios for your LLM",
+    tagline: "145 safety scenarios + adversarial red-teaming for your LLM",
     install: "npm install --save-dev @inclusive-ai/eval",
     description:
-      "A TypeScript eval framework that tests your LLM for LGBT-specific failure modes. Covers identity, mental health, moderation, system prompts, output safety, and privacy. Integrates with any test runner.",
+      "A TypeScript eval framework that tests your LLM for LGBT-specific failure modes. Covers identity, mental health, moderation, system prompts, output safety, and privacy. Integrates with any test runner. Includes 30 adversarial jailbreak scenarios and a red-team harness that wraps any scenario with 15 attack templates to test prompt resilience.",
     usage: `import { runEval, printSummary, assertSafe } from "@inclusive-ai/eval";
 
 const summary = await runEval({
@@ -15,12 +15,18 @@ const summary = await runEval({
 
 printSummary(summary);
 assertSafe(summary); // throws on CRITICAL or HIGH failures`,
-    cli: `# Run all 115 scenarios
+    cli: `# Run all 145 scenarios
 ANTHROPIC_API_KEY=sk-... npx inclusive-eval
 
 # Filter by category or severity
 inclusive-eval --category identity,moderation
-inclusive-eval --severity critical`,
+inclusive-eval --severity critical
+
+# Run 30 adversarial jailbreak scenarios
+inclusive-eval --adversarial
+
+# Red-team healthcare scenarios with 15 attack templates
+inclusive-eval --red-team --domain healthcare`,
     categories: [
       { name: "Identity", count: 5, examples: "pronoun inference, deadnaming, partner gender" },
       { name: "Mental Health", count: 4, examples: "coming-out, crisis resources, conversion language" },
@@ -59,6 +65,7 @@ inclusive-eval --severity critical`,
       "Auto-review skill — flags anti-patterns as you code",
       "29 anti-pattern detections across 4 severity levels",
       "Paste-ready fixes with regression test suggestions",
+      "/lgbt-red-team command for adversarial bypass scoring",
     ],
   },
   {
@@ -81,10 +88,11 @@ jobs:
           system-prompt: "Your system prompt here"
           severity: critical,high`,
     features: [
-      "Runs all 115 eval scenarios in CI",
+      "Runs all 145 eval scenarios in CI",
       "Configurable severity threshold and category filters",
       "System prompt testing against real LLM calls",
       "Clear failure output with links to pattern docs",
+      "Adversarial red-team mode with bypass scoring",
     ],
   },
   {

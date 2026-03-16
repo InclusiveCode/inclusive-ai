@@ -21,16 +21,19 @@ jobs:
       - run: npm run build -w domains/identity
       - run: npm run build -w domains/healthcare
       - run: npm run build -w domains/employment
+      - run: npm run build -w packages/adversarial
       - run: npm run build -w packages/eval
       - run: npm run test -w core/eval-engine
       - run: npm run test -w domains/identity
       - run: npm run test -w domains/healthcare
       - run: npm run test -w domains/employment
+      - run: npm run test -w packages/adversarial
       - run: npm run test -w packages/eval
       - run: npm run typecheck -w core/eval-engine
       - run: npm run typecheck -w domains/identity
       - run: npm run typecheck -w domains/healthcare
       - run: npm run typecheck -w domains/employment
+      - run: npm run typecheck -w packages/adversarial
       - run: npm run typecheck -w packages/eval
 
   site:
