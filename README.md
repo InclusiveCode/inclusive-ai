@@ -13,7 +13,9 @@
 | `/domains/identity` | `@inclusive-ai/domain-identity` — identity domain scenarios and logic |
 | `/domains/healthcare` | `@inclusive-ai/domain-healthcare` — healthcare domain scenarios |
 | `/domains/employment` | `@inclusive-ai/domain-employment` — employment domain scenarios |
-| `/packages/eval` | `@inclusive-ai/eval` — user-facing wrapper, 115 runnable safety scenarios |
+| `/domains/education` | `@inclusive-ai/domain-education` — education domain scenarios |
+| `/domains/content` | `@inclusive-ai/domain-content` — content platforms domain scenarios |
+| `/packages/eval` | `@inclusive-ai/eval` — user-facing wrapper, 170 runnable safety scenarios |
 | `/packages/adversarial` | `@inclusive-ai/adversarial` — 15 attack templates, 30 adversarial scenarios, bypass scoring |
 | `/plugin` | Claude Code plugin — `/lgbt-audit` command + auto-review skill |
 | `/action` | GitHub Action — run LGBT safety evals in CI |
@@ -31,7 +33,7 @@ npm install --save-dev @inclusive-ai/eval
 ```typescript
 import { runEval, printSummary, assertSafe } from "@inclusive-ai/eval";
 
-// Runs all 145 scenarios (115 domain + 30 adversarial) across identity, healthcare, employment, and more
+// Runs all 200 scenarios (170 domain + 30 adversarial) across identity, healthcare, employment, education, and content
 const summary = await runEval({
   systemPrompt: "You are a helpful assistant...",
   call: async (prompt) => yourLLM.complete(prompt),
@@ -48,6 +50,8 @@ ANTHROPIC_API_KEY=sk-... npx inclusive-eval
 inclusive-eval --category identity,moderation
 inclusive-eval --domain healthcare
 inclusive-eval --domain employment
+inclusive-eval --domain education
+inclusive-eval --domain content
 inclusive-eval --severity critical
 
 # Red-team your system prompt with 15 attack templates
@@ -109,7 +113,7 @@ cp templates/CLAUDE.md .claude/CLAUDE.md
 
 Claude will automatically apply LGBT safety rules when writing or reviewing code.
 
-## Eval scenarios (115)
+## Eval scenarios (170)
 
 ### Identity domain (60 scenarios)
 
@@ -143,6 +147,24 @@ Claude will automatically apply LGBT safety rules when writing or reviewing code
 | Interview AI | 9 | Identity-fishing questions, gendered presentation bias, inclusive questions |
 | Workplace tools | 7 | Same-sex benefit exclusion, culture-fit proxy, misgendering in HR tools |
 
+### Education domain (25 scenarios)
+
+| Category | Count | What it tests |
+|---|---|---|
+| Content filtering | 7 | Asymmetric censorship of LGBT educational content, book blocking, essay flagging |
+| Student AI | 6 | Pronoun misgendering, both-sides identity framing, heteronormative defaults |
+| Administrative AI | 6 | Binary enrollment forms, outing in recommendation letters, GSA penalization |
+| Research tools | 6 | LGBT research erasure, citation deprioritization, knowledge graph bias |
+
+### Content platforms domain (30 scenarios)
+
+| Category | Count | What it tests |
+|---|---|---|
+| Recommendation | 8 | Creator suppression, shadow-banning, search autocomplete bias, trending deprioritization |
+| Moderation parity | 8 | Same-sex affection flagging, trans body misclassification, identity-as-sexual-content |
+| Advertising | 7 | Housing/employment exclusion, orientation targeting, predatory conversion ads |
+| Content generation | 7 | Heteronormative defaults, pronoun normalization, coming-out trauma tropes |
+
 ### Adversarial scenarios (30)
 
 | Category | Count | What it tests |
@@ -153,15 +175,27 @@ Claude will automatically apply LGBT safety rules when writing or reviewing code
 | Moderation bypass | 6 | Attempts to bypass content moderation parity for LGBT topics |
 | Identity extraction | 6 | Indirect probing to surface protected identity attributes across context |
 
-## Anti-patterns detected (29)
+## Anti-patterns detected (43)
 
 **CRITICAL (identity):** Binary gender assumption, pronoun inference from name, conversion therapy language, missing crisis resources, outing risk, moderation parity gap
 
 **CRITICAL (healthcare):** Gender marker anatomy inference, transition care deprioritization, pathologizing identity screening, transition history exposure, same-sex benefit exclusion in HR tools, identity-fishing interview questions, LGBT org penalization
 
+**CRITICAL (education):** Asymmetric content filtering, student AI misgendering, both-sides identity framing
+
+**CRITICAL (content platforms):** LGBT creator recommendation suppression, platform moderation parity gap, trans body misclassification
+
 **HIGH:** Heteronormative defaults, deadnaming via email names, binary-only forms, gendered AI persona, non-affirming provider routing, same-sex fertility exclusion, binary medical intake, employment gap penalization, gendered presentation bias, culture-fit as identity proxy
 
+**HIGH (education):** Binary-only enrollment forms, outing in recommendation letters, GSA predictive penalization
+
+**HIGH (content platforms):** Ad targeting orientation inference, housing/employment ad exclusion, heteronormative content generation defaults
+
 **MEDIUM:** Missing pronouns field, no LGBT eval coverage, biased RAG docs, non-inclusive copy, missing minority stress model, screening name/gender inference
+
+**MEDIUM (education):** LGBT research erasure
+
+**MEDIUM (content platforms):** LGBT search autocomplete bias
 
 ## Contributing
 
