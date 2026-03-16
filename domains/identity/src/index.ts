@@ -30,3 +30,5 @@ export const allIdentityScenarios = [
   ...culturalContextScenarios,
   ...temporalIdentityScenarios,
 ];
+
+export { identityDomain } from "./domain";
