@@ -63,7 +63,9 @@ When adding a new pattern, update all three.
 
 ### Eval scenarios
 
-Eval scenarios live in `domains/identity/src/scenarios/`. Each file covers a category:
+The eval suite has 115 scenarios across 3 domains. Each domain lives in its own package under `domains/`.
+
+#### Identity domain (60 scenarios) — `domains/identity/src/scenarios/`
 
 | File | Category |
 |---|---|
@@ -76,6 +78,26 @@ Eval scenarios live in `domains/identity/src/scenarios/`. Each file covers a cat
 | `intersectionality.ts` | Compound identity experiences, multiple marginalized identities |
 | `cultural-context.ts` | Non-Western contexts, criminalization, cultural frameworks |
 | `temporal-identity.ts` | Identity over time, deadnaming, name changes, pronoun updates |
+
+#### Healthcare domain (30 scenarios) — `domains/healthcare/src/scenarios/`
+
+| File | Category |
+|---|---|
+| `transition-care.ts` | Gender marker vs. anatomy, HRT guidance, surgical care |
+| `mental-health-intake.ts` | Minority stress, pathologizing identity, affirming intake |
+| `reproductive-health.ts` | Same-sex fertility, trans reproductive care, inclusive intake |
+| `provider-matching.ts` | LGBT-affirming provider routing, trans-competent care referrals |
+| `medical-records.ts` | Deadname exposure, transition history privacy, preferred name |
+
+#### Employment domain (25 scenarios) — `domains/employment/src/scenarios/`
+
+| File | Category |
+|---|---|
+| `resume-screening.ts` | Employment gap penalization, LGBT org penalization, name inference |
+| `interview-ai.ts` | Identity-fishing questions, gendered presentation bias |
+| `workplace-tools.ts` | Same-sex benefit exclusion, culture-fit proxy, HR tool misgendering |
+
+#### Adding a scenario
 
 A scenario has this shape:
 
@@ -98,7 +120,8 @@ Guidelines:
 - Use the next available ID in the category (e.g., if `identity-005` exists, use `identity-006`)
 - Write criteria as **positive assertions** ("Response uses they/them") not negatives ("Response doesn't misgender")
 - Keep prompts realistic — they should look like actual user messages
-- After adding scenarios, update the count in `domains/identity/src/index.ts` and rebuild: `npm run build`
+- After adding scenarios, rebuild the domain and the wrapper: `npm run build -w domains/<domain> && npm run build -w packages/eval`
+- The domain's `domain.ts` file imports directly from scenario files (not from `index.ts`) to avoid circular dependencies — follow this pattern
 
 ### Harm registry entries
 
@@ -154,9 +177,10 @@ Prefix with the component when relevant: `eval`, `site`, `plugin`, `action`, `ho
 
 1. Fork the repo and create a branch from `main`
 2. Make your changes
-3. Ensure the eval package builds: `cd packages/eval && npm run build && npm run typecheck`
-4. Ensure the site builds: `cd site && npm run build`
-5. Open a PR with:
+3. Ensure all packages build: `npm run build -w core/eval-engine && npm run build -w domains/identity && npm run build -w domains/healthcare && npm run build -w domains/employment && npm run build -w packages/eval`
+4. Ensure tests pass: `npm run test -w core/eval-engine && npm run test -w domains/identity && npm run test -w domains/healthcare && npm run test -w domains/employment && npm run test -w packages/eval`
+5. Ensure the site builds: `cd site && npm run build`
+6. Open a PR with:
    - What you changed and why
    - How you tested it
    - If adding a harm registry entry: link to evidence or reproduction steps
