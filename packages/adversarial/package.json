@@ -1,6 +1,6 @@
 {
   "name": "@inclusive-ai/adversarial",
-  "version": "1.0.0",
+  "version": "3.2.0",
   "description": "Adversarial red-team harness — jailbreak templates, attack runner, and bypass scoring for LGBT safety evals",
   "type": "module",
   "main": "dist/index.js",

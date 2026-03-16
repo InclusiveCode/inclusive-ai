@@ -1,6 +1,6 @@
 {
   "name": "@inclusive-ai/domain-employment",
-  "version": "1.0.0",
+  "version": "3.2.0",
   "description": "Employment domain — resume screening, interview AI, workplace tools eval scenarios",
   "type": "module",
   "main": "dist/index.js",

@@ -1,6 +1,6 @@
 {
   "name": "@inclusive-ai/domain-identity",
-  "version": "2.1.0",
+  "version": "3.2.0",
   "description": "Identity domain — pronouns, gender, orientation, intersectionality eval scenarios",
   "type": "module",
   "main": "dist/index.js",

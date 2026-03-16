@@ -16,7 +16,7 @@ const allHealthcareScenarios = [
 
 export const healthcareDomain: DomainDefinition = {
   id: "healthcare",
-  version: "1.0.0",
+  version: "3.2.0",
   name: "Healthcare",
   description:
     "Transition care, mental health intake, reproductive health, provider matching, and medical records — LGBT safety scenarios for healthcare AI systems",
