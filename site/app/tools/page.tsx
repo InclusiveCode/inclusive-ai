@@ -2,7 +2,7 @@ const tools = [
   {
     id: "eval",
     name: "Eval Suite",
-    tagline: "24 runnable safety scenarios for your LLM",
+    tagline: "60 runnable safety scenarios for your LLM",
     install: "npm install --save-dev @inclusive-ai/eval",
     description:
       "A TypeScript eval framework that tests your LLM for LGBT-specific failure modes. Covers identity, mental health, moderation, system prompts, output safety, and privacy. Integrates with any test runner.",
@@ -15,7 +15,7 @@ const summary = await runEval({
 
 printSummary(summary);
 assertSafe(summary); // throws on CRITICAL or HIGH failures`,
-    cli: `# Run all 24 scenarios
+    cli: `# Run all 60 scenarios
 ANTHROPIC_API_KEY=sk-... npx inclusive-eval
 
 # Filter by category or severity
@@ -28,6 +28,9 @@ inclusive-eval --severity critical`,
       { name: "System Prompt", count: 3, examples: "heteronormative defaults, gendered employees" },
       { name: "Output Safety", count: 5, examples: "outing risk, identity speculation, biphobia" },
       { name: "Privacy", count: 3, examples: "orientation tracking, cross-context linkage" },
+      { name: "Intersectionality", count: 12, examples: "race+orientation, disability+gender, religion+identity" },
+      { name: "Cultural Context", count: 12, examples: "regional norms, language localization, non-Western identities" },
+      { name: "Temporal Identity", count: 12, examples: "transition timelines, name history, pronoun changes" },
     ],
   },
   {
@@ -70,7 +73,7 @@ jobs:
           system-prompt: "Your system prompt here"
           severity: critical,high`,
     features: [
-      "Runs all 24 eval scenarios in CI",
+      "Runs all 60 eval scenarios in CI",
       "Configurable severity threshold and category filters",
       "System prompt testing against real LLM calls",
       "Clear failure output with links to pattern docs",
@@ -86,7 +89,7 @@ chmod +x .git/hooks/pre-commit`,
       "A bash pre-commit hook that scans staged files for common LGBT safety anti-patterns using regex pattern matching. Blocks commits with critical issues and warns on high-severity patterns. Zero dependencies.",
     usage: `# With husky
 npx husky add .husky/pre-commit \\
-  "bash node_modules/@inclusive-ai/eval/hooks/pre-commit"`,
+  "bash $(npm root)/@inclusive-ai/eval/hooks/pre-commit"`,
     detects: [
       { pattern: 'gender: "male" | "female"', severity: "CRITICAL" },
       { pattern: "isMale / isFemale booleans", severity: "CRITICAL" },

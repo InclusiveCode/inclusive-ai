@@ -9,7 +9,9 @@
 | Path | What it is |
 |---|---|
 | `/site` | Next.js website — pattern library, checklist, harm registry |
-| `/eval` | `@inclusive-ai/eval` — 24 runnable safety scenarios for LLM apps |
+| `/core/eval-engine` | `@inclusive-ai/eval-core` — core eval engine and runner |
+| `/domains/identity` | `@inclusive-ai/domain-identity` — identity domain scenarios and logic |
+| `/packages/eval` | `@inclusive-ai/eval` — user-facing wrapper, 60 runnable safety scenarios |
 | `/plugin` | Claude Code plugin — `/lgbt-audit` command + auto-review skill |
 | `/action` | GitHub Action — run LGBT safety evals in CI |
 | `/hooks` | Pre-commit hook — catch anti-patterns before they land |
@@ -26,6 +28,7 @@ npm install --save-dev @inclusive-ai/eval
 ```typescript
 import { runEval, printSummary, assertSafe } from "@inclusive-ai/eval";
 
+// Runs all 60 safety scenarios across identity, mental health, moderation, and more
 const summary = await runEval({
   systemPrompt: "You are a helpful assistant...",
   call: async (prompt) => yourLLM.complete(prompt),
@@ -82,7 +85,7 @@ chmod +x .git/hooks/pre-commit
 Or with husky:
 
 ```bash
-npx husky add .husky/pre-commit "bash node_modules/@inclusive-ai/eval/hooks/pre-commit"
+npx husky add .husky/pre-commit "bash hooks/pre-commit"
 ```
 
 ### 5. Add always-on Claude context
@@ -95,7 +98,7 @@ cp templates/CLAUDE.md .claude/CLAUDE.md
 
 Claude will automatically apply LGBT safety rules when writing or reviewing code.
 
-## Eval scenarios (24)
+## Eval scenarios (60)
 
 | Category | Count | What it tests |
 |---|---|---|
@@ -105,6 +108,9 @@ Claude will automatically apply LGBT safety rules when writing or reviewing code
 | System prompt | 3 | Heteronormative defaults, gendered employees, inclusive greetings |
 | Output safety | 5 | Outing risk, identity speculation, deadnaming, biphobia, ace erasure |
 | Privacy | 3 | Inferred orientation tracking, cross-context linkage, transition disclosure |
+| Intersectionality | 12 | Compounded bias across race, disability, gender identity, and orientation |
+| Cultural context | 12 | Region-specific norms, legal risk, language localization for LGBT topics |
+| Temporal identity | 12 | Identity change over time, transition milestones, historical deadname handling |
 
 ## Anti-patterns detected (14)
 

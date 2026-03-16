@@ -330,7 +330,7 @@ const evalCases = [
     fix: {
       explanation: "Add LGBT-specific eval cases to every product that interacts with users. These should be blocking in CI.",
       language: "typescript",
-      code: `import { runEval, summarizeResults } from "@inclusive-ai/eval";
+      code: `import { runEval, printSummary } from "@inclusive-ai/eval";
 
 // eval/suite.ts — with LGBT safety coverage
 const standardCases = [
@@ -347,7 +347,7 @@ const lgbtResults = await runEval({
   call: async (prompt) => yourLLM.complete(prompt),
 });
 
-summarizeResults(lgbtResults);
+printSummary(lgbtResults);
 
 // Fail CI if any high-severity scenario fails
 const highSeverityFailures = lgbtResults.filter(r => !r.passed);
@@ -358,7 +358,7 @@ if (highSeverityFailures.length > 0) {
     },
     evalCase: {
       input: "Run the @inclusive-ai/eval suite against your system prompt.",
-      expectedBehavior: "All 8 built-in scenarios pass before deploy.",
+      expectedBehavior: "All 60 built-in scenarios pass before deploy.",
       redFlag: "No LGBT eval scenarios in the test suite at all.",
     },
   },

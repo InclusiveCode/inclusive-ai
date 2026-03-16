@@ -48,7 +48,7 @@ Claude will flag anti-patterns in real-time and suggest fixes as you code.
 
 ## Companion tools
 
-- **Eval suite:** `npm install @inclusive-ai/eval` — 16 runnable safety scenarios
+- **Eval suite:** `npm install @inclusive-ai/eval` — 60 runnable safety scenarios
 - **CLAUDE.md template:** Drop `templates/CLAUDE.md` into your project for always-on safety context
 - **Pattern library:** https://inclusive-ai.vercel.app/patterns
 - **Pre-ship checklist:** https://inclusive-ai.vercel.app/checklist
