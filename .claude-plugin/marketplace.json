@@ -1,0 +1,16 @@
+{
+  "name": "inclusive-ai",
+  "owner": {
+    "name": "InclusiveCode",
+    "email": "hello@inclusive-ai.dev",
+    "url": "https://github.com/InclusiveCode/inclusive-ai"
+  },
+  "plugins": [
+    {
+      "name": "inclusive-ai",
+      "source": "./plugin",
+      "description": "LGBT safety tools for LLM engineers — audit prompts, review code, and catch harms before you ship. Includes /lgbt-audit (29 anti-pattern scan), /lgbt-red-team (adversarial bypass scoring), and auto-review skill.",
+      "version": "3.0.0"
+    }
+  ]
+}
