@@ -7,6 +7,7 @@ export async function generateStaticParams() {
 }
 
 const severityColor: Record<string, string> = {
+  critical: "text-rose-400 bg-rose-400/10",
   high: "text-red-400 bg-red-400/10",
   medium: "text-yellow-400 bg-yellow-400/10",
   low: "text-green-400 bg-green-400/10",

@@ -39,5 +39,6 @@ describe("identity domain scenarios", () => {
     expect(categories).toContain("moderation");
     expect(categories).toContain("system-prompt");
     expect(categories).toContain("output-safety");
+    expect(categories).toContain("privacy");
   });
 });

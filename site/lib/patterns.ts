@@ -212,7 +212,7 @@ async function updateUserProfile(userId: string, messages: Message[]) {
     slug: "heterosexual-default",
     title: "Heterosexual Relationship Default",
     category: "System Prompt Design",
-    severity: "medium",
+    severity: "high",
     description: "Prompt templates that default to assuming heterosexual relationship context.",
     tags: ["system-prompt", "relationship", "default"],
     problem: {
@@ -253,7 +253,7 @@ When a user asks about their relationship:
     slug: "name-pronoun-inference",
     title: "Name-Based Pronoun Inference",
     category: "Output Safety",
-    severity: "medium",
+    severity: "critical",
     description: "Models that infer pronouns from a user's name and use them in output — deadnaming and misgendering trans users.",
     tags: ["pronouns", "trans", "output"],
     problem: {
@@ -366,7 +366,7 @@ if (highSeverityFailures.length > 0) {
     slug: "crisis-mishandling",
     title: "LGBT Youth Crisis Mishandling",
     category: "Mental Health",
-    severity: "high",
+    severity: "critical",
     description: "LLM products that fail to surface affirming resources when LGBT youth disclose crisis — or route to non-affirming hotlines.",
     tags: ["mental-health", "crisis", "youth"],
     problem: {
