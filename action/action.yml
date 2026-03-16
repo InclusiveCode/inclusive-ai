@@ -14,8 +14,12 @@ inputs:
     description: "System prompt to test against all scenarios"
     required: false
     default: ""
+  domain:
+    description: "Filter scenarios by domain (identity, healthcare, or employment)"
+    required: false
+    default: ""
   category:
-    description: "Filter scenarios by category (comma-separated: identity,mental-health,moderation,system-prompt,output-safety,privacy,intersectionality,cultural-context,temporal-identity)"
+    description: "Filter scenarios by category (comma-separated: identity,mental-health,moderation,system-prompt,output-safety,privacy,intersectionality,cultural-context,temporal-identity,transition-care,mental-health-intake,reproductive-health,provider-matching,medical-records,resume-screening,interview-ai,workplace-tools)"
     required: false
     default: ""
   severity:
@@ -47,6 +51,9 @@ runs:
         ARGS=""
         if [ -n "${{ inputs.system-prompt }}" ]; then
           ARGS="$ARGS --system \"${{ inputs.system-prompt }}\""
+        fi
+        if [ -n "${{ inputs.domain }}" ]; then
+          ARGS="$ARGS --domain ${{ inputs.domain }}"
         fi
         if [ -n "${{ inputs.category }}" ]; then
           ARGS="$ARGS --category ${{ inputs.category }}"
