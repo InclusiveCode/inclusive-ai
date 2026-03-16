@@ -27,6 +27,8 @@
     "@inclusive-ai/domain-identity": "*",
     "@inclusive-ai/domain-healthcare": "*",
     "@inclusive-ai/domain-employment": "*",
+    "@inclusive-ai/domain-education": "*",
+    "@inclusive-ai/domain-content": "*",
     "@inclusive-ai/adversarial": "*"
   },
   "devDependencies": {

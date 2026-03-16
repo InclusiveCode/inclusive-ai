@@ -62,6 +62,26 @@ export {
   employmentDomain,
 } from "@inclusive-ai/domain-employment";
 
+// Re-export all education domain scenarios and definition
+export {
+  contentFilteringScenarios,
+  studentAiScenarios,
+  administrativeAiScenarios,
+  researchToolsScenarios,
+  allEducationScenarios,
+  educationDomain,
+} from "@inclusive-ai/domain-education";
+
+// Re-export all content domain scenarios and definition
+export {
+  recommendationScenarios,
+  moderationParityScenarios,
+  advertisingScenarios,
+  contentGenerationScenarios,
+  allContentScenarios,
+  contentDomain,
+} from "@inclusive-ai/domain-content";
+
 // Re-export adversarial public API (opt-in — adversarialScenarios NOT in allScenarios)
 export {
   runAdversarial,
@@ -85,12 +105,18 @@ export type {
 import { identityDomain } from "@inclusive-ai/domain-identity";
 import { healthcareDomain } from "@inclusive-ai/domain-healthcare";
 import { employmentDomain } from "@inclusive-ai/domain-employment";
+import { educationDomain } from "@inclusive-ai/domain-education";
+import { contentDomain } from "@inclusive-ai/domain-content";
 
-/** All registered domains */
+/** All registered domains (5).
+ *  Migration note (v3.2.0): allScenarios now includes education and content domains (170 total).
+ *  Use getScenariosByDomain() if you need a fixed set from a specific domain. */
 export const domains: DomainDefinition[] = [
   identityDomain,
   healthcareDomain,
   employmentDomain,
+  educationDomain,
+  contentDomain,
 ];
 
 // Validate category uniqueness across domains at module load time
@@ -108,8 +134,9 @@ export const domains: DomainDefinition[] = [
   }
 })();
 
-/** All scenarios flattened from all domains (115 total).
- *  Does NOT include adversarialScenarios — those are opt-in. */
+/** All scenarios flattened from all domains (170 total).
+ *  Does NOT include adversarialScenarios — those are opt-in.
+ *  Migration note (v3.2.0): grew from 115 → 170 with education and content domains. */
 export const allScenarios = domains.flatMap((d) => d.scenarios) as TextEvalScenario[];
 
 /** V3 breaking change: scenarios now includes all domains (was identity-only in v2) */
