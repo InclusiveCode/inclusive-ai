@@ -154,3 +154,81 @@
 **Code patterns:** Performance review AI that scores "culture fit" as a criterion; manager feedback fed into AI without protected-characteristic guardrails
 **Harm:** Culture fit ratings are where unconscious bias most easily enters. LGBT employees, especially trans and gender-non-conforming, are disproportionately rated poorly.
 **Fix:** Remove culture fit from AI-assessed criteria. Replace with observable, job-relevant behavioral competencies only.
+
+---
+
+## Education Domain Anti-Patterns
+
+### 30. Asymmetric Content Filtering
+**Code patterns:** Content filter that blocks "What is a gay person?" but allows "What is a married couple?"; school library filter blocking books about same-sex families; essay flagging for mentioning same-sex parents
+**Harm:** Erases LGBT existence from educational settings. Students cannot access age-appropriate information about diverse families and identities.
+**Fix:** Add explicit parity rules: if heterosexual content passes, equivalent LGBT content must also pass. Test with matched pairs.
+
+### 31. Student AI Misgendering
+**Code patterns:** Tutoring AI that infers gender from name; no pronoun tracking; ignoring explicitly stated pronouns
+**Harm:** Misgenders trans and nonbinary students in every interaction, signaling the educational environment is not safe.
+**Fix:** Track stated pronouns. Default to they/them or student's name. Never infer from name.
+
+### 32. "Both Sides" Identity Framing
+**Code patterns:** AI tutor answering "Is being gay natural?" with "Some people believe...", "There are different perspectives on..."
+**Harm:** False-balances settled science with debunked ideology. APA, WHO, and all major medical organizations confirm sexual orientation is a natural variation.
+**Fix:** Present scientific consensus. "Both sides" framing does not apply to empirical facts about human biology.
+
+### 33. Binary-Only Enrollment Forms
+**Code patterns:** `gender: "Male" | "Female"` with no other options; no pronouns field; no preferred name field
+**Harm:** Forces nonbinary students to misgender themselves to register. Creates incorrect records used in every system interaction.
+**Fix:** Add nonbinary/other/prefer-not-to-say options. Add optional pronouns and preferred name fields.
+
+### 34. Outing in Recommendation Letters
+**Code patterns:** AI that passes all student data (including deadname, transition notes) to letter generation prompt without filtering
+**Harm:** Outs students to every college receiving the letter. Can lead to discrimination in admissions.
+**Fix:** Filter data before generation. Only pass preferred name and academic information. Never include transition status or deadname.
+
+### 35. GSA/Identity-Based Predictive Penalization
+**Code patterns:** Risk models that include GSA membership, identity-org involvement, or counselor visits about identity as features
+**Harm:** Pathologizes LGBT identity. Flags students for interventions that may out them to unsupportive parents/administrators.
+**Fix:** Exclude identity-based organization membership from risk models entirely.
+
+### 36. LGBT Research Erasure
+**Code patterns:** AI summarization that generalizes away LGBT-specific findings; citation tools that deprioritize queer theory journals; knowledge graphs that represent only heterosexual families
+**Harm:** Makes invisible the disparities research was designed to document. Undermines public health interventions.
+**Fix:** Instruct summarization to preserve all population-specific findings. Include relevant specialized journals.
+
+---
+
+## Content Platform Domain Anti-Patterns
+
+### 37. LGBT Creator Recommendation Suppression
+**Code patterns:** Recommendation algorithm trained on biased engagement data; no parity testing between LGBT and non-LGBT creator content
+**Harm:** Reduces LGBT creator visibility and income. Deprives users of diverse content.
+**Fix:** Add parity requirements. Audit recommendation scores for identity-based disparities. Test with matched content pairs.
+
+### 38. Platform Moderation Parity Gap
+**Code patterns:** Moderation that flags "two men kissing" but not "man and woman kissing"; trans selfies as "adult content"; "I am a lesbian" as "sexual content"
+**Harm:** Systematically silences LGBT expression and drives LGBT users off platforms.
+**Fix:** Add explicit parity instructions. Test every moderation rule with same-sex and opposite-sex variants.
+
+### 39. Trans Body Misclassification
+**Code patterns:** Image classifier trained on data where trans bodies were disproportionately labeled as "adult" or "sexual"; no corrective instructions
+**Harm:** Enforces the idea that trans bodies are inherently sexual. Drives trans users off platforms.
+**Fix:** Classify based on clothing and behavior, not body type or gender presentation. A clothed trans person = SAFE.
+
+### 40. Ad Targeting Orientation Inference
+**Code patterns:** `inferSegments(user.browsingHistory)` returns "likely-lgbt" as a targetable segment; orientation available to advertisers
+**Harm:** Enables discriminatory advertising. In hostile legal environments, this data can be life-threatening.
+**Fix:** Never infer or expose sexual orientation or gender identity as targeting segments.
+
+### 41. Housing/Employment Ad Exclusion
+**Code patterns:** Ad delivery optimization using identity-correlated features for housing/employment ads; ML model trained on biased click-through data
+**Harm:** Recreates illegal housing and employment discrimination at scale through algorithmic proxy.
+**Fix:** For protected-category ads, disable identity-correlated optimization. Deliver based on location and explicit criteria only.
+
+### 42. Heteronormative Content Generation Defaults
+**Code patterns:** "Write a love story" → always heterosexual couple; "Generate a family" → always different-sex parents; every AI-generated character is cisgender/heterosexual
+**Harm:** Reproduces heteronormative assumptions. Treats LGBT representation as deviation from "normal."
+**Fix:** Include diverse representation by default. "Write a love story" can feature any orientation without explicit request.
+
+### 43. LGBT Search Autocomplete Bias
+**Code patterns:** Autocomplete ranked by raw historical frequency; "transgender" → "transgender disorder", "transgender regret"; no content policy for identity queries
+**Harm:** Pathologizes identity for every user who searches. Shapes public perception and reinforces stigma.
+**Fix:** Apply content policy to autocomplete. Deprioritize pathologizing completions for identity-related queries.
