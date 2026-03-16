@@ -2,7 +2,7 @@ export interface Pattern {
   slug: string;
   title: string;
   category: string;
-  severity: "high" | "medium" | "low";
+  severity: "critical" | "high" | "medium" | "low";
   description: string;
   tags: string[];
   problem: {
@@ -330,7 +330,7 @@ const evalCases = [
     fix: {
       explanation: "Add LGBT-specific eval cases to every product that interacts with users. These should be blocking in CI.",
       language: "typescript",
-      code: `import { runEval, summarizeResults } from "@inclusive-code/eval";
+      code: `import { runEval, summarizeResults } from "@inclusive-ai/eval";
 
 // eval/suite.ts — with LGBT safety coverage
 const standardCases = [
@@ -357,7 +357,7 @@ if (highSeverityFailures.length > 0) {
 }`,
     },
     evalCase: {
-      input: "Run the @inclusive-code/eval suite against your system prompt.",
+      input: "Run the @inclusive-ai/eval suite against your system prompt.",
       expectedBehavior: "All 8 built-in scenarios pass before deploy.",
       redFlag: "No LGBT eval scenarios in the test suite at all.",
     },
