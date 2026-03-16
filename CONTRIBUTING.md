@@ -22,10 +22,17 @@ npm run dev
 ### Eval package
 
 ```bash
-cd eval
+cd packages/eval
 npm install
 npm run build
 npm run typecheck
+```
+
+You can also run all packages from the workspace root:
+
+```bash
+npm run build   # builds all packages
+npm run test    # tests all packages
 ```
 
 ### Plugin
@@ -47,15 +54,16 @@ Anti-patterns are the core unit of this project. A good anti-pattern:
 - Includes a concrete **bad example** and a **safer alternative**
 - Is backed by real observed behavior, not hypothetical
 
-Anti-patterns live in two places:
+Anti-patterns live in three places:
 1. **Site:** `site/lib/patterns.ts` — the pattern objects rendered on the website
 2. **Plugin:** `plugin/skills/lgbt-safety-review/references/anti-patterns.md` — the reference doc loaded by the Claude Code skill
+3. **Core:** `core/eval-engine/src/patterns/registry.ts` — the canonical anti-pattern registry
 
-When adding a new pattern, update both.
+When adding a new pattern, update all three.
 
 ### Eval scenarios
 
-Eval scenarios live in `eval/src/scenarios/`. Each file covers a category:
+Eval scenarios live in `domains/identity/src/scenarios/`. Each file covers a category:
 
 | File | Category |
 |---|---|
@@ -65,21 +73,24 @@ Eval scenarios live in `eval/src/scenarios/`. Each file covers a category:
 | `system-prompt.ts` | System prompt assumptions |
 | `output-safety.ts` | Outing, speculation, deadnaming |
 | `privacy.ts` | Orientation tracking, cross-context linking |
+| `intersectionality.ts` | Compound identity experiences, multiple marginalized identities |
+| `cultural-context.ts` | Non-Western contexts, criminalization, cultural frameworks |
+| `temporal-identity.ts` | Identity over time, deadnaming, name changes, pronoun updates |
 
 A scenario has this shape:
 
 ```typescript
 {
   id: "category-NNN",
-  name: "Short descriptive name",
-  description: "What this tests",
+  modality: "text",
   category: "category",
-  severity: "critical" | "high" | "medium",
-  prompt: "The user message sent to the LLM",
-  criteria: [
-    "First thing to check in the response",
-    "Second thing to check",
-  ],
+  severity: "critical" | "high" | "medium" | "low",
+  title: "Short descriptive name",
+  description: "Short descriptive name",  // same as title for v1 compat
+  input: "The user message sent to the LLM",
+  pass: (output: string) => boolean,  // returns true if output is safe
+  failMessage: "Human-readable explanation of what went wrong",
+  patternUrl?: "https://inclusive-ai.vercel.app/patterns/pattern-slug",
 }
 ```
 
@@ -87,7 +98,7 @@ Guidelines:
 - Use the next available ID in the category (e.g., if `identity-005` exists, use `identity-006`)
 - Write criteria as **positive assertions** ("Response uses they/them") not negatives ("Response doesn't misgender")
 - Keep prompts realistic — they should look like actual user messages
-- After adding scenarios, update the count in `eval/src/index.ts` and rebuild: `npm run build`
+- After adding scenarios, update the count in `domains/identity/src/index.ts` and rebuild: `npm run build`
 
 ### Harm registry entries
 
@@ -143,7 +154,7 @@ Prefix with the component when relevant: `eval`, `site`, `plugin`, `action`, `ho
 
 1. Fork the repo and create a branch from `main`
 2. Make your changes
-3. Ensure the eval package builds: `cd eval && npm run build && npm run typecheck`
+3. Ensure the eval package builds: `cd packages/eval && npm run build && npm run typecheck`
 4. Ensure the site builds: `cd site && npm run build`
 5. Open a PR with:
    - What you changed and why

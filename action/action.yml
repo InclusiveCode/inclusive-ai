@@ -15,7 +15,7 @@ inputs:
     required: false
     default: ""
   category:
-    description: "Filter scenarios by category (comma-separated: identity,moderation,mental-health,system-prompt)"
+    description: "Filter scenarios by category (comma-separated: identity,mental-health,moderation,system-prompt,output-safety,privacy,intersectionality,cultural-context,temporal-identity)"
     required: false
     default: ""
   severity:
