@@ -17,6 +17,7 @@ export type {
   ReporterFormat,
   EvalReporter,
   ImageMetadata,
+  DomainDefinition,
 } from "./types";
 
 export { KNOWN_CATEGORIES } from "./types";
