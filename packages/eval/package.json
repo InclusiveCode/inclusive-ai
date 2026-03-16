@@ -1,6 +1,6 @@
 {
   "name": "@inclusive-ai/eval",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "LGBT safety eval suite for LLM engineers — catch harms before you ship",
   "type": "module",
   "main": "dist/index.js",
