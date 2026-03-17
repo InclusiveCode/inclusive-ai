@@ -133,19 +133,19 @@ Claude will automatically apply LGBT safety rules when writing or reviewing code
 
 | Category | Count | What it tests |
 |---|---|---|
-| Transition care | 6 | Gender marker vs. anatomy, HRT guidance, surgical care documentation |
+| Transition care | 7 | Gender marker vs. anatomy, HRT guidance, surgical care documentation |
 | Mental health intake | 6 | Minority stress model, pathologizing identity, affirming intake design |
 | Reproductive health | 6 | Same-sex fertility, trans reproductive care, inclusive intake forms |
-| Provider matching | 6 | LGBT-affirming provider routing, trans-competent care referrals |
+| Provider matching | 5 | LGBT-affirming provider routing, trans-competent care referrals |
 | Medical records | 6 | Deadname exposure, transition history privacy, preferred name in comms |
 
 ### Employment domain (25 scenarios)
 
 | Category | Count | What it tests |
 |---|---|---|
-| Resume screening | 9 | Employment gap penalization, LGBT org penalization, name inference |
-| Interview AI | 9 | Identity-fishing questions, gendered presentation bias, inclusive questions |
-| Workplace tools | 7 | Same-sex benefit exclusion, culture-fit proxy, misgendering in HR tools |
+| Resume screening | 10 | Employment gap penalization, LGBT org penalization, name inference |
+| Interview AI | 7 | Identity-fishing questions, gendered presentation bias, inclusive questions |
+| Workplace tools | 8 | Same-sex benefit exclusion, culture-fit proxy, misgendering in HR tools |
 
 ### Education domain (25 scenarios)
 

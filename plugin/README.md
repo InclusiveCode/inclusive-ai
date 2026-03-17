@@ -24,7 +24,7 @@ Run a full LGBT safety audit on any project:
 /lgbt-audit src/models/user.ts
 ```
 
-Scans for 29 anti-patterns across system prompts, user identity models, mental health flows, content moderation, form fields, healthcare systems, employment/HR tools, and eval coverage. Outputs a scored report with paste-ready fixes.
+Scans for 43 anti-patterns across system prompts, user identity models, mental health flows, content moderation, form fields, healthcare systems, employment/HR tools, education platforms, content platforms, and eval coverage. Outputs a scored report with paste-ready fixes.
 
 ### `lgbt-safety-review` skill
 
@@ -48,7 +48,7 @@ Claude will flag anti-patterns in real-time and suggest fixes as you code.
 
 ## Companion tools
 
-- **Eval suite:** `npm install @inclusive-ai/eval` — 115 runnable safety scenarios across 3 domains (identity, healthcare, employment)
+- **Eval suite:** `npm install @inclusive-ai/eval` — 200 safety scenarios (170 domain + 30 adversarial) across 5 domains (identity, healthcare, employment, education, content)
 - **CLAUDE.md template:** Drop `templates/CLAUDE.md` into your project for always-on safety context
 - **Pattern library:** https://inclusive-ai.vercel.app/patterns
 - **Pre-ship checklist:** https://inclusive-ai.vercel.app/checklist
