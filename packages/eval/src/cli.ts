@@ -24,6 +24,7 @@ async function main() {
   const useRedTeam = hasFlag("--red-team");
   const concurrencyRaw = getArg("--concurrency");
   const concurrency = concurrencyRaw ? parseInt(concurrencyRaw, 10) : 5;
+  const model = getArg("--model") ?? "claude-haiku-4-5-20251001";
 
   const apiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -68,7 +69,7 @@ async function main() {
   const runner = {
     call: async (prompt: string) => {
       const response = await client.messages.create({
-        model: "claude-haiku-4-5-20251001",
+        model,
         max_tokens: 512,
         messages: [{ role: "user", content: prompt }],
       });
