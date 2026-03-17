@@ -1,1 +1,88 @@
 @import "tailwindcss";
+
+:root {
+  --pride-rose: #FF6B9D;
+  --pride-orange: #FF9B71;
+  --pride-yellow: #FECF6A;
+  --pride-green: #63E6BE;
+  --pride-blue: #74B9FF;
+  --pride-purple: #A29BFE;
+  --pride-lavender: #DDA0DD;
+
+  --pride-gradient: linear-gradient(
+    90deg,
+    #FF6B9D,
+    #FF9B71,
+    #FECF6A,
+    #63E6BE,
+    #74B9FF,
+    #A29BFE,
+    #DDA0DD
+  );
+
+  --pride-gradient-subtle: linear-gradient(
+    90deg,
+    rgba(255, 107, 157, 0.7),
+    rgba(255, 155, 113, 0.7),
+    rgba(254, 207, 106, 0.7),
+    rgba(99, 230, 190, 0.7),
+    rgba(116, 185, 255, 0.7),
+    rgba(162, 155, 254, 0.7),
+    rgba(221, 160, 221, 0.7)
+  );
+}
+
+/* Pride stripe at the very top of the page */
+body::before {
+  content: "";
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--pride-gradient);
+  z-index: 100;
+}
+
+/* Rainbow gradient text utility */
+.text-rainbow {
+  background: var(--pride-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Rainbow border gradient card */
+.card-rainbow-hover {
+  position: relative;
+  transition: border-color 0.2s;
+}
+
+.card-rainbow-hover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--pride-gradient);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.card-rainbow-hover:hover::before {
+  opacity: 1;
+}
+
+/* Pride left border for pattern cards */
+.border-pride-1 { border-left-color: #FF6B9D; }
+.border-pride-2 { border-left-color: #FF9B71; }
+.border-pride-3 { border-left-color: #FECF6A; }
+.border-pride-4 { border-left-color: #63E6BE; }
+.border-pride-5 { border-left-color: #74B9FF; }
+.border-pride-6 { border-left-color: #A29BFE; }
+.border-pride-7 { border-left-color: #DDA0DD; }

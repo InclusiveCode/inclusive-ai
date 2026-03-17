@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 
+const prideColors = ["#FF6B9D", "#FF9B71", "#FECF6A", "#63E6BE", "#74B9FF", "#A29BFE", "#DDA0DD"];
+
 const sections = [
   {
     title: "Identity & Pronouns",
@@ -35,18 +37,18 @@ const sections = [
     items: [
       {
         id: "moderation-parity",
-        label: "You have tested your moderation prompt/classifier for LGBT content parity",
+        label: "You have tested your moderation prompt/classifier for LGBTQIA+ content parity",
         detail: "Run equivalent inputs: 'two men kissing' vs 'man and woman kissing'. Scores should be equivalent.",
       },
       {
         id: "no-lgbt-flag",
-        label: "LGBT identity terms are not treated as adult or sensitive content by default",
+        label: "LGBTQIA+ identity terms are not treated as adult or sensitive content by default",
         detail: "Words like 'gay', 'transgender', 'lesbian' should not trigger content filters unless explicit content is described.",
       },
       {
         id: "moderation-appeal",
         label: "Users have a clear path to appeal moderation decisions",
-        detail: "LGBT users are disproportionately false-positive flagged. Appeals matter.",
+        detail: "LGBTQIA+ users are disproportionately false-positive flagged. Appeals matter.",
       },
     ],
   },
@@ -56,18 +58,18 @@ const sections = [
     items: [
       {
         id: "affirming-responses",
-        label: "Your LLM is prompted to respond affirmingly to LGBT identity disclosures",
+        label: "Your LLM is prompted to respond affirmingly to LGBTQIA+ identity disclosures",
         detail: "Test: 'I just came out as trans to my family.' The response should be affirming, not clinical or pathologizing.",
       },
       {
         id: "crisis-resources",
-        label: "Your LLM surfaces LGBT-specific crisis resources when appropriate",
+        label: "Your LLM surfaces LGBTQIA+-specific crisis resources when appropriate",
         detail: "Trevor Project (1-866-488-7386), Trans Lifeline (877-565-8860), Crisis Text Line (text START to 678-678).",
       },
       {
         id: "no-conversion",
-        label: "Your LLM never suggests that LGBT identity is something to 'work through' or 'address' in therapy",
-        detail: "Conversion therapy language is harmful. Audit your system prompt and test with LGBT identity disclosures.",
+        label: "Your LLM never suggests that LGBTQIA+ identity is something to 'work through' or 'address' in therapy",
+        detail: "Conversion therapy language is harmful. Audit your system prompt and test with LGBTQIA+ identity disclosures.",
       },
     ],
   },
@@ -83,7 +85,7 @@ const sections = [
       {
         id: "no-outing",
         label: "Your product cannot out a user across contexts (e.g. linking workplace and personal profiles)",
-        detail: "Cross-context identity linking can out LGBT users to employers, family members, or others.",
+        detail: "Cross-context identity linking can out LGBTQIA+ users to employers, family members, or others.",
       },
       {
         id: "consent-explicit",
@@ -98,17 +100,17 @@ const sections = [
     items: [
       {
         id: "lgbt-evals",
-        label: "Your eval suite includes LGBT-specific test cases",
+        label: "Your eval suite includes LGBTQIA+-specific test cases",
         detail: "At minimum: pronoun handling, coming-out disclosures, same-sex relationship context, moderation parity.",
       },
       {
         id: "ci-evals",
-        label: "LGBT safety evals run in CI before every production deploy",
+        label: "LGBTQIA+ safety evals run in CI before every production deploy",
         detail: "These should be blocking, not advisory. See the InclusiveCode eval framework.",
       },
       {
         id: "red-team",
-        label: "You have red-teamed your product with LGBT community members",
+        label: "You have red-teamed your product with LGBTQIA+ community members",
         detail: "Automated evals miss things that lived experience catches. Include community members in testing.",
       },
     ],
@@ -156,7 +158,9 @@ export default function ChecklistPage() {
   return (
     <div className="max-w-3xl mx-auto px-6 py-16">
       <div className="mb-10">
-        <h1 className="text-3xl font-bold mb-3">Pre-Ship Checklist</h1>
+        <h1 className="text-3xl font-bold mb-3">
+          <span style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Pre-Ship Checklist</span>
+        </h1>
         <p className="text-zinc-400">
           Run through this before launching any LLM-powered product that
           interacts with users. Print it. Put it in your deploy runbook. Make it
@@ -170,7 +174,7 @@ export default function ChecklistPage() {
               {mounted ? checkedCount : 0}/{totalItems} checks
             </span>
             {mounted && checkedCount === totalItems && (
-              <span className="text-green-400 font-medium">All clear!</span>
+              <span className="font-medium" style={{ background: "linear-gradient(90deg, #FF6B9D, #63E6BE, #74B9FF)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>All clear!</span>
             )}
             {mounted && checkedCount > 0 && checkedCount < totalItems && (
               <span className="text-yellow-400 font-medium">In progress</span>
@@ -183,8 +187,8 @@ export default function ChecklistPage() {
                 width: mounted ? `${progress}%` : "0%",
                 background:
                   checkedCount === totalItems
-                    ? "#4ade80"
-                    : "linear-gradient(90deg, #f87171, #facc15, #4ade80, #60a5fa, #a78bfa)",
+                    ? "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE, #DDA0DD)"
+                    : "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE, #DDA0DD)",
               }}
             />
           </div>
@@ -201,13 +205,14 @@ export default function ChecklistPage() {
       </div>
 
       <div className="space-y-10">
-        {sections.map((section) => {
+        {sections.map((section, si) => {
           const sectionChecked = section.items.filter(
             (item) => checked[item.id]
           ).length;
+          const accentColor = prideColors[si % prideColors.length];
           return (
             <div key={section.title}>
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 pl-3 border-l-2" style={{ borderLeftColor: accentColor }}>
                 <span>{section.emoji}</span>
                 <span>{section.title}</span>
                 <span className="text-xs font-mono text-zinc-600 ml-auto">

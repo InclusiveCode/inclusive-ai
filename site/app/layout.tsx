@@ -15,9 +15,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-950 text-zinc-100 min-h-screen flex flex-col`}>
-        <nav className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between sticky top-0 bg-zinc-950/90 backdrop-blur-sm z-10">
+        <nav className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between sticky top-[3px] bg-zinc-950/90 backdrop-blur-sm z-10">
           <Link href="/" className="text-lg font-semibold">
-            Inclusive<span className="bg-gradient-to-r from-red-400 via-yellow-400 via-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">Code</span>
+            Inclusive<span style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Code</span>
           </Link>
           <div className="flex items-center gap-6 text-sm text-zinc-400">
             <Link href="/patterns" className="hover:text-zinc-100 transition-colors">Patterns</Link>

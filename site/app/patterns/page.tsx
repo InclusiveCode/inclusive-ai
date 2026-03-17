@@ -8,21 +8,26 @@ const severityColor: Record<string, string> = {
   low: "text-green-400 bg-green-400/10",
 };
 
+const prideColors = ["#FF6B9D", "#FF9B71", "#FECF6A", "#63E6BE", "#74B9FF", "#A29BFE", "#DDA0DD"];
+
 export default function PatternsPage() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-16">
       <div className="mb-10">
-        <h1 className="text-3xl font-bold mb-3">Anti-Pattern Library</h1>
+        <h1 className="text-3xl font-bold mb-3">
+          <span style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Anti-Pattern Library</span>
+        </h1>
         <p className="text-zinc-400">
           Common patterns in LLM prompts, code, and product decisions that harm LGBT users. Each entry includes the problem, why it happens, and a safer alternative.
         </p>
       </div>
       <div className="space-y-4">
-        {patterns.map((p) => (
+        {patterns.map((p, i) => (
           <Link
             key={p.slug}
             href={`/patterns/${p.slug}`}
-            className="block p-6 border border-zinc-800 rounded-xl hover:border-zinc-600 transition-colors group"
+            className="block p-6 border border-zinc-800 rounded-xl hover:border-zinc-600 transition-colors group border-l-2"
+            style={{ borderLeftColor: prideColors[i % prideColors.length] }}
           >
             <div className="flex items-start justify-between gap-4 mb-2">
               <div className="flex items-center gap-3">
