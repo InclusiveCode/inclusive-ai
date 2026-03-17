@@ -23,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/patterns" className="hover:text-zinc-100 transition-colors">Patterns</Link>
             <Link href="/checklist" className="hover:text-zinc-100 transition-colors">Checklist</Link>
             <Link href="/registry" className="hover:text-zinc-100 transition-colors">Registry</Link>
+            <Link href="/research" className="hover:text-zinc-100 transition-colors">Research</Link>
             <Link href="/tools" className="hover:text-zinc-100 transition-colors">Tools</Link>
             <a href="https://github.com/InclusiveCode" target="_blank" rel="noopener noreferrer" className="hover:text-zinc-100 transition-colors">GitHub</a>
           </div>
