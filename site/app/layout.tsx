@@ -7,8 +7,20 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "InclusiveCode — LGBT Safety for LLM Builders",
-  description: "Patterns, checklists, and eval tools for AI/ML engineers building LLM products that don't harm LGBT communities.",
+  title: "InclusiveCode — LGBTQIA+ Safety Tools for LLM Engineers",
+  description: "200 eval scenarios, 43 anti-patterns, and adversarial red-teaming across 5 domains. Catch harms before you ship.",
+  metadataBase: new URL("https://inclusive-ai.vercel.app"),
+  openGraph: {
+    title: "InclusiveCode — LGBTQIA+ Safety Tools for LLM Engineers",
+    description: "200 eval scenarios, 43 anti-patterns, and adversarial red-teaming across 5 domains. Catch harms before you ship.",
+    siteName: "InclusiveCode",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "InclusiveCode — LGBTQIA+ Safety Tools for LLM Engineers",
+    description: "200 eval scenarios, 43 anti-patterns, and adversarial red-teaming across 5 domains.",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
