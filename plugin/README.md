@@ -1,6 +1,6 @@
 # Inclusive AI — Claude Code Plugin
 
-LGBT safety tools for LLM engineers. Audit prompts, review code, and catch harms before you ship.
+LGBTQIA+ safety tools for LLM engineers. Audit prompts, review code, and catch harms before you ship.
 
 ## Install
 
@@ -16,7 +16,7 @@ LGBT safety tools for LLM engineers. Audit prompts, review code, and catch harms
 
 ### `/lgbt-audit` command
 
-Run a full LGBT safety audit on any project:
+Run a full LGBTQIA+ safety audit on any project:
 
 ```
 /lgbt-audit
@@ -42,9 +42,9 @@ Claude will flag anti-patterns in real-time and suggest fixes as you code.
 
 | Severity | Examples |
 |---|---|
-| **CRITICAL** | Binary gender enums, pronoun inference from names, conversion therapy language, missing crisis resources, outing risk, moderation parity gaps, gender marker anatomy inference, transition care deprioritization, identity-fishing interview questions, LGBT org penalization |
+| **CRITICAL** | Binary gender enums, pronoun inference from names, conversion therapy language, missing crisis resources, outing risk, moderation parity gaps, gender marker anatomy inference, transition care deprioritization, identity-fishing interview questions, LGBTQIA+ org penalization |
 | **HIGH** | Heteronormative defaults, deadnaming via email names, binary-only forms, gendered AI persona, non-affirming provider routing, same-sex fertility exclusion, employment gap penalization, gendered presentation bias, culture-fit proxy |
-| **MEDIUM** | Missing pronouns field, no LGBT eval coverage, biased RAG docs, non-inclusive copy, missing minority stress model |
+| **MEDIUM** | Missing pronouns field, no LGBTQIA+ eval coverage, biased RAG docs, non-inclusive copy, missing minority stress model |
 
 ## Companion tools
 

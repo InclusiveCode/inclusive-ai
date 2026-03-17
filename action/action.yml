@@ -1,5 +1,5 @@
-name: "Inclusive AI — LGBT Safety Eval"
-description: "Run LGBT safety eval scenarios against your LLM system prompts and catch harms before you ship"
+name: "Inclusive AI — LGBTQIA+ Safety Eval"
+description: "Run LGBTQIA+ safety eval scenarios against your LLM system prompts and catch harms before you ship"
 author: "InclusiveCode"
 
 branding:
@@ -55,7 +55,7 @@ runs:
       shell: bash
       run: npm install --no-save @inclusive-ai/eval @anthropic-ai/sdk
 
-    - name: Run LGBT safety eval
+    - name: Run LGBTQIA+ safety eval
       shell: bash
       env:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}

@@ -17,7 +17,7 @@ export const educationDomain: DomainDefinition = {
   version: "3.2.0",
   name: "Education",
   description:
-    "Content filtering, student AI, administrative AI, and research tools — LGBT safety scenarios for education AI systems",
+    "Content filtering, student AI, administrative AI, and research tools — LGBTQIA+ safety scenarios for education AI systems",
   categories: [
     "content-filtering",
     "student-ai",

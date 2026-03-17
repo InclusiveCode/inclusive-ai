@@ -1,12 +1,12 @@
 ---
-description: Run a full LGBT safety audit on the current project — scans prompts, code, data models, and evals for anti-patterns that harm LGBT users
+description: Run a full LGBTQIA+ safety audit on the current project — scans prompts, code, data models, and evals for anti-patterns that harm LGBTQIA+ users
 argument-hint: [file-or-directory]
 allowed-tools: [Read, Glob, Grep, Bash, Agent]
 ---
 
-# LGBT Safety Audit
+# LGBTQIA+ Safety Audit
 
-You are performing an LGBT safety audit for an LLM engineer. Your job is to review their code, system prompts, and product decisions for patterns that could harm LGBT users, and provide concrete, actionable fixes.
+You are performing an LGBTQIA+ safety audit for an LLM engineer. Your job is to review their code, system prompts, and product decisions for patterns that could harm LGBTQIA+ users, and provide concrete, actionable fixes.
 
 ## Scope
 
@@ -22,7 +22,7 @@ Scan for:
 - Output processing (filtering, classification, moderation logic)
 - Mental health or crisis flows
 - Form fields and UI copy
-- Eval/test suites (check for missing LGBT coverage)
+- Eval/test suites (check for missing LGBTQIA+ coverage)
 
 ## Anti-patterns — check for all of these
 
@@ -37,15 +37,15 @@ Scan for:
 - Harm: deadnames and misgenders trans users silently and at scale
 
 **Non-affirming mental health language**
-- Look for: prompts containing "address your feelings about", "explore the root cause of", "work through your identity", "help you resolve" in LGBT contexts
+- Look for: prompts containing "address your feelings about", "explore the root cause of", "work through your identity", "help you resolve" in LGBTQIA+ contexts
 - Harm: this is conversion therapy language embedded in AI products
 
-**Missing LGBT crisis resources**
+**Missing LGBTQIA+ crisis resources**
 - Look for: any mental health, companion AI, or crisis flow that routes to generic resources but not:
-  - Trevor Project: 1-866-488-7386 (LGBT youth)
+  - Trevor Project: 1-866-488-7386 (LGBTQIA+ youth)
   - Trans Lifeline: 877-565-8860
   - Crisis Text Line: text START to 678-678
-- Harm: LGBT youth in crisis have meaningfully higher suicide risk; generic resources are not sufficient
+- Harm: LGBTQIA+ youth in crisis have meaningfully higher suicide risk; generic resources are not sufficient
 
 **Outing risk**
 - Look for: storing or logging inferred gender/orientation, cross-context identity linkage without explicit consent, analytics that expose sexuality
@@ -53,13 +53,13 @@ Scan for:
 
 **Content moderation parity gap**
 - Look for: moderation prompts or classifiers that would flag "two men kissing" but not "a man and woman kissing"
-- Harm: disproportionately censors LGBT expression and creators
+- Harm: disproportionately censors LGBTQIA+ expression and creators
 
 ### HIGH (fix before ship)
 
 **Heteronormative defaults**
 - Look for: relationship prompts that assume `boyfriend/girlfriend`, `husband/wife`; family prompts that assume mother/father; "your wife/husband" in assistant replies
-- Harm: consistently signals to LGBT users they are not the expected user
+- Harm: consistently signals to LGBTQIA+ users they are not the expected user
 
 **Preferred name not respected**
 - Look for: code using `user.email.split("@")[0]`, `username`, or `firstName` from an auth provider instead of a stored `preferredName`
@@ -79,12 +79,12 @@ Scan for:
 - Look for: user schema with no `pronouns` or `preferredPronouns` field
 - Harm: makes respectful personalization impossible
 
-**No LGBT scenarios in evals**
-- Look for: eval/test files — if none of the test cases involve LGBT users, identity, or relationships, flag it
+**No LGBTQIA+ scenarios in evals**
+- Look for: eval/test files — if none of the test cases involve LGBTQIA+ users, identity, or relationships, flag it
 - Harm: silent regressions in exactly the cases that matter most
 
 **Biased RAG or context documents**
-- Look for: uploaded docs, knowledge bases, or context strings that frame LGBT identity as a disorder, lifestyle choice, or moral issue
+- Look for: uploaded docs, knowledge bases, or context strings that frame LGBTQIA+ identity as a disorder, lifestyle choice, or moral issue
 - Harm: poisons all responses for users of the product
 
 **Non-inclusive UI copy**
@@ -104,7 +104,7 @@ Scan for:
 - Harm: creates barriers to medically necessary care for trans patients
 
 **Pathologizing identity in mental health screening**
-- Look for: intake prompts that flag LGBT identity as a "risk factor"; prompts that suggest exploring "root causes" of identity
+- Look for: intake prompts that flag LGBTQIA+ identity as a "risk factor"; prompts that suggest exploring "root causes" of identity
 - Harm: conversion therapy language in clinical AI; patients disengage from care
 
 **Transition history exposure**
@@ -125,15 +125,15 @@ Scan for:
 
 **Employment gap penalization**
 - Look for: resume scoring that automatically deducts for gaps without context
-- Harm: disproportionately harms LGBT candidates who had gaps due to discrimination or transition
+- Harm: disproportionately harms LGBTQIA+ candidates who had gaps due to discrimination or transition
 
 **Identity-fishing interview questions**
 - Look for: AI-generated interview questions about "personal history", "personal values", "life experiences" without guardrails
 - Harm: elicits protected characteristic information that can be used to discriminate
 
-**LGBT organization penalization**
+**LGBTQIA+ organization penalization**
 - Look for: culture fit scoring that includes organizational involvement; AI scoring extracurriculars without protected-characteristic guardrails
-- Harm: candidates listing LGBT organizations are scored down; this is discrimination
+- Harm: candidates listing LGBTQIA+ organizations are scored down; this is discrimination
 
 **Gendered presentation bias in video interviews**
 - Look for: video interview AI that scores "professional presentation" or "appearance"
@@ -145,7 +145,7 @@ Scan for:
 
 **Culture fit as identity proxy**
 - Look for: performance review AI that scores "culture fit"; unguarded manager feedback fed to AI
-- Harm: culture fit ratings encode and amplify bias against LGBT employees
+- Harm: culture fit ratings encode and amplify bias against LGBTQIA+ employees
 
 ## Report format
 
@@ -156,7 +156,7 @@ For each issue found, output:
 Pattern: <anti-pattern name from above>
 Found:
   <exact code or prompt snippet>
-Why this harms LGBT users:
+Why this harms LGBTQIA+ users:
   <one sentence>
 Fix:
   <corrected code, prompt, or schema — paste-ready>
@@ -169,7 +169,7 @@ Regression test:
 ## Scorecard (always end with this)
 
 ```
-=== LGBT Safety Audit: <project name> ===
+=== LGBTQIA+ Safety Audit: <project name> ===
 
 CRITICAL:  X issues
 HIGH:      X issues
@@ -194,10 +194,10 @@ Resources:
 
 ## Rules
 
-- Do not flag content that is merely *about* LGBT topics — presence of LGBT content is not a problem
-- Do not suggest removing or toning down LGBT-affirming responses — affirming is correct
-- Do not treat LGBT identity as inherently sensitive, adult, or controversial content
-- Do not suggest "balance" between affirming and anti-LGBT perspectives — there is no valid anti-LGBT perspective to balance against
+- Do not flag content that is merely *about* LGBTQIA+ topics — presence of LGBTQIA+ content is not a problem
+- Do not suggest removing or toning down LGBTQIA+-affirming responses — affirming is correct
+- Do not treat LGBTQIA+ identity as inherently sensitive, adult, or controversial content
+- Do not suggest "balance" between affirming and anti-LGBTQIA+ perspectives — there is no valid anti-LGBTQIA+ perspective to balance against
 - Be technical and direct. Engineers need paste-ready fixes, not lectures.
 
 ## Start

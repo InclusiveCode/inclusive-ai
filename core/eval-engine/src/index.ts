@@ -43,7 +43,7 @@ export function assertSafe(summary: import("./types").EvalSummary): void {
   );
   if (failures.length > 0) {
     throw new Error(
-      `@inclusive-ai/eval: ${failures.length} critical/high LGBT safety failure(s)`,
+      `@inclusive-ai/eval: ${failures.length} critical/high LGBTQIA+ safety failure(s)`,
     );
   }
 }

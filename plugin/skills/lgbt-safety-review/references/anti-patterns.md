@@ -1,4 +1,4 @@
-# LGBT Safety Anti-Patterns Reference
+# LGBTQIA+ Safety Anti-Patterns Reference
 
 ## Critical Severity
 
@@ -14,12 +14,12 @@
 
 ### 3. Non-Affirming Mental Health Language
 **Code patterns:** "explore the root cause of your identity", "address your feelings about being gay", "work through your gender confusion", "help you resolve"
-**Harm:** This is conversion therapy language. Treating LGBT identity as something to "resolve" causes measurable psychological harm.
+**Harm:** This is conversion therapy language. Treating LGBTQIA+ identity as something to "resolve" causes measurable psychological harm.
 **Fix:** Use affirming language: "your identity is valid", "you're not alone", provide affirming resources.
 
-### 4. Missing LGBT Crisis Resources
+### 4. Missing LGBTQIA+ Crisis Resources
 **Code patterns:** Crisis/mental-health flow that only provides generic hotlines (988, generic crisis text)
-**Harm:** LGBT youth have 4x higher suicide attempt rates. Generic crisis lines may not be affirming or safe.
+**Harm:** LGBTQIA+ youth have 4x higher suicide attempt rates. Generic crisis lines may not be affirming or safe.
 **Fix:** Always include: Trevor Project (1-866-488-7386), Trans Lifeline (877-565-8860), Crisis Text Line (text START to 678-678).
 
 ### 5. Outing Risk
@@ -29,14 +29,14 @@
 
 ### 6. Content Moderation Parity Gap
 **Code patterns:** Moderation prompts or classifiers where "two men kissing" → flagged but "man and woman kissing" → allowed
-**Harm:** Systematically censors LGBT expression and creators.
+**Harm:** Systematically censors LGBTQIA+ expression and creators.
 **Fix:** Test every moderation rule with same-sex and different-sex variants. Flag any asymmetry as a bug.
 
 ## High Severity
 
 ### 7. Heteronormative Defaults
 **Code patterns:** "your wife/husband", "boyfriend/girlfriend" assumptions, "mother/father" in family contexts
-**Harm:** Consistently signals to LGBT users they're not the expected user.
+**Harm:** Consistently signals to LGBTQIA+ users they're not the expected user.
 **Fix:** Use "partner", "spouse", "parent", "significant other". Let users specify.
 
 ### 8. Preferred Name Not Respected
@@ -60,12 +60,12 @@
 **Code patterns:** User schema with no `pronouns` field
 **Fix:** Add optional `pronouns: string` field (e.g., "they/them", "she/her", "he/him", custom).
 
-### 12. No LGBT Scenarios in Evals
-**Code patterns:** Eval/test suite with zero LGBT user contexts
+### 12. No LGBTQIA+ Scenarios in Evals
+**Code patterns:** Eval/test suite with zero LGBTQIA+ user contexts
 **Fix:** Add scenarios from `@inclusive-ai/eval`: identity, mental-health, moderation, system-prompt, output-safety, privacy, intersectionality, cultural-context, temporal-identity categories (115 scenarios total across 3 domains).
 
 ### 13. Biased RAG/Context Documents
-**Code patterns:** Knowledge base docs that frame LGBT identity as disorder, lifestyle choice, or moral issue
+**Code patterns:** Knowledge base docs that frame LGBTQIA+ identity as disorder, lifestyle choice, or moral issue
 **Fix:** Audit all RAG sources. Remove or replace biased documents.
 
 ### 14. Non-Inclusive UI Copy
@@ -87,7 +87,7 @@
 **Fix:** Explicitly classify gender-affirming care as medically necessary. Route to affirming providers.
 
 ### 17. Pathologizing Identity in Mental Health Screening
-**Code patterns:** Intake prompts that flag LGBT identity as a "risk factor"; prompts that conflate minority stress with identity being problematic
+**Code patterns:** Intake prompts that flag LGBTQIA+ identity as a "risk factor"; prompts that conflate minority stress with identity being problematic
 **Harm:** Mirrors discredited conversion therapy frameworks. Causes patients to disengage from care.
 **Fix:** Assess minority stress (discrimination, rejection) separately from identity. Never treat identity itself as a clinical concern.
 
@@ -98,8 +98,8 @@
 
 ### 19. Non-Affirming Provider Routing
 **Code patterns:** Provider matching by specialty and distance only; no `lgbtAffirming` criterion; no trans-competent care filter
-**Harm:** Routes trans and LGBT patients to potentially discriminatory providers.
-**Fix:** Add LGBT-affirming status as a matching criterion. Prioritize affirming providers for patients who indicate preference.
+**Harm:** Routes trans and LGBTQIA+ patients to potentially discriminatory providers.
+**Fix:** Add LGBTQIA+-affirming status as a matching criterion. Prioritize affirming providers for patients who indicate preference.
 
 ### 20. Same-Sex Fertility Exclusion
 **Code patterns:** Fertility intake with "husband/wife" fields; forms that assume heterosexual couple; sperm analysis fields that assume male partner
@@ -112,7 +112,7 @@
 **Fix:** Separate legal sex (for insurance) from gender identity (for care). Add expanded options and pronouns field.
 
 ### 22. Missing Minority Stress Model
-**Code patterns:** Mental health assessments that treat depression/anxiety as individual pathology without assessing social context for LGBT patients
+**Code patterns:** Mental health assessments that treat depression/anxiety as individual pathology without assessing social context for LGBTQIA+ patients
 **Harm:** Leads to treatment plans that miss root causes. May result in inappropriate medication rather than community support.
 **Fix:** Assess minority stress factors (discrimination, family rejection, community support) when clinically relevant.
 
@@ -127,7 +127,7 @@
 
 ### 24. Employment Gap Penalization
 **Code patterns:** Resume scoring that automatically deducts points for gaps > 3/6/12 months without context
-**Harm:** Disproportionately harms LGBT candidates who had gaps due to discrimination, transition, or minority stress-related health issues.
+**Harm:** Disproportionately harms LGBTQIA+ candidates who had gaps due to discrimination, transition, or minority stress-related health issues.
 **Fix:** Remove automated gap penalization. Surface gaps for human review with candidate context.
 
 ### 25. Identity-Fishing Interview Questions
@@ -135,9 +135,9 @@
 **Harm:** Can elicit sexual orientation or gender identity information that is then used (consciously or not) to discriminate.
 **Fix:** Focus strictly on job-relevant competencies. Explicitly filter questions that could elicit protected characteristic information.
 
-### 26. LGBT Organization Penalization
+### 26. LGBTQIA+ Organization Penalization
 **Code patterns:** "Culture fit" scoring that includes organizational involvement; AI prompts that score extracurriculars without protected-characteristic guardrails
-**Harm:** Candidates listing LGBT organizations, ERGs, or advocacy are scored down. This is discrimination, and may be illegal.
+**Harm:** Candidates listing LGBTQIA+ organizations, ERGs, or advocacy are scored down. This is discrimination, and may be illegal.
 **Fix:** Remove culture fit scoring from AI entirely. Assess only job-relevant qualifications.
 
 ### 27. Gendered Presentation Bias
@@ -152,7 +152,7 @@
 
 ### 29. Culture Fit as Identity Proxy
 **Code patterns:** Performance review AI that scores "culture fit" as a criterion; manager feedback fed into AI without protected-characteristic guardrails
-**Harm:** Culture fit ratings are where unconscious bias most easily enters. LGBT employees, especially trans and gender-non-conforming, are disproportionately rated poorly.
+**Harm:** Culture fit ratings are where unconscious bias most easily enters. LGBTQIA+ employees, especially trans and gender-non-conforming, are disproportionately rated poorly.
 **Fix:** Remove culture fit from AI-assessed criteria. Replace with observable, job-relevant behavioral competencies only.
 
 ---
@@ -161,8 +161,8 @@
 
 ### 30. Asymmetric Content Filtering
 **Code patterns:** Content filter that blocks "What is a gay person?" but allows "What is a married couple?"; school library filter blocking books about same-sex families; essay flagging for mentioning same-sex parents
-**Harm:** Erases LGBT existence from educational settings. Students cannot access age-appropriate information about diverse families and identities.
-**Fix:** Add explicit parity rules: if heterosexual content passes, equivalent LGBT content must also pass. Test with matched pairs.
+**Harm:** Erases LGBTQIA+ existence from educational settings. Students cannot access age-appropriate information about diverse families and identities.
+**Fix:** Add explicit parity rules: if heterosexual content passes, equivalent LGBTQIA+ content must also pass. Test with matched pairs.
 
 ### 31. Student AI Misgendering
 **Code patterns:** Tutoring AI that infers gender from name; no pronoun tracking; ignoring explicitly stated pronouns
@@ -186,11 +186,11 @@
 
 ### 35. GSA/Identity-Based Predictive Penalization
 **Code patterns:** Risk models that include GSA membership, identity-org involvement, or counselor visits about identity as features
-**Harm:** Pathologizes LGBT identity. Flags students for interventions that may out them to unsupportive parents/administrators.
+**Harm:** Pathologizes LGBTQIA+ identity. Flags students for interventions that may out them to unsupportive parents/administrators.
 **Fix:** Exclude identity-based organization membership from risk models entirely.
 
-### 36. LGBT Research Erasure
-**Code patterns:** AI summarization that generalizes away LGBT-specific findings; citation tools that deprioritize queer theory journals; knowledge graphs that represent only heterosexual families
+### 36. LGBTQIA+ Research Erasure
+**Code patterns:** AI summarization that generalizes away LGBTQIA+-specific findings; citation tools that deprioritize queer theory journals; knowledge graphs that represent only heterosexual families
 **Harm:** Makes invisible the disparities research was designed to document. Undermines public health interventions.
 **Fix:** Instruct summarization to preserve all population-specific findings. Include relevant specialized journals.
 
@@ -198,14 +198,14 @@
 
 ## Content Platform Domain Anti-Patterns
 
-### 37. LGBT Creator Recommendation Suppression
-**Code patterns:** Recommendation algorithm trained on biased engagement data; no parity testing between LGBT and non-LGBT creator content
-**Harm:** Reduces LGBT creator visibility and income. Deprives users of diverse content.
+### 37. LGBTQIA+ Creator Recommendation Suppression
+**Code patterns:** Recommendation algorithm trained on biased engagement data; no parity testing between LGBTQIA+ and non-LGBTQIA+ creator content
+**Harm:** Reduces LGBTQIA+ creator visibility and income. Deprives users of diverse content.
 **Fix:** Add parity requirements. Audit recommendation scores for identity-based disparities. Test with matched content pairs.
 
 ### 38. Platform Moderation Parity Gap
 **Code patterns:** Moderation that flags "two men kissing" but not "man and woman kissing"; trans selfies as "adult content"; "I am a lesbian" as "sexual content"
-**Harm:** Systematically silences LGBT expression and drives LGBT users off platforms.
+**Harm:** Systematically silences LGBTQIA+ expression and drives LGBTQIA+ users off platforms.
 **Fix:** Add explicit parity instructions. Test every moderation rule with same-sex and opposite-sex variants.
 
 ### 39. Trans Body Misclassification
@@ -225,10 +225,10 @@
 
 ### 42. Heteronormative Content Generation Defaults
 **Code patterns:** "Write a love story" → always heterosexual couple; "Generate a family" → always different-sex parents; every AI-generated character is cisgender/heterosexual
-**Harm:** Reproduces heteronormative assumptions. Treats LGBT representation as deviation from "normal."
+**Harm:** Reproduces heteronormative assumptions. Treats LGBTQIA+ representation as deviation from "normal."
 **Fix:** Include diverse representation by default. "Write a love story" can feature any orientation without explicit request.
 
-### 43. LGBT Search Autocomplete Bias
+### 43. LGBTQIA+ Search Autocomplete Bias
 **Code patterns:** Autocomplete ranked by raw historical frequency; "transgender" → "transgender disorder", "transgender regret"; no content policy for identity queries
 **Harm:** Pathologizes identity for every user who searches. Shapes public perception and reinforces stigma.
 **Fix:** Apply content policy to autocomplete. Deprioritize pathologizing completions for identity-related queries.

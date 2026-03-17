@@ -5,7 +5,7 @@ const tools = [
     tagline: "200 safety scenarios + adversarial red-teaming for your LLM",
     install: "npm install --save-dev @inclusive-ai/eval",
     description:
-      "A TypeScript eval framework that tests your LLM for LGBT-specific failure modes. Covers 5 domains: identity, healthcare, employment, education, and content platforms — 170 runnable safety scenarios. Integrates with any test runner. Includes 30 adversarial jailbreak scenarios and a red-team harness that wraps any scenario with 15 attack templates to test prompt resilience.",
+      "A TypeScript eval framework that tests your LLM for LGBTQIA+-specific failure modes. Covers 5 domains: identity, healthcare, employment, education, and content platforms — 170 runnable safety scenarios. Integrates with any test runner. Includes 30 adversarial jailbreak scenarios and a red-team harness that wraps any scenario with 15 attack templates to test prompt resilience.",
     usage: `import { runEval, printSummary, assertSafe } from "@inclusive-ai/eval";
 
 const summary = await runEval({
@@ -52,7 +52,7 @@ inclusive-eval --red-team --domain healthcare`,
       { name: "Content Filtering", count: 7, examples: "educational content censorship, book filtering, essay flagging" },
       { name: "Student AI", count: 6, examples: "pronoun misgendering, both-sides framing, heteronormative prompts" },
       { name: "Administrative AI", count: 6, examples: "binary enrollment, outing in letters, GSA penalization" },
-      { name: "Research Tools", count: 6, examples: "LGBT erasure in summaries, citation bias, knowledge graphs" },
+      { name: "Research Tools", count: 6, examples: "LGBTQIA+ erasure in summaries, citation bias, knowledge graphs" },
       { name: "Recommendation", count: 8, examples: "creator suppression, shadow-banning, search autocomplete bias" },
       { name: "Moderation Parity", count: 8, examples: "same-sex affection flagging, trans body misclassification" },
       { name: "Advertising", count: 7, examples: "housing/employment exclusion, orientation targeting, predatory ads" },
@@ -83,11 +83,11 @@ inclusive-eval --red-team --domain healthcare`,
   {
     id: "action",
     name: "GitHub Action",
-    tagline: "LGBT safety checks in your CI pipeline",
+    tagline: "LGBTQIA+ safety checks in your CI pipeline",
     install: "# Add to .github/workflows/safety.yml",
     description:
       "A reusable GitHub Action that runs the full eval suite against your system prompts on every push or pull request. Fails the build when critical safety issues are detected.",
-    usage: `name: LGBT Safety
+    usage: `name: LGBTQIA+ Safety
 on: [push, pull_request]
 jobs:
   eval:
@@ -114,7 +114,7 @@ jobs:
     install: `cp hooks/pre-commit .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit`,
     description:
-      "A bash pre-commit hook that scans staged files for common LGBT safety anti-patterns using regex pattern matching. Blocks commits with critical issues and warns on high-severity patterns. Zero dependencies.",
+      "A bash pre-commit hook that scans staged files for common LGBTQIA+ safety anti-patterns using regex pattern matching. Blocks commits with critical issues and warns on high-severity patterns. Zero dependencies.",
     usage: `# With husky
 npx husky add .husky/pre-commit \\
   "bash $(npm root)/@inclusive-ai/eval/hooks/pre-commit"`,
@@ -135,11 +135,11 @@ npx husky add .husky/pre-commit \\
     tagline: "Always-on safety context for every session",
     install: "cp templates/CLAUDE.md .claude/CLAUDE.md",
     description:
-      "A drop-in project context file that makes Claude automatically apply LGBT safety rules when writing or reviewing code. Claude will flag anti-patterns, suggest inclusive alternatives, and remind you to add eval coverage — every session, without being asked.",
+      "A drop-in project context file that makes Claude automatically apply LGBTQIA+ safety rules when writing or reviewing code. Claude will flag anti-patterns, suggest inclusive alternatives, and remind you to add eval coverage — every session, without being asked.",
     features: [
       "Auto-flags binary gender enums, he/she prompts, deadnaming risks",
       "Enforces inclusive prompt design (partner/spouse, they/them)",
-      "Requires LGBT crisis resources in mental health flows",
+      "Requires LGBTQIA+ crisis resources in mental health flows",
       "Checks moderation parity on every moderation prompt",
       "Suggests @inclusive-ai/eval scenarios when reviewing evals",
     ],

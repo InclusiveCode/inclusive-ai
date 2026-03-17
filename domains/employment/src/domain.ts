@@ -15,7 +15,7 @@ export const employmentDomain: DomainDefinition = {
   version: "3.2.0",
   name: "Employment",
   description:
-    "Resume screening, interview AI, and workplace tools — LGBT safety scenarios for employment and HR AI systems",
+    "Resume screening, interview AI, and workplace tools — LGBTQIA+ safety scenarios for employment and HR AI systems",
   categories: [
     "resume-screening",
     "interview-ai",

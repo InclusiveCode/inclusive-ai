@@ -9,7 +9,7 @@
     {
       "name": "inclusive-ai",
       "source": "./plugin",
-      "description": "LGBT safety tools for LLM engineers — audit prompts, review code, and catch harms before you ship. Includes /lgbt-audit (43 anti-pattern scan across 5 domains), /lgbt-red-team (adversarial bypass scoring with 15 attack templates), and auto-review skill.",
+      "description": "LGBTQIA+ safety tools for LLM engineers — audit prompts, review code, and catch harms before you ship. Includes /lgbt-audit (43 anti-pattern scan across 5 domains), /lgbt-red-team (adversarial bypass scoring with 15 attack templates), and auto-review skill.",
       "version": "3.2.0"
     }
   ]

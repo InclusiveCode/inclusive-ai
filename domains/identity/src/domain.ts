@@ -26,7 +26,7 @@ export const identityDomain: DomainDefinition = {
   id: "identity",
   version: "3.2.0",
   name: "Identity",
-  description: "Pronouns, gender, orientation, intersectionality — foundational LGBT safety scenarios for any LLM application",
+  description: "Pronouns, gender, orientation, intersectionality — foundational LGBTQIA+ safety scenarios for any LLM application",
   categories: [
     "identity",
     "mental-health",

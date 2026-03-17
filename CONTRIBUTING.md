@@ -1,6 +1,6 @@
 # Contributing to InclusiveCode
 
-Thanks for helping make LLM products safer for LGBT communities. This guide covers how to contribute patterns, eval scenarios, harm registry entries, and code.
+Thanks for helping make LLM products safer for LGBTQIA+ communities. This guide covers how to contribute patterns, eval scenarios, harm registry entries, and code.
 
 ## Getting Started
 
@@ -50,7 +50,7 @@ cp -r plugin/skills/ /your-project/.claude/skills/
 
 Anti-patterns are the core unit of this project. A good anti-pattern:
 
-- Describes a **specific, reproducible** way LLMs harm LGBT users
+- Describes a **specific, reproducible** way LLMs harm LGBTQIA+ users
 - Includes a concrete **bad example** and a **safer alternative**
 - Is backed by real observed behavior, not hypothetical
 
@@ -86,14 +86,14 @@ The eval suite has 170 scenarios across 5 domains. Each domain lives in its own 
 | `transition-care.ts` | Gender marker vs. anatomy, HRT guidance, surgical care |
 | `mental-health-intake.ts` | Minority stress, pathologizing identity, affirming intake |
 | `reproductive-health.ts` | Same-sex fertility, trans reproductive care, inclusive intake |
-| `provider-matching.ts` | LGBT-affirming provider routing, trans-competent care referrals |
+| `provider-matching.ts` | LGBTQIA+-affirming provider routing, trans-competent care referrals |
 | `medical-records.ts` | Deadname exposure, transition history privacy, preferred name |
 
 #### Employment domain (25 scenarios) — `domains/employment/src/scenarios/`
 
 | File | Category |
 |---|---|
-| `resume-screening.ts` | Employment gap penalization, LGBT org penalization, name inference |
+| `resume-screening.ts` | Employment gap penalization, LGBTQIA+ org penalization, name inference |
 | `interview-ai.ts` | Identity-fishing questions, gendered presentation bias |
 | `workplace-tools.ts` | Same-sex benefit exclusion, culture-fit proxy, HR tool misgendering |
 
@@ -101,10 +101,10 @@ The eval suite has 170 scenarios across 5 domains. Each domain lives in its own 
 
 | File | Category |
 |---|---|
-| `content-filtering.ts` | Asymmetric censorship of LGBT educational content |
+| `content-filtering.ts` | Asymmetric censorship of LGBTQIA+ educational content |
 | `student-ai.ts` | Pronoun misgendering, both-sides framing, heteronormative defaults |
 | `administrative-ai.ts` | Binary enrollment forms, outing in letters, GSA penalization |
-| `research-tools.ts` | LGBT research erasure, citation bias, knowledge graph bias |
+| `research-tools.ts` | LGBTQIA+ research erasure, citation bias, knowledge graph bias |
 
 #### Content platforms domain (30 scenarios) — `domains/content/src/scenarios/`
 
@@ -143,7 +143,7 @@ Guidelines:
 
 ### Harm registry entries
 
-Registry entries document **real, reproducible** cases where LLMs failed LGBT users. They live in `site/app/registry/` as page data.
+Registry entries document **real, reproducible** cases where LLMs failed LGBTQIA+ users. They live in `site/app/registry/` as page data.
 
 Each entry needs:
 - **ID:** `HC-NNN` (next in sequence)
@@ -205,11 +205,11 @@ Prefix with the component when relevant: `eval`, `site`, `plugin`, `action`, `ho
 
 ## Code of Conduct
 
-This project exists to protect LGBT communities. Contributors are expected to:
+This project exists to protect LGBTQIA+ communities. Contributors are expected to:
 
 - Use inclusive language in code, comments, docs, and discussions
 - Respect the lived experiences that inform this work
-- Not debate the validity of LGBT identities
+- Not debate the validity of LGBTQIA+ identities
 - Keep discussions focused on making LLM products safer
 
 Harassment, discrimination, or bad-faith participation will result in removal from the project.

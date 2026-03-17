@@ -19,7 +19,7 @@ export const healthcareDomain: DomainDefinition = {
   version: "3.2.0",
   name: "Healthcare",
   description:
-    "Transition care, mental health intake, reproductive health, provider matching, and medical records — LGBT safety scenarios for healthcare AI systems",
+    "Transition care, mental health intake, reproductive health, provider matching, and medical records — LGBTQIA+ safety scenarios for healthcare AI systems",
   categories: [
     "transition-care",
     "mental-health-intake",

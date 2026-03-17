@@ -1,6 +1,6 @@
 # InclusiveCode
 
-> LGBT safety resources, patterns, and eval tools for LLM engineers.
+> LGBTQIA+ safety resources, patterns, and eval tools for LLM engineers.
 
 **Live site:** [inclusive-ai.vercel.app](https://inclusive-ai.vercel.app)
 
@@ -18,7 +18,7 @@
 | `/packages/eval` | `@inclusive-ai/eval` — user-facing wrapper, 170 runnable safety scenarios |
 | `/packages/adversarial` | `@inclusive-ai/adversarial` — 15 attack templates, 30 adversarial scenarios, bypass scoring |
 | `/plugin` | Claude Code plugin — `/lgbt-audit` command + auto-review skill |
-| `/action` | GitHub Action — run LGBT safety evals in CI |
+| `/action` | GitHub Action — run LGBTQIA+ safety evals in CI |
 | `/hooks` | Pre-commit hook — catch anti-patterns before they land |
 | `/templates` | `CLAUDE.md` template — drop-in project context for always-on safety |
 
@@ -77,7 +77,7 @@ Then run `/lgbt-audit` in any project to get a full scored audit.
 
 ```yaml
 # .github/workflows/safety.yml
-name: LGBT Safety
+name: LGBTQIA+ Safety
 on: [push, pull_request]
 jobs:
   eval:
@@ -111,7 +111,7 @@ Drop the template into your project:
 cp templates/CLAUDE.md .claude/CLAUDE.md
 ```
 
-Claude will automatically apply LGBT safety rules when writing or reviewing code.
+Claude will automatically apply LGBTQIA+ safety rules when writing or reviewing code.
 
 ## Eval scenarios (170)
 
@@ -126,7 +126,7 @@ Claude will automatically apply LGBT safety rules when writing or reviewing code
 | Output safety | 5 | Outing risk, identity speculation, deadnaming, biphobia, ace erasure |
 | Privacy | 3 | Inferred orientation tracking, cross-context linkage, transition disclosure |
 | Intersectionality | 12 | Compounded bias across race, disability, gender identity, and orientation |
-| Cultural context | 12 | Region-specific norms, legal risk, language localization for LGBT topics |
+| Cultural context | 12 | Region-specific norms, legal risk, language localization for LGBTQIA+ topics |
 | Temporal identity | 12 | Identity change over time, transition milestones, historical deadname handling |
 
 ### Healthcare domain (30 scenarios)
@@ -136,14 +136,14 @@ Claude will automatically apply LGBT safety rules when writing or reviewing code
 | Transition care | 7 | Gender marker vs. anatomy, HRT guidance, surgical care documentation |
 | Mental health intake | 6 | Minority stress model, pathologizing identity, affirming intake design |
 | Reproductive health | 6 | Same-sex fertility, trans reproductive care, inclusive intake forms |
-| Provider matching | 5 | LGBT-affirming provider routing, trans-competent care referrals |
+| Provider matching | 5 | LGBTQIA+-affirming provider routing, trans-competent care referrals |
 | Medical records | 6 | Deadname exposure, transition history privacy, preferred name in comms |
 
 ### Employment domain (25 scenarios)
 
 | Category | Count | What it tests |
 |---|---|---|
-| Resume screening | 10 | Employment gap penalization, LGBT org penalization, name inference |
+| Resume screening | 10 | Employment gap penalization, LGBTQIA+ org penalization, name inference |
 | Interview AI | 7 | Identity-fishing questions, gendered presentation bias, inclusive questions |
 | Workplace tools | 8 | Same-sex benefit exclusion, culture-fit proxy, misgendering in HR tools |
 
@@ -151,10 +151,10 @@ Claude will automatically apply LGBT safety rules when writing or reviewing code
 
 | Category | Count | What it tests |
 |---|---|---|
-| Content filtering | 7 | Asymmetric censorship of LGBT educational content, book blocking, essay flagging |
+| Content filtering | 7 | Asymmetric censorship of LGBTQIA+ educational content, book blocking, essay flagging |
 | Student AI | 6 | Pronoun misgendering, both-sides identity framing, heteronormative defaults |
 | Administrative AI | 6 | Binary enrollment forms, outing in recommendation letters, GSA penalization |
-| Research tools | 6 | LGBT research erasure, citation deprioritization, knowledge graph bias |
+| Research tools | 6 | LGBTQIA+ research erasure, citation deprioritization, knowledge graph bias |
 
 ### Content platforms domain (30 scenarios)
 
@@ -172,18 +172,18 @@ Claude will automatically apply LGBT safety rules when writing or reviewing code
 | Outing | 6 | Prompts designed to extract or infer a user's sexual orientation or gender identity |
 | Conversion therapy | 6 | Jailbreaks attempting to elicit conversion therapy language or referrals |
 | Misgendering | 6 | Instruction injections that override pronoun and name preferences |
-| Moderation bypass | 6 | Attempts to bypass content moderation parity for LGBT topics |
+| Moderation bypass | 6 | Attempts to bypass content moderation parity for LGBTQIA+ topics |
 | Identity extraction | 6 | Indirect probing to surface protected identity attributes across context |
 
 ## Anti-patterns detected (43)
 
 **CRITICAL (identity):** Binary gender assumption, pronoun inference from name, conversion therapy language, missing crisis resources, outing risk, moderation parity gap
 
-**CRITICAL (healthcare):** Gender marker anatomy inference, transition care deprioritization, pathologizing identity screening, transition history exposure, same-sex benefit exclusion in HR tools, identity-fishing interview questions, LGBT org penalization
+**CRITICAL (healthcare):** Gender marker anatomy inference, transition care deprioritization, pathologizing identity screening, transition history exposure, same-sex benefit exclusion in HR tools, identity-fishing interview questions, LGBTQIA+ org penalization
 
 **CRITICAL (education):** Asymmetric content filtering, student AI misgendering, both-sides identity framing
 
-**CRITICAL (content platforms):** LGBT creator recommendation suppression, platform moderation parity gap, trans body misclassification
+**CRITICAL (content platforms):** LGBTQIA+ creator recommendation suppression, platform moderation parity gap, trans body misclassification
 
 **HIGH:** Heteronormative defaults, deadnaming via email names, binary-only forms, gendered AI persona, non-affirming provider routing, same-sex fertility exclusion, binary medical intake, employment gap penalization, gendered presentation bias, culture-fit as identity proxy
 
@@ -191,11 +191,11 @@ Claude will automatically apply LGBT safety rules when writing or reviewing code
 
 **HIGH (content platforms):** Ad targeting orientation inference, housing/employment ad exclusion, heteronormative content generation defaults
 
-**MEDIUM:** Missing pronouns field, no LGBT eval coverage, biased RAG docs, non-inclusive copy, missing minority stress model, screening name/gender inference
+**MEDIUM:** Missing pronouns field, no LGBTQIA+ eval coverage, biased RAG docs, non-inclusive copy, missing minority stress model, screening name/gender inference
 
-**MEDIUM (education):** LGBT research erasure
+**MEDIUM (education):** LGBTQIA+ research erasure
 
-**MEDIUM (content platforms):** LGBT search autocomplete bias
+**MEDIUM (content platforms):** LGBTQIA+ search autocomplete bias
 
 ## Contributing
 

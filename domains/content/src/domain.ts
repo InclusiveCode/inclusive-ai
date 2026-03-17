@@ -17,7 +17,7 @@ export const contentDomain: DomainDefinition = {
   version: "3.2.0",
   name: "Content Platforms",
   description:
-    "Recommendation, moderation parity, advertising, and content generation — LGBT safety scenarios for content platform AI systems",
+    "Recommendation, moderation parity, advertising, and content generation — LGBTQIA+ safety scenarios for content platform AI systems",
   categories: [
     "recommendation",
     "moderation-parity",

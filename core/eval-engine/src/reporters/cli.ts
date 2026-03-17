@@ -6,7 +6,7 @@ export class CliReporter implements EvalReporter {
   report(results: EvalResult[], summary: EvalSummary): string {
     const lines: string[] = [];
 
-    lines.push("=== @inclusive-ai/eval — LGBT Safety Results ===\n");
+    lines.push("=== @inclusive-ai/eval — LGBTQIA+ Safety Results ===\n");
     lines.push(`${summary.passed}/${summary.total} scenarios passed\n`);
 
     for (const [sev, counts] of Object.entries(summary.bySeverity)) {
