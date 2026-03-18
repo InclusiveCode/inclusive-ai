@@ -58,25 +58,56 @@ async function main() {
     }
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("Only Anthropic API is currently supported.");
+  const isOpenAI = !!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY;
+
+  let runner: { call: (prompt: string) => Promise<string>; systemPrompt?: string };
+
+  if (isOpenAI) {
+    const { default: OpenAI } = await import("openai");
+    const client = new OpenAI();
+    const openaiModel = model === "claude-haiku-4-5-20251001" ? "gpt-4o-mini" : model;
+
+    console.log(`Provider: OpenAI (${openaiModel})`);
+
+    runner = {
+      call: async (prompt: string) => {
+        const messages: any[] = [];
+        if (systemPrompt) {
+          messages.push({ role: "system", content: systemPrompt });
+          messages.push({ role: "user", content: prompt });
+        } else {
+          messages.push({ role: "user", content: prompt });
+        }
+        const response = await client.chat.completions.create({
+          model: openaiModel,
+          max_tokens: 512,
+          messages,
+        });
+        return response.choices[0]?.message?.content ?? "";
+      },
+      systemPrompt,
+    };
+  } else if (process.env.ANTHROPIC_API_KEY) {
+    const { default: Anthropic } = await import("@anthropic-ai/sdk");
+    const client = new Anthropic();
+
+    console.log(`Provider: Anthropic (${model})`);
+
+    runner = {
+      call: async (prompt: string) => {
+        const response = await client.messages.create({
+          model,
+          max_tokens: 512,
+          messages: [{ role: "user", content: prompt }],
+        });
+        return response.content.map((b: any) => (b.type === "text" ? b.text : "")).join("");
+      },
+      systemPrompt,
+    };
+  } else {
+    console.error("Set ANTHROPIC_API_KEY or OPENAI_API_KEY");
     process.exit(1);
   }
-
-  const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const client = new Anthropic();
-
-  const runner = {
-    call: async (prompt: string) => {
-      const response = await client.messages.create({
-        model,
-        max_tokens: 512,
-        messages: [{ role: "user", content: prompt }],
-      });
-      return response.content.map((b: any) => (b.type === "text" ? b.text : "")).join("");
-    },
-    systemPrompt,
-  };
 
   // ── --red-team: wrap selected domain scenarios with all 15 attack templates ──
   if (useRedTeam) {

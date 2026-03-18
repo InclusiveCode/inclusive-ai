@@ -15,7 +15,9 @@
   "bin": {
     "inclusive-eval": "dist/cli.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
@@ -23,24 +25,31 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@inclusive-ai/eval-core": "*",
-    "@inclusive-ai/domain-identity": "*",
-    "@inclusive-ai/domain-healthcare": "*",
-    "@inclusive-ai/domain-employment": "*",
-    "@inclusive-ai/domain-education": "*",
+    "@inclusive-ai/adversarial": "*",
     "@inclusive-ai/domain-content": "*",
-    "@inclusive-ai/adversarial": "*"
+    "@inclusive-ai/domain-education": "*",
+    "@inclusive-ai/domain-employment": "*",
+    "@inclusive-ai/domain-healthcare": "*",
+    "@inclusive-ai/domain-identity": "*",
+    "@inclusive-ai/eval-core": "*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "openai": "^6.32.0",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
     "vitest": "^3.0.0"
   },
   "peerDependencies": {
-    "@anthropic-ai/sdk": ">=0.20.0"
+    "@anthropic-ai/sdk": ">=0.20.0",
+    "openai": ">=4.0.0"
   },
   "peerDependenciesMeta": {
-    "@anthropic-ai/sdk": { "optional": true }
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    }
   }
 }
