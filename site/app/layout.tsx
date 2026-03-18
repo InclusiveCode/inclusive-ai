@@ -21,6 +21,9 @@ export const metadata: Metadata = {
     title: "InclusiveCode — LGBTQIA+ Safety Tools for LLM Engineers",
     description: "200 eval scenarios, 43 anti-patterns, and adversarial red-teaming across 5 domains.",
   },
+  verification: {
+    google: "20behInZTSA1-SKhOmjHuo190BZtEEFOn08J68OLNbM",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
