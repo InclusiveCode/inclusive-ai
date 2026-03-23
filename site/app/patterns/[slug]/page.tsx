@@ -23,7 +23,7 @@ export default async function PatternDetailPage({
   if (!pattern) notFound();
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-16">
+    <div className="max-w-3xl mx-auto px-6 py-20">
       <Link
         href="/patterns"
         className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors mb-8 inline-block"
@@ -70,7 +70,7 @@ export default async function PatternDetailPage({
       {/* Why It Harms */}
       <section className="mb-10">
         <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
-          <span className="text-orange-400">→</span> Why It Harms LGBT Users
+          <span className="text-orange-400">→</span> Why It Harms LGBTQIA+ Users
         </h2>
         <p className="text-zinc-300 leading-relaxed">{pattern.harm}</p>
       </section>

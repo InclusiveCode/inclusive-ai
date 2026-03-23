@@ -148,13 +148,13 @@ npx husky add .husky/pre-commit \\
 
 export default function ToolsPage() {
   return (
-    <div className="max-w-4xl mx-auto px-6 py-16">
+    <div className="max-w-4xl mx-auto px-6 py-20">
       <div className="mb-12">
         <div className="inline-block px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono mb-4">
           developer tools
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-          Ship Safer With Every Commit
+          <span style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Ship Safer With Every Commit</span>
         </h1>
         <p className="text-lg text-zinc-400 max-w-2xl">
           Drop these into your dev pipeline. Eval suite for CI, Claude plugin for

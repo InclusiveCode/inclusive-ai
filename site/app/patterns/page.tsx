@@ -12,13 +12,16 @@ const prideColors = ["#FF6B9D", "#FF9B71", "#FECF6A", "#63E6BE", "#74B9FF", "#A2
 
 export default function PatternsPage() {
   return (
-    <div className="max-w-4xl mx-auto px-6 py-16">
+    <div className="max-w-4xl mx-auto px-6 py-20">
       <div className="mb-10">
+        <div className="inline-block px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono mb-6">
+          anti-patterns
+        </div>
         <h1 className="text-3xl font-bold mb-3">
           <span style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Anti-Pattern Library</span>
         </h1>
         <p className="text-zinc-400">
-          Common patterns in LLM prompts, code, and product decisions that harm LGBT users. Each entry includes the problem, why it happens, and a safer alternative.
+          Common patterns in LLM prompts, code, and product decisions that harm LGBTQIA+ users. Each entry includes the problem, why it happens, and a safer alternative.
         </p>
       </div>
       <div className="space-y-4">

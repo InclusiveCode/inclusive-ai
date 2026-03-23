@@ -124,6 +124,18 @@ export default function ResearchPage() {
           );
         })}
       </div>
+
+      <div className="mt-10 p-6 border border-zinc-800 rounded-xl text-center">
+        <p className="text-zinc-400 text-sm mb-3">Want to run the eval suite against a different model?</p>
+        <a
+          href="https://github.com/InclusiveCode/inclusive-ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm font-mono text-zinc-300 hover:text-white transition-colors"
+        >
+          Run your own eval &rarr;
+        </a>
+      </div>
     </div>
   );
 }

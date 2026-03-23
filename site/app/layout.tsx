@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+import { MobileNav } from "./mobile-nav";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -34,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Link href="/" className="text-lg font-semibold">
             Inclusive<span style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Code</span>
           </Link>
-          <div className="flex items-center gap-6 text-sm text-zinc-400">
+          <div className="hidden sm:flex items-center gap-6 text-sm text-zinc-400">
             <Link href="/patterns" className="hover:text-zinc-100 transition-colors">Patterns</Link>
             <Link href="/checklist" className="hover:text-zinc-100 transition-colors">Checklist</Link>
             <Link href="/registry" className="hover:text-zinc-100 transition-colors">Registry</Link>
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/tools" className="hover:text-zinc-100 transition-colors">Tools</Link>
             <a href="https://github.com/InclusiveCode" target="_blank" rel="noopener noreferrer" className="hover:text-zinc-100 transition-colors">GitHub</a>
           </div>
+          <MobileNav />
         </nav>
         <main className="flex-1">{children}</main>
         <footer className="border-t border-zinc-800 px-6 py-6 text-center text-sm text-zinc-500">
