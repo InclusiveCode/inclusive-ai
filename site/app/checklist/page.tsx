@@ -156,8 +156,11 @@ export default function ChecklistPage() {
   const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-16">
+    <div className="max-w-3xl mx-auto px-6 py-20">
       <div className="mb-10">
+        <div className="inline-block px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono mb-6">
+          pre-ship checklist
+        </div>
         <h1 className="text-3xl font-bold mb-3">
           <span style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Pre-Ship Checklist</span>
         </h1>
@@ -188,7 +191,7 @@ export default function ChecklistPage() {
                 background:
                   checkedCount === totalItems
                     ? "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE, #DDA0DD)"
-                    : "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE, #DDA0DD)",
+                    : "#74B9FF",
               }}
             />
           </div>

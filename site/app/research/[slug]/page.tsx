@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { reports, type Report, type ReportFailure } from "@/lib/reports";
 
@@ -50,6 +51,13 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-20">
+      <Link
+        href="/research"
+        className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors mb-8 inline-block"
+      >
+        &larr; Back to all reports
+      </Link>
+
       {/* Header */}
       <div className="mb-12">
         <div className="inline-block px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono mb-6">
@@ -322,12 +330,12 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
 
       {/* Back link */}
       <div className="pt-6 border-t border-zinc-800">
-        <a
+        <Link
           href="/research"
           className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
         >
           &larr; Back to all reports
-        </a>
+        </Link>
       </div>
     </div>
   );

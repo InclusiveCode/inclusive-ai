@@ -74,9 +74,14 @@ const severityColor: Record<string, string> = {
 
 export default function RegistryPage() {
   return (
-    <div className="max-w-4xl mx-auto px-6 py-16">
+    <div className="max-w-4xl mx-auto px-6 py-20">
       <div className="mb-10">
-        <h1 className="text-3xl font-bold mb-3">Harm Registry</h1>
+        <div className="inline-block px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono mb-6">
+          harm registry
+        </div>
+        <h1 className="text-3xl font-bold mb-3">
+          <span style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Harm Registry</span>
+        </h1>
         <p className="text-zinc-400 mb-4">
           Documented cases of LLMs harming LGBTQIA+ users. Entries are anonymized but reproducible — each includes the failure, the impact, and a concrete mitigation.
         </p>
