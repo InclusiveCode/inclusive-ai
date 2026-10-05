@@ -9,7 +9,7 @@ It has two response sources:
 
 All people, organizations, and data are fictional. Lab results are independent of the `inclusive-eval` CLI, which uses a different runner, rubric, and system-message placement; results are not expected to match.
 
-Design specs: [`2026-10-05-evaluation-lab-design.md`](../superpowers/specs/2026-10-05-evaluation-lab-design.md) and [`2026-10-05-evaluation-lab-live-mode-design.md`](../superpowers/specs/2026-10-05-evaluation-lab-live-mode-design.md). Firewall setup and the real-provider smoke checklist: [`vercel-firewall.md`](vercel-firewall.md).
+Design specs: [`2026-10-05-evaluation-lab-design.md`](../superpowers/specs/2026-10-05-evaluation-lab-design.md) and [`2026-10-05-evaluation-lab-live-mode-design.md`](../superpowers/specs/2026-10-05-evaluation-lab-live-mode-design.md). Firewall setup (section 1), environment rules (section 2), and the real-provider smoke checklist (section 3): [`vercel-firewall.md`](vercel-firewall.md).
 
 ## Run and test
 
@@ -39,11 +39,13 @@ site/
     simulator.ts           snippet rules, failure modes, simulate(), simulatedResponder
     run.ts                 runScenario(), normalizeResponse(), makeLiveResponder(), liveConfig()
     models.ts              live model allowlist, PROVIDER_LABEL, LIVE_RESPONDER_VERSION
+    live-key.ts            the key rule shared by client and server (format pattern, provider prefix, messages)
     live-messages.ts       the fixed messages a live result may carry (server and client)
     history.ts             live baseline selection and empty comparison states
     compare.ts             compareRuns(), returnedModels()
     server/providers.ts    server-only provider adapters (official SDKs, per-request clients)
-    server/handler.ts      server-only request validation: createHandler(deps)
+    server/handler.ts      server-only request validation: createHandler(deps), OPTIONS, fixed 405
+    server/env-guard.ts    the only lab module that reads the environment (*_CUSTOM_HEADERS fail-closed check)
     overrides.ts           createOverride(), countsAfterReview(), reviewLogJson()
     __tests__/             Vitest suites (unit, UI via renderToStaticMarkup, source hygiene)
   app/lab/
@@ -148,8 +150,9 @@ There is no automatic fallback to another model when a provider declines, becaus
 - The key field is an uncontrolled password input outside any form, with `autocomplete="off"` and attributes that discourage password managers (this does not prevent capture). The key is read from the field only when a run starts.
 - The key is never placed in React state or props, a run object, the review log, a URL, browser storage, cookies, logs, or any message. It is sent only in the `Authorization: Bearer` header of `POST /api/lab/run`, over HTTPS on the deployed site.
 - On the server, the key goes from the header into the SDK constructor for that request only. Clients are created per request with an explicit `baseURL`, `maxRetries: 0`, a 30 s timeout, logging off, and no auth token, organization, project, or admin key read from the environment. The SDKs would still merge `ANTHROPIC_CUSTOM_HEADERS` / `OPENAI_CUSTOM_HEADERS` from the environment into every request, and no constructor option prevents that, so live mode refuses to build a client or call any provider while either variable is set (`site/lib/lab/server/env-guard.ts`, the only lab module that reads the environment).
-- The field is cleared by **Clear key**, on `pagehide` (which also covers the back/forward cache), and when the live panel unmounts (switching to simulated mode). A reload leaves it empty.
-- A run is blocked, without any request, when the key is missing (inline error; focus moves to the key field) or when the instruction contains the key. The server repeats the second check.
+- The field is cleared by **Clear key**, when the provider is switched (announced in the polite status region: "Key cleared — enter your {provider} key"; focus stays on the provider select), on `pagehide` (which also covers the back/forward cache), and when the live panel unmounts (switching to simulated mode). A reload leaves it empty.
+- Before any request, the client trims the key and applies the server's rule from `site/lib/lab/live-key.ts`: 20–256 characters of letters, digits, hyphens, and underscores, with an `sk-ant-` prefix exactly when Anthropic is selected (decision D35). A missing key, a malformed key (internal whitespace, non-ASCII such as U+200B, wrong length), or a key for the other provider blocks the run without any request: an inline error with a correction hint appears and focus moves to the key field.
+- A run is also blocked, without any request, when the instruction contains the key. The server repeats the format, provider-match, and key-in-instruction checks before any SDK call.
 
 What the page tells users: this site doesn't store or log the key; it is sent over HTTPS to this site's server (hosted on Vercel) and on to the provider for each run, and isn't kept after the request. The instruction and the fictional scenario text also go through this site's server to the provider, and the provider's own data-retention policies apply to them. The key stays in the field until it is cleared, the provider is switched, the page switches to simulated mode, reloads, or is left. Each run makes 2 billed calls, and cancelling stops waiting but may not stop calls already sent.
 
@@ -159,13 +162,15 @@ What the page tells users: this site doesn't store or log the key; it is sent ov
 
 | Check | Response |
 |---|---|
-| GET, HEAD, PUT, PATCH, or DELETE | 405 with `Allow: POST` (OPTIONS is left to Next.js; `no-store` also set in `next.config.ts`) |
+| OPTIONS | 204 with `Allow: POST, OPTIONS`, `no-store`, and no `Access-Control-*` headers (no CORS grant) |
+| GET, HEAD, PUT, PATCH, or DELETE | 405 fixed JSON with `Allow: POST` (`no-store` is also set in `next.config.ts`) |
 | Content type is not `application/json` | 415 |
 | Body over 16 384 bytes (declared or measured) | 413 |
 | Body is not JSON | 400 |
 | Unknown scenario, bad variant, instruction over 4000 characters, or model not allowlisted | 400 |
 | `scenarioVersion` does not match the server | 409 |
 | `Authorization` is not `Bearer` + 20–256 characters of `[A-Za-z0-9_-]` | 400 "Missing or malformed API key — keys contain only letters, numbers, hyphens and underscores, with no spaces" |
+| The key is well formed but does not match the selected provider (an `sk-ant-` key only goes to Anthropic) | 400 "This key does not match the selected provider — check the provider or paste that provider's key" (D35) |
 | The instruction contains the key | 400 "Your instruction contains your API key — remove it before running" |
 
 The server renders the scenario input itself; the client never sends input text. Provider outcomes map by SDK error class and status/code, never by message text:
@@ -188,7 +193,7 @@ When exactly one version of a live run is `provider_refused`, the page shows an 
 
 ### Comparison
 
-Runs are kept per scenario for the session. For a live run, the baseline is the most recent fully-ok run of the unedited baseline instruction that `compareRuns` accepts. Live comparisons are refused when a run's versions report different (or no) model ids, or when the two runs were answered by different model versions. Rows from two runs with the same instruction are labelled "run-to-run variation (same instruction)". Live and simulated runs never compare.
+Runs are kept per scenario for the session. For a live run, the baseline is the most recent fully-ok run of the unedited baseline instruction that `compareRuns` accepts. Live comparisons are refused when a version did not complete ("Version B did not complete (timed out) — rerun to compare"), when a run's versions report different (or no) model ids, or when the two runs were answered by different model versions. A one-sided provider refusal is not comparable either, and the reason points at the D34 note under “3. Review findings” instead of suggesting a rerun. Rows from two runs with the same instruction are labelled "run-to-run variation (same instruction)". Live and simulated runs never compare.
 
 ### Abuse controls
 
