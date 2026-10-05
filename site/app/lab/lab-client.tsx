@@ -368,11 +368,11 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                 </button>
               </div>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <fieldset>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <fieldset className="min-w-0">
                 <legend className="font-medium text-zinc-100">Response source</legend>
                 <div className="mt-2 space-y-1 text-sm">
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-start gap-2">
                     <input
                       type="radio"
                       name="response-source"
@@ -383,7 +383,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                     />
                     Simulated (scripted demo)
                   </label>
-                  <label className="flex items-center gap-2">
+                  <label className="flex items-start gap-2">
                     <input
                       type="radio"
                       name="response-source"
@@ -396,7 +396,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                   </label>
                 </div>
               </fieldset>
-              <div>
+              <div className="min-w-0">
                 <label htmlFor="lab-fault" className="block font-medium text-zinc-100">
                   Fault injection (simulated only)
                 </label>
@@ -405,7 +405,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                   value={fault}
                   disabled={source === "live"}
                   onChange={(e) => setFault(e.target.value as FaultKind)}
-                  className={`mt-2 rounded-md border border-zinc-700 bg-zinc-900 p-2 text-sm text-zinc-100 disabled:opacity-60 ${FOCUS}`}
+                  className={`mt-2 w-full max-w-sm rounded-md border border-zinc-700 bg-zinc-900 p-2 text-sm text-zinc-100 disabled:opacity-60 ${FOCUS}`}
                 >
                   {FAULTS.map(([v, label]) => (
                     <option key={v} value={v}>

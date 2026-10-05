@@ -3,7 +3,7 @@ import { latestOverrides } from "../../../lib/lab/overrides";
 import type { Scenario } from "../../../lib/lab/scenarios";
 import type { Override, Run } from "../../../lib/lab/types";
 import { RunMeta } from "./run-details";
-import { StatusBadge, statusLabel, variantLabel } from "./status";
+import { FOCUS, StatusBadge, statusLabel, variantLabel } from "./status";
 
 const CLASS_TEXT: Record<RowClass, { icon: string; label: string; color: string }> = {
   improved: { icon: "↑", label: "Improved", color: "text-emerald-300" },
@@ -60,7 +60,7 @@ export function CompareView({
         Classification uses the automated results only. Each run is a single sample. A pass means only that the displayed checks passed.
       </p>
       {metas}
-      <div className="overflow-x-auto rounded-lg border border-zinc-800">
+      <div tabIndex={0} role="region" aria-label="Comparison table" className={`overflow-x-auto rounded-lg border border-zinc-800 ${FOCUS}`}>
         <table className="w-full text-left text-sm">
           <caption className="px-4 py-2 text-left text-sm text-zinc-400">
             Per-check comparison of the baseline run and the latest run. Human review notes are shown but never change the classification.

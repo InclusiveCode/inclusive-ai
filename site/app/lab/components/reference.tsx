@@ -1,4 +1,5 @@
 import { FAILURE_MODES, SIMULATOR_VERSION, SNIPPET_RULES } from "../../../lib/lab/simulator";
+import { FOCUS } from "./status";
 
 export function SimulatorRules() {
   return (
@@ -8,7 +9,7 @@ export function SimulatorRules() {
         version labels. A snippet matches only as a whole sentence (case and spacing ignored), so a negated or reworded sentence does not
         match.
       </p>
-      <div className="overflow-x-auto rounded-lg border border-zinc-800">
+      <div tabIndex={0} role="region" aria-label="Simulator snippet rules table" className={`overflow-x-auto rounded-lg border border-zinc-800 ${FOCUS}`}>
         <table className="w-full text-left text-sm">
           <caption className="px-4 py-2 text-left text-sm text-zinc-400">Snippet rules (preset buttons insert these exact sentences)</caption>
           <thead>
@@ -31,7 +32,7 @@ export function SimulatorRules() {
           </tbody>
         </table>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-zinc-800">
+      <div tabIndex={0} role="region" aria-label="Simulator failure modes table" className={`overflow-x-auto rounded-lg border border-zinc-800 ${FOCUS}`}>
         <table className="w-full text-left text-sm">
           <caption className="px-4 py-2 text-left text-sm text-zinc-400">Scripted failure modes (triggered by input content only)</caption>
           <thead>

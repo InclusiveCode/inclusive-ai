@@ -188,13 +188,26 @@ describe("LivePanel", () => {
     expect(html).toMatch(/<input(?=[^>]*type="password")(?=[^>]*autoComplete="off"|[^>]*autocomplete="off")(?=[^>]*spellCheck="false"|[^>]*spellcheck="false")[^>]*>/);
     expect(html).not.toContain("<form");
     expect(html).not.toMatch(/<input[^>]*type="password"[^>]*value=/);
-    expect(text).toContain(LIVE_NOTICE("Anthropic"));
-    expect(LIVE_NOTICE("OpenAI")).toBe(
-      "Your key goes from this page to this site's server (hosted on Vercel) and on to OpenAI, for this run only. It is never stored, logged, or shown again. Use a low-limit key you can revoke. Each run makes 2 billed calls (Version A and B). Your instruction and the fictional scenario text are sent to OpenAI; do not enter personal data.",
-    );
+    for (const sentence of LIVE_NOTICE("Anthropic")) expect(text).toContain(sentence);
+    expect(LIVE_NOTICE("OpenAI")).toEqual([
+      "This site doesn't store or log your key. It's sent over HTTPS to this site's server and to OpenAI for each run, and isn't kept after the request.",
+      "OpenAI's own data-retention policies apply to the instruction and scenario text you send.",
+      "Your key stays in this field until you clear it, switch to simulated mode, reload, or leave the page.",
+      "Each run makes 2 billed calls. Cancelling stops waiting but may not stop calls already sent.",
+      "Use a low-limit key you can revoke. Do not enter personal data.",
+    ]);
     expect(text).toContain("Clear key");
     expect(text).toContain("Show key");
     expect(html).not.toMatch(/sk-|PLACEHOLDER/);
+  });
+
+  it("marks the key field to discourage password managers", () => {
+    const html = render("anthropic");
+    const input = html.match(/<input[^>]*id="lab-live-key"[^>]*>/)?.[0] ?? "";
+    expect(input).toMatch(/autocomplete="off"/i); // HTML attribute names are case-insensitive
+    expect(input).toContain("data-1p-ignore");
+    expect(input).toContain('data-lpignore="true"');
+    expect(input).toContain('data-form-type="other"');
   });
 
   it("shows the missing-key error as an alert", () => {
@@ -446,5 +459,58 @@ describe("built client bundle (runs only after `npm run build`)", () => {
       expect(src, f).not.toContain("api.openai.com");
       expect(src, f).not.toMatch(/sk-test-PLACEHOLDER|Bearer [A-Za-z0-9]/);
     }
+  });
+});
+
+describe("COMPLIANCE: keyboard-scrollable regions and reflow", () => {
+  /** Every horizontally scrollable container must be focusable and labelled. */
+  function expectFocusableScrollRegions(html: string, min: number) {
+    const regions = html.match(/<div[^>]*class="[^"]*overflow-x-auto[^"]*"[^>]*>/g) ?? [];
+    expect(regions.length).toBeGreaterThanOrEqual(min);
+    for (const r of regions) {
+      expect(r, r).toContain('tabindex="0"');
+      expect(r, r).toContain('role="region"');
+      expect(r, r).toMatch(/aria-label="[^"]+"/);
+      expect(r, r).toContain("focus-visible:outline-2");
+    }
+  }
+
+  it("simulator rules tables are focusable, labelled scroll regions", async () => {
+    const { SimulatorRules } = await import("../../../app/lab/components/reference");
+    const html = renderToStaticMarkup(<SimulatorRules />);
+    expectFocusableScrollRegions(html, 2);
+    expect(html).toContain('aria-label="Simulator snippet rules table"');
+    expect(html).toContain('aria-label="Simulator failure modes table"');
+  });
+
+  it("the comparison table is a focusable, labelled scroll region", async () => {
+    const [base] = await baselines();
+    const s = getScenario("spouse-parity");
+    const latest = await runScenario(s, s.baselineInstruction, simulatedResponder, SIMULATED_CONFIG, {
+      id: "spouse-parity-run-1",
+      createdAt: "2026-10-05T00:00:00.000Z",
+      mode: "simulated",
+      responderVersion: SIMULATOR_VERSION,
+    });
+    const html = renderToStaticMarkup(<CompareView scenario={s} baseline={base} latest={latest} overrides={[]} />);
+    expectFocusableScrollRegions(html, 1);
+    expect(html).toContain('aria-label="Comparison table"');
+  });
+
+  it("run metadata values can wrap (long fingerprints and model ids)", async () => {
+    const [base] = await baselines();
+    const html = renderToStaticMarkup(<RunMeta run={base} />);
+    const dds = html.match(/<dd[^>]*>/g) ?? [];
+    expect(dds.length).toBeGreaterThan(5);
+    for (const dd of dds) {
+      expect(dd).toContain("min-w-0");
+      expect(dd).toMatch(/break-all|break-words/);
+    }
+    expect(html).toMatch(/<dl class="[^"]*grid-cols-1[^"]*sm:grid-cols-/);
+  });
+
+  it("the response-source fieldset can shrink below its content width", async () => {
+    const html = renderToStaticMarkup(<LabClient baselineRuns={await baselines()} />);
+    expect(html).toMatch(/<fieldset class="[^"]*min-w-0[^"]*"><legend[^>]*>Response source<\/legend>/);
   });
 });

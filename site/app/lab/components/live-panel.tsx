@@ -2,9 +2,15 @@ import { useEffect, useState, type RefObject } from "react";
 import { LIVE_MODELS, PROVIDER_LABEL, type Provider } from "../../../lib/lab/models";
 import { BUTTON, FOCUS } from "./status";
 
-/** Notice copy, exactly as in the live-mode spec §1. */
-export function LIVE_NOTICE(provider: string): string {
-  return `Your key goes from this page to this site's server (hosted on Vercel) and on to ${provider}, for this run only. It is never stored, logged, or shown again. Use a low-limit key you can revoke. Each run makes 2 billed calls (Version A and B). Your instruction and the fictional scenario text are sent to ${provider}; do not enter personal data.`;
+/** Notice copy: every sentence describes what the site actually does. */
+export function LIVE_NOTICE(provider: string): string[] {
+  return [
+    `This site doesn't store or log your key. It's sent over HTTPS to this site's server and to ${provider} for each run, and isn't kept after the request.`,
+    `${provider}'s own data-retention policies apply to the instruction and scenario text you send.`,
+    "Your key stays in this field until you clear it, switch to simulated mode, reload, or leave the page.",
+    "Each run makes 2 billed calls. Cancelling stops waiting but may not stop calls already sent.",
+    "Use a low-limit key you can revoke. Do not enter personal data.",
+  ];
 }
 
 /**
@@ -59,7 +65,7 @@ export function LivePanel({
 
   return (
     <div className="space-y-3 rounded-lg border border-sky-400/40 bg-sky-950/20 p-4">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="lab-live-provider" className="block text-sm font-medium text-zinc-100">
             Provider
@@ -105,6 +111,9 @@ export function LivePanel({
             id="lab-live-key"
             type={showKey ? "text" : "password"}
             autoComplete="off"
+            data-1p-ignore="true"
+            data-lpignore="true"
+            data-form-type="other"
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
@@ -128,9 +137,11 @@ export function LivePanel({
           </p>
         )}
       </div>
-      <p id="lab-live-notice" className="text-sm text-zinc-300">
-        {LIVE_NOTICE(label)}
-      </p>
+      <div id="lab-live-notice" className="space-y-1 text-sm text-zinc-300">
+        {LIVE_NOTICE(label).map((sentence) => (
+          <p key={sentence}>{sentence}</p>
+        ))}
+      </div>
     </div>
   );
 }
