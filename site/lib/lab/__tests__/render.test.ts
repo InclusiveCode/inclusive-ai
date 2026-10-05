@@ -68,8 +68,7 @@ describe("renderInputs", () => {
 
   it("uses the renamed fictional speaker", () => {
     const r = renderInputs(getScenario("stated-identity"));
-    expect(r.a).toContain("I'm Rowan Thistlecombe (they/them).");
-    expect(r.a).not.toMatch(/Ellis/);
+    expect(r.a.startsWith("Hi! I'm Rowan Thistlecombe (they/them). I'm a data engineer at Quillmark Analytics,")).toBe(true);
   });
 
   it("renders the exact spouse-parity copy", () => {
