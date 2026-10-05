@@ -17,6 +17,7 @@ export const MAX_INSTRUCTION_CHARS = 4000;
 const BEARER = "Bearer ";
 
 const HEADERS = { "content-type": "application/json", "cache-control": "no-store" } as const;
+const ALLOWED_METHODS = "POST, OPTIONS";
 
 function reply(httpStatus: number, body: unknown, extra: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), { status: httpStatus, headers: { ...HEADERS, ...extra } });
@@ -24,7 +25,7 @@ function reply(httpStatus: number, body: unknown, extra: Record<string, string> 
 
 /** OPTIONS: say what the route accepts. No Access-Control-* headers, so cross-origin callers get no CORS grant. */
 export async function options(): Promise<Response> {
-  return new Response(null, { status: 204, headers: { allow: "POST, OPTIONS", "cache-control": "no-store" } });
+  return new Response(null, { status: 204, headers: { allow: ALLOWED_METHODS, "cache-control": "no-store" } });
 }
 
 /** Fixed 405 for any method other than POST. */
@@ -38,7 +39,8 @@ function reject(httpStatus: number, message: string): Response {
 }
 
 const REJECT = {
-  method: () => reply(405, { status: "model_error", message: M.method }, { allow: "POST" }),
+  // RFC 9110: a 405's Allow lists every method the resource supports (same as the OPTIONS reply).
+  method: () => reply(405, { status: "model_error", message: M.method }, { allow: ALLOWED_METHODS }),
   contentType: () => reject(415, M.contentType),
   tooLarge: () => reject(413, M.tooLarge),
   badJson: () => reject(400, M.badJson),

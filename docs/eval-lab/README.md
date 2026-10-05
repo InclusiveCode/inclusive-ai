@@ -163,7 +163,7 @@ What the page tells users: this site doesn't store or log the key; it is sent ov
 | Check | Response |
 |---|---|
 | OPTIONS | 204 with `Allow: POST, OPTIONS`, `no-store`, and no `Access-Control-*` headers (no CORS grant) |
-| GET, HEAD, PUT, PATCH, or DELETE | 405 fixed JSON with `Allow: POST` (`no-store` is also set in `next.config.ts`) |
+| GET, HEAD, PUT, PATCH, or DELETE | 405 fixed JSON with `Allow: POST, OPTIONS` (`no-store` is also set in `next.config.ts`) |
 | Content type is not `application/json` | 415 |
 | Body over 16 384 bytes (declared or measured) | 413 |
 | Body is not JSON | 400 |

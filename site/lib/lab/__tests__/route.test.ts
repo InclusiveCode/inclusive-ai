@@ -91,11 +91,11 @@ function expectRejected(r: { res: Response; text: string; json: Record<string, u
 }
 
 describe("live route: request checks (each before any provider call)", () => {
-  it("405 for a method other than POST, with Allow: POST", async () => {
+  it("405 for a method other than POST, with Allow: POST, OPTIONS", async () => {
     const { clients, seen } = fakeClients();
     const r = await send(request(null, { method: "GET" }), clients);
     expectRejected(r, 405);
-    expect(r.res.headers.get("allow")).toBe("POST");
+    expect(r.res.headers.get("allow")).toBe("POST, OPTIONS");
     expect(seen).toEqual([]);
   });
 
@@ -328,14 +328,14 @@ describe("live route module", () => {
     expect(await res.text()).toBe("");
   });
 
-  it("answers GET, HEAD, PUT, PATCH, and DELETE with the fixed 405 JSON, Allow: POST, and no-store", async () => {
+  it("answers GET, HEAD, PUT, PATCH, and DELETE with the fixed 405 JSON, Allow: POST, OPTIONS, and no-store", async () => {
     const mod = (await import("../../../app/api/lab/run/route")) as Record<string, unknown>;
     for (const method of ["GET", "HEAD", "PUT", "PATCH", "DELETE"]) {
       const handler = mod[method] as ((req: Request) => Promise<Response>) | undefined;
       expect(typeof handler, method).toBe("function");
       const res = await handler!(new Request("http://localhost/api/lab/run", { method }));
       expect(res.status, method).toBe(405);
-      expect(res.headers.get("allow")).toBe("POST");
+      expect(res.headers.get("allow")).toBe("POST, OPTIONS");
       expect(res.headers.get("cache-control")).toBe("no-store");
       expect(await res.json()).toEqual({ status: "model_error", message: "Method not allowed" });
     }
