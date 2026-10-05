@@ -173,6 +173,21 @@ async function newLabPage({ viewport = { width: 1280, height: 900 }, clock = fal
   return { page, cap };
 }
 
+/** Each allowlisted model reports its own dated model id (as the real providers do). */
+const RETURNED_BY_MODEL = {
+  "claude-haiku-4-5": "claude-haiku-4-5-20251001",
+  "claude-sonnet-5-5": "claude-sonnet-5-5-20260901",
+  "gpt-4o-mini": "gpt-4o-mini-2024-07-18",
+  "gpt-4.1-mini": "gpt-4.1-mini-2025-04-14",
+};
+function perModelHandler({ failB = false } = {}) {
+  return (e) => {
+    const id = RETURNED_BY_MODEL[e.body?.model] ?? "unknown-model";
+    if (failB && e.body?.variant === "b") return { body: { status: "model_error", error: "Provider unavailable", durationMs: 5 } };
+    return okHandler({ returned: { a: id, b: id } })(e);
+  };
+}
+
 const SPOUSE_BAD = {
   a: "Happy to help! To add your wife, Jordan Lee, as an authorized user, sign in and open Authorized users.",
   b: "To add your partner, Jordan Lee, as an authorized user, please send a marriage certificate and a government-issued photo ID.",
@@ -227,7 +242,7 @@ async function axeScan(page, label) {
   const res = await page.evaluate(async () => {
     // eslint-disable-next-line no-undef
     const r = await axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] } });
-    return r.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, targets: v.nodes.slice(0, 3).map((n) => n.target.join(" ")) }));
+    return r.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, targets: v.nodes.map((n) => n.target.join(" ")) }));
   });
   observe(`axe (${label}): ${res.length === 0 ? "no violations" : res.map((v) => `${v.id}×${v.nodes} [${v.targets.join(" | ")}]`).join("; ")}`);
   return res;
@@ -438,6 +453,221 @@ await step("B. baseline had errors; no live run yet (L2 empty states)", async ()
   await waitRun(page, 2);
   check("L2 an edited rerun after a failed baseline is not compared with it", (await compareText(page)).includes("Live baseline had errors — run it again"), (await compareText(page)).slice(0, 200));
   await selectScenario(page, "spouse-parity");
+});
+
+// =====================================================================================
+// B1 (PO real-key smoke test): a new model's baseline is a baseline; spec §4 baseline selection
+// =====================================================================================
+/** The two RunMeta blocks in "5. Compare runs" as {label: value} maps, plus the refusal text if any. */
+const compareMeta = (p) =>
+  p.evaluate(() => {
+    const sec = document.querySelector("section[aria-labelledby=compare]");
+    const out = { text: sec?.innerText ?? "", notComparable: null, baseline: null, latest: null };
+    out.notComparable = [...sec.querySelectorAll("p")].map((x) => x.textContent ?? "").find((t) => t.startsWith("Not comparable:")) ?? null;
+    for (const title of sec.querySelectorAll("p")) {
+      const t = (title.textContent ?? "").trim();
+      if (t !== "Baseline run" && t !== "Latest run") continue;
+      const dl = title.parentElement.querySelector("dl");
+      const map = {};
+      const dts = [...dl.querySelectorAll("dt")];
+      for (const dt of dts) map[(dt.textContent ?? "").trim()] = (dt.nextElementSibling?.textContent ?? "").trim();
+      out[t === "Baseline run" ? "baseline" : "latest"] = map;
+    }
+    return out;
+  });
+
+await step("B1 the PO's sequence: Haiku baseline → Sonnet baseline → Sonnet edited → Haiku edited → other model", async () => {
+  const t = await newLabPage();
+  const p = t.page;
+  await p.goto(LAB, { waitUntil: "networkidle" });
+  await p.locator("input[name=response-source][value=live]").check();
+  await p.locator("#lab-live-key").fill(ANT_KEY);
+  t.cap.handler = perModelHandler();
+  let n = 0;
+  const go = async (button) => {
+    await p.getByRole("button", { name: button, exact: true }).click();
+    await waitRun(p, ++n);
+    return compareMeta(p);
+  };
+  // 1. Haiku baseline.
+  let c = await go("Run baseline live");
+  check("B1 step 1 Haiku baseline → 'Live baseline only — edit and rerun'", c.text.includes("Live baseline only — edit and rerun") && !c.notComparable, c.text.slice(0, 200));
+  // 2. Switch to Sonnet 5.5 and run its baseline: the reported bug showed "Not comparable: config differs".
+  await p.locator("#lab-live-model").selectOption("claude-sonnet-5-5");
+  c = await go("Run baseline live");
+  check("B1 step 2 Sonnet baseline after a Haiku baseline → 'Live baseline only — edit and rerun', not 'config differs'", c.text.includes("Live baseline only — edit and rerun") && !c.notComparable && !c.text.includes("config differs"), c.text.slice(0, 220));
+  check("B1 step 2 the banner shows Sonnet's returned model", (await bannerText(p)).includes("claude-sonnet-5-5-20260901"));
+  // 3. Edit and rerun on Sonnet: Sonnet vs Sonnet.
+  await addPreset(p, "FIX-VERIFY");
+  await addPreset(p, "FIX-TERMS");
+  c = await go("Rerun");
+  check(
+    "B1 step 3 Sonnet edited rerun compares with the Sonnet baseline (run 2), Sonnet vs Sonnet",
+    !c.notComparable && !!parseSummary(c.text) && c.baseline?.["Run ID"] === "spouse-parity-run-2" && c.baseline?.["Requested model"] === "claude-sonnet-5-5" && c.latest?.["Requested model"] === "claude-sonnet-5-5" && c.baseline?.["Returned model"] === "claude-sonnet-5-5-20260901" && c.latest?.["Returned model"] === "claude-sonnet-5-5-20260901",
+    JSON.stringify({ nc: c.notComparable, b: c.baseline?.["Run ID"], bm: c.baseline?.["Requested model"], lm: c.latest?.["Requested model"] }),
+  );
+  check("B1 step 3 both comparison columns show Temperature n/a (Sonnet omits it)", c.baseline?.Temperature === "n/a" && c.latest?.Temperature === "n/a");
+  // 4. Back to Haiku, still edited: compares with the Haiku baseline (run 1).
+  await p.locator("#lab-live-model").selectOption("claude-haiku-4-5");
+  c = await go("Rerun");
+  check(
+    "B1 step 4 Haiku edited rerun compares with the Haiku baseline (run 1), Haiku vs Haiku",
+    !c.notComparable && !!parseSummary(c.text) && c.baseline?.["Run ID"] === "spouse-parity-run-1" && c.baseline?.["Requested model"] === "claude-haiku-4-5" && c.latest?.["Requested model"] === "claude-haiku-4-5",
+    JSON.stringify({ nc: c.notComparable, b: c.baseline?.["Run ID"], bm: c.baseline?.["Requested model"], lm: c.latest?.["Requested model"] }),
+  );
+  // 5. Another model with no baseline of its own, edited: the actionable reason.
+  await p.locator("#lab-live-provider").selectOption("openai");
+  await p.locator("#lab-live-key").fill(OAI_KEY);
+  await p.locator("#lab-live-model").selectOption("gpt-4o-mini");
+  c = await go("Rerun");
+  check(
+    "B1 step 5 an edited run with only other models' baselines shows the actionable reason",
+    c.notComparable === "Not comparable: config differs (provider, model, temperature, or max tokens) — click “Run baseline live” with this model first.",
+    c.notComparable ?? c.text.slice(0, 200),
+  );
+  // 6. Following that advice: baseline for this model, then the edited run compares with it.
+  c = await go("Run baseline live");
+  check("B1 step 6 GPT-4o mini baseline → 'Live baseline only — edit and rerun'", c.text.includes("Live baseline only — edit and rerun") && !c.notComparable);
+  c = await go("Rerun");
+  check("B1 step 7 GPT-4o mini edited rerun compares with its own baseline (run 6)", !c.notComparable && c.baseline?.["Run ID"] === "spouse-parity-run-6" && c.latest?.["Requested model"] === "gpt-4o-mini", JSON.stringify({ nc: c.notComparable, b: c.baseline?.["Run ID"] }));
+  // 8. An unedited run that had errors, with a same-model ok baseline: says which version did not complete.
+  t.cap.handler = perModelHandler({ failB: true });
+  c = await go("Run baseline live");
+  check("B1 step 8 a failed GPT-4o mini baseline is compared with its own ok baseline: 'Version B did not complete (model error) — rerun to compare'", c.notComparable === "Not comparable: Version B did not complete (model error) — rerun to compare" && c.baseline?.["Run ID"] === "spouse-parity-run-6", c.notComparable ?? c.text.slice(0, 200));
+  // 9. An unedited run that had errors on a model with no ok baseline of its own: 'baseline had errors', never 'config differs'.
+  await p.locator("#lab-live-model").selectOption("gpt-4.1-mini");
+  c = await go("Run baseline live");
+  check("B1 step 9 a failed baseline on a model with no ok baseline → 'Live baseline had errors — run it again'", c.text.includes("Live baseline had errors — run it again") && !c.notComparable, c.text.slice(0, 200));
+  await p.screenshot({ path: join(EVIDENCE, "verifier-live-b1.png"), fullPage: false });
+  await t.cap.context.close();
+});
+
+await step("B1 follow-up: a baseline run whose A and B model ids differ or are missing is not comparable, and never a baseline", async () => {
+  const t = await newLabPage();
+  const p = t.page;
+  await p.goto(LAB, { waitUntil: "networkidle" });
+  await p.locator("input[name=response-source][value=live]").check();
+  await p.locator("#lab-live-key").fill(ANT_KEY);
+  let n = 0;
+  const go = async (button) => {
+    await p.getByRole("button", { name: button, exact: true }).click();
+    await waitRun(p, ++n);
+    return compareMeta(p);
+  };
+  const split = okHandler({ returned: { a: "claude-haiku-4-5-20251001", b: "claude-haiku-4-5-20260301" } });
+  // 1. A and B report different model ids: not "baseline only"; the reason is shown with the run's metadata.
+  t.cap.handler = split;
+  let c = await go("Run baseline live");
+  check(
+    "B1+ a split baseline run alone → 'Not comparable: Versions A and B were answered by different model versions', not 'baseline only'",
+    c.notComparable === "Not comparable: Versions A and B were answered by different model versions" && !c.text.includes("Live baseline only") && c.latest?.["Run ID"] === "spouse-parity-run-1" && c.baseline === null,
+    c.notComparable ?? c.text.slice(0, 200),
+  );
+  // 2. Version B reports no model id.
+  t.cap.handler = (e) => {
+    const r = okHandler()(e);
+    if (e.body?.variant === "b") delete r.body.returnedModel;
+    return r;
+  };
+  c = await go("Run baseline live");
+  check("B1+ a baseline run where Version B reports no model id → not comparable, with that reason", (c.notComparable ?? "").startsWith("Not comparable: Version B did not return a model id"), c.notComparable ?? c.text.slice(0, 200));
+  // 3. A consistent baseline: "baseline only" (the two earlier runs are never its baseline).
+  t.cap.handler = perModelHandler();
+  c = await go("Run baseline live");
+  check("B1+ a consistent baseline after split runs → 'Live baseline only — edit and rerun'", c.text.includes("Live baseline only — edit and rerun") && !c.notComparable, c.text.slice(0, 200));
+  // 4. Another split baseline run: compared with the consistent same-model baseline, so the reason is shown against it.
+  t.cap.handler = split;
+  c = await go("Run baseline live");
+  check(
+    "B1+ a split baseline run with a consistent same-model baseline → compared with it (run 3) and refused with the model-version reason",
+    c.notComparable === "Not comparable: Versions A and B were answered by different model versions" && c.baseline?.["Run ID"] === "spouse-parity-run-3",
+    JSON.stringify({ nc: c.notComparable, b: c.baseline?.["Run ID"] }),
+  );
+  // 5. An edited run: compared with the consistent baseline (run 3), never the newer split run (run 4).
+  await addPreset(p, "FIX-VERIFY");
+  t.cap.handler = perModelHandler();
+  c = await go("Rerun");
+  check("B1+ an edited run compares with the consistent baseline (run 3), never the newer split run", !c.notComparable && !!parseSummary(c.text) && c.baseline?.["Run ID"] === "spouse-parity-run-3", JSON.stringify({ nc: c.notComparable, b: c.baseline?.["Run ID"] }));
+  await t.cap.context.close();
+});
+
+// =====================================================================================
+// U1–U3: additive copy, with accessibility checks
+// =====================================================================================
+const U1_NOTE = "Live mode is selected — the results below are from a simulated run until you run live.";
+const U2_HELP = "Runs the scenario's original instruction (not your edits) to set the live baseline. Use Rerun to run your edited instruction.";
+const RUBRIC = /export const RUBRIC_VERSION = "([^"]+)";/.exec(readFileSync(new URL("../../lib/lab/scenarios.ts", import.meta.url), "utf8"))?.[1];
+
+await step("U1–U3 copy, placement, and accessibility", async () => {
+  const t = await newLabPage();
+  const p = t.page;
+  await p.goto(LAB, { waitUntil: "networkidle" });
+  const noteInfo = () =>
+    p.evaluate((note) => {
+      const el = [...document.querySelectorAll("main p")].find((x) => (x.textContent ?? "").trim() === note);
+      if (!el) return null;
+      const banner = document.querySelector("[role=note]");
+      let liveAncestor = false;
+      for (let n = el; n; n = n.parentElement) if (n.getAttribute("aria-live") || ["status", "alert", "log"].includes(n.getAttribute("role") ?? "")) liveAncestor = true;
+      return { afterBanner: banner?.nextElementSibling === el, liveAncestor, role: el.getAttribute("role"), focusable: el.tabIndex >= 0, visible: el.getBoundingClientRect().height > 0 };
+    }, U1_NOTE);
+  check("U1 Simulated selected: no note", (await noteInfo()) === null);
+  await p.locator("input[name=response-source][value=live]").check();
+  const info = await noteInfo();
+  check("U1 Live selected + simulated run on screen: the note appears right under the banner", !!info && info.afterBanner && info.visible, JSON.stringify(info));
+  check("U1 the note is static: no role, not inside a live region, not focusable", !!info && !info.liveAncestor && info.role === null && !info.focusable, JSON.stringify(info));
+  check("U1 the banner text is unchanged (still the simulated banner)", (await bannerText(p)).startsWith("Simulated demo — no AI model is called"));
+  // U2: helper text tied to "Run baseline live".
+  const btn = p.getByRole("button", { name: "Run baseline live" });
+  const describedBy = await btn.getAttribute("aria-describedby");
+  const helpText = describedBy ? await p.locator(`#${describedBy}`).innerText() : "";
+  check("U2 'Run baseline live' has aria-describedby pointing at the exact helper text", !!describedBy && helpText === U2_HELP, `${describedBy}: ${helpText}`);
+  const cdp = await t.cap.context.newCDPSession(p);
+  const ax = await cdp.send("Accessibility.getFullAXTree");
+  const node = ax.nodes.find((x) => x.role?.value === "button" && x.name?.value === "Run baseline live");
+  check("U2 the browser's accessibility tree gives the button that description", node?.description?.value === U2_HELP, node?.description?.value ?? "(none)");
+  const helpFocusable = await p.locator(`#${describedBy}`).evaluate((el) => el.tabIndex >= 0 || el.hasAttribute("aria-live") || el.hasAttribute("role"));
+  check("U2 the helper text is static (not focusable, no role, not live)", helpFocusable === false);
+  // Tab order: every tab stop in /lab is an interactive control; the new text is never a stop.
+  const stops = [];
+  await p.evaluate(() => window.scrollTo(0, 0));
+  // Start from the first link in the site nav, so the sweep covers the whole page in order.
+  await p.locator("body > nav a").first().focus();
+  for (let i = 0; i < 150; i++) {
+    await p.keyboard.press("Tab");
+    const st = await p.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el === document.body) return null;
+      const interactive = el.matches("a[href], button, input, select, textarea, summary, [role=region][tabindex='0']");
+      return { tag: el.tagName.toLowerCase(), text: (el.textContent ?? "").trim().slice(0, 60), id: el.id, interactive, inFooter: !!el.closest("footer") };
+    });
+    if (!st || st.inFooter) break;
+    stops.push(st);
+  }
+  const bad = stops.filter((x) => !x.interactive || x.text === U1_NOTE || x.text === U2_HELP);
+  check(`U1/U2 tab order: all ${stops.length} stops are interactive controls; the note and helper text are never stops`, stops.length > 30 && bad.length === 0, bad.length ? JSON.stringify(bad.slice(0, 3)) : stops.map((x) => x.text.slice(0, 18)).join(" > "));
+  const runIdx = stops.findIndex((x) => x.text === "Run baseline live");
+  check("U2 'Run baseline live' directly follows 'Rerun' in the tab order", runIdx > 0 && stops[runIdx - 1].text === "Rerun", JSON.stringify(stops.slice(Math.max(0, runIdx - 2), runIdx + 2)));
+  // U3: rubric version in run metadata (simulated run on screen).
+  const inspect = await inspectText(p);
+  check(`U3 simulated run metadata shows 'Rubric version ${RUBRIC}'`, !!RUBRIC && new RegExp(`Rubric version\\s+${RUBRIC.replace(/\./g, "\\.")}`).test(inspect), inspect.slice(-500).replace(/\n/g, " "));
+  // A live run on screen: the note disappears; showing the simulated baseline brings it back.
+  await p.locator("#lab-live-key").fill(ANT_KEY);
+  t.cap.handler = perModelHandler();
+  await btn.click();
+  await waitRun(p, 1);
+  check("U1 a live run on screen: no note", (await noteInfo()) === null);
+  await p.locator("input[name=view-run][value=baseline]").check();
+  check("U1 showing the simulated baseline again with Live selected: the note is back", !!(await noteInfo()));
+  await p.locator("input[name=view-run][value=latest]").check();
+  await setSource(p, "simulated");
+  check("U1/U2 Simulated selected: no note and no helper text", (await noteInfo()) === null && (await p.locator("#lab-baseline-live-help").count()) === 0);
+  // U3: both comparison columns (a simulated rerun compares with the simulated baseline).
+  await rerun(p);
+  await waitRun(p, 2);
+  const c = await compareMeta(p);
+  check(`U3 both comparison columns show 'Rubric version ${RUBRIC}'`, c.baseline?.["Rubric version"] === RUBRIC && c.latest?.["Rubric version"] === RUBRIC, JSON.stringify({ b: c.baseline?.["Rubric version"], l: c.latest?.["Rubric version"] }));
+  await t.cap.context.close();
 });
 
 // =====================================================================================
@@ -1217,6 +1447,9 @@ await step("K. L7 accessibility parity: live mode adds no axe violation types", 
   const base = new Set(sim.map((v) => v.id));
   const added = [...panel, ...keyErr, ...run, ...err].map((v) => v.id).filter((id) => !base.has(id));
   check("L7 live-mode states add no axe violation types beyond the simulated page", added.length === 0, [...new Set(added)].join(", "));
+  // The only known violation (D31, follow-up) is the footer's contrast; nothing inside the lab, including the U1 note and U2 help.
+  const inLab = [...sim, ...panel, ...keyErr, ...run, ...err].flatMap((v) => v.targets.filter((t) => !t.startsWith("footer")).map((t) => `${v.id}: ${t}`));
+  check("L7/U1/U2 axe finds no violation inside the lab in any state (only the known footer contrast, D31)", inLab.length === 0, inLab.join(" | "));
   await t.cap.context.close();
 });
 

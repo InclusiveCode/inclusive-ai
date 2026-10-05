@@ -9,8 +9,9 @@ import { join } from "node:path";
 import { createElement, createRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { RunBanner } from "../../app/lab/components/banner";
-import { LivePanel } from "../../app/lab/components/live-panel";
+import { LIVE_SELECTED_SIMULATED_NOTE, LiveSelectedNote, RunBanner } from "../../app/lab/components/banner";
+import { CompareView } from "../../app/lab/components/compare-view";
+import { BASELINE_LIVE_HELP, BASELINE_LIVE_HELP_ID, BaselineLiveHelp, LivePanel } from "../../app/lab/components/live-panel";
 import { Limitations } from "../../app/lab/components/reference";
 import { RunDetails } from "../../app/lab/components/run-details";
 import { liveAlertText, providerRefusalAsymmetryNote } from "../../app/lab/components/status";
@@ -21,7 +22,7 @@ import { createOverride, reviewLogJson } from "../../lib/lab/overrides";
 import { renderInputs } from "../../lib/lab/render";
 import { LabClient } from "../../app/lab/lab-client";
 import { runScenario } from "../../lib/lab/run";
-import { getScenario, scenarios } from "../../lib/lab/scenarios";
+import { getScenario, RUBRIC_VERSION, scenarios } from "../../lib/lab/scenarios";
 import { SIMULATED_CONFIG, simulatedResponder } from "../../lib/lab/simulator";
 import { opts, simRun } from "./helpers";
 import { anthropicReply, fakeClients, GPT4O_MINI, HAIKU, liveRun, openaiReply, perVariant, SONNET } from "./live-helpers";
@@ -303,3 +304,69 @@ describe("D34: comparison wording when one version was declined", () => {
     if (!c.compatible) expect(c.reason).toBe("Versions A and B did not complete (A: declined by the provider; B: declined by the provider) — rerun to compare");
   });
 });
+
+describe("U1: a static note says when Live is selected but the displayed run is simulated", () => {
+  const NOTE = "Live mode is selected — the results below are from a simulated run until you run live.";
+
+  it("exact copy, shown only for Live selected + a simulated run on screen; not a live region", async () => {
+    expect(LIVE_SELECTED_SIMULATED_NOTE).toBe(NOTE);
+    const sim = await simRun(s.id);
+    const html = renderToStaticMarkup(createElement(LiveSelectedNote, { source: "live", run: sim }));
+    expect(text(html)).toBe(NOTE);
+    expect(html).toMatch(/^<p\b/);
+    expect(html).not.toMatch(/role=|aria-live|aria-atomic|tabindex/i);
+    const live = await liveOf(HAIKU, { a: "claude-haiku-4-5-20251001", b: "claude-haiku-4-5-20251001" });
+    expect(renderToStaticMarkup(createElement(LiveSelectedNote, { source: "live", run: live }))).toBe("");
+    expect(renderToStaticMarkup(createElement(LiveSelectedNote, { source: "simulated", run: sim }))).toBe("");
+    expect(renderToStaticMarkup(createElement(LiveSelectedNote, { source: "live", run: undefined }))).toBe("");
+  });
+
+  it("the banner itself is unchanged: it still describes the displayed (simulated) run", async () => {
+    const sim = await simRun(s.id);
+    const t = text(renderToStaticMarkup(createElement(RunBanner, { run: sim })));
+    expect(t).toMatch(/^Simulated demo — no AI model is called\./);
+    expect(t).not.toContain("Live mode is selected");
+  });
+
+  it("the initial page (Simulated selected) shows no note", async () => {
+    const baselineRuns = await Promise.all(
+      scenarios.map((sc) => runScenario(sc, sc.baselineInstruction, simulatedResponder, SIMULATED_CONFIG, opts({ id: `${sc.id}-baseline` }))),
+    );
+    expect(text(renderToStaticMarkup(createElement(LabClient, { baselineRuns })))).not.toContain(NOTE);
+  });
+});
+
+describe("U2: helper text for 'Run baseline live'", () => {
+  it("exact copy, with the id the button's aria-describedby points to; not focusable, not a live region", () => {
+    expect(BASELINE_LIVE_HELP).toBe(
+      "Runs the scenario's original instruction (not your edits) to set the live baseline. Use Rerun to run your edited instruction.",
+    );
+    const html = renderToStaticMarkup(createElement(BaselineLiveHelp));
+    expect(html).toContain(`id="${BASELINE_LIVE_HELP_ID}"`);
+    expect(text(html)).toBe(BASELINE_LIVE_HELP);
+    expect(html).not.toMatch(/role=|aria-live|tabindex/i);
+  });
+});
+
+describe("U3: the rubric version is shown in run metadata and in both comparison columns", () => {
+  it("simulated and live run details show 'Rubric version' with the run's version", async () => {
+    const sim = await simRun(s.id);
+    expect(sim.rubricVersion).toBe(RUBRIC_VERSION);
+    expect(text(renderToStaticMarkup(createElement(RunDetails, { scenario: s, run: sim })))).toContain(`Rubric version ${RUBRIC_VERSION}`);
+    const live = await liveOf(HAIKU, { a: "claude-haiku-4-5-20251001", b: "claude-haiku-4-5-20251001" });
+    expect(text(renderToStaticMarkup(createElement(RunDetails, { scenario: s, run: live })))).toContain(`Rubric version ${RUBRIC_VERSION}`);
+  });
+
+  it("both columns of a comparison (and of a refused one) show it, so a rubric mismatch is visible", async () => {
+    const base = await simRun(s.id);
+    const edited = await simRun(s.id, s.baselineInstruction + "\nBe brief.");
+    const ok = text(renderToStaticMarkup(createElement(CompareView, { scenario: s, baseline: base, latest: edited, overrides: [] })));
+    expect(ok.match(new RegExp(`Rubric version ${RUBRIC_VERSION.replace(/\./g, "\\.")}`, "g")) ?? []).toHaveLength(2);
+    const old = { ...base, rubricVersion: "2026-10-05.4" };
+    const refused = text(renderToStaticMarkup(createElement(CompareView, { scenario: s, baseline: old, latest: edited, overrides: [] })));
+    expect(refused).toContain("Not comparable: rubricVersion differs (2026-10-05.4 vs 2026-10-05.5).");
+    expect(refused).toContain("Rubric version 2026-10-05.4");
+    expect(refused).toContain(`Rubric version ${RUBRIC_VERSION}`);
+  });
+});
+

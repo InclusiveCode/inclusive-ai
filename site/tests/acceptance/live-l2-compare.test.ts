@@ -6,8 +6,8 @@
  * returned model id each version reports is exactly what a provider would have said.
  */
 import { describe, expect, it } from "vitest";
-import { compareRuns, returnedModels } from "../../lib/lab/compare";
-import { emptyCompareState, selectBaseline } from "../../lib/lab/history";
+import { compareRuns, LIVE_CONFIG_DIFFERS, returnedModels } from "../../lib/lab/compare";
+import { emptyCompareState, planLiveComparison, selectBaseline } from "../../lib/lab/history";
 import { renderInputs } from "../../lib/lab/render";
 import { getScenario } from "../../lib/lab/scenarios";
 import type { Run } from "../../lib/lab/types";
@@ -228,6 +228,279 @@ describe("L2 / fix round: a live run with a version that did not complete is not
     const c = compareRuns(baseline, run);
     expect(c.compatible).toBe(false);
     if (!c.compatible) expect(c.reason).toMatch(/^Versions A and B did not complete \(A: credentials unavailable; B: credentials unavailable\)/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B1 (PO real-key smoke test): a new model's baseline is a baseline, never compared with another model's.
+// Expectations from spec §1 step 4 and §4: the baseline is the most recent fully-ok run of the unedited
+// instruction that is compatible with the latest run; empty states "No live run yet", "Live baseline only —
+// edit and rerun", "Live baseline had errors — run it again".
+// ---------------------------------------------------------------------------
+
+const RETURNED: Record<string, string> = {
+  [HAIKU]: "claude-haiku-4-5-20251001",
+  [SONNET]: "claude-sonnet-5-5-20260901",
+  [GPT4O_MINI]: "gpt-4o-mini-2024-07-18",
+  [GPT41_MINI]: "gpt-4.1-mini-2025-04-14",
+};
+let b1seq = 0;
+async function modelRun(modelId: string, instruction: string, ok = true): Promise<Run> {
+  const inputs = renderInputs(s);
+  const fake = fakeClients((call) => {
+    const u = (call.body.messages as Array<{ role: string; content: string }>).find((m) => m.role === "user")!.content;
+    if (!ok && u === inputs.b) throw new Error("upstream failure");
+    return perVariant(s, instruction === BASE ? BAD : GOOD, { a: RETURNED[modelId], b: RETURNED[modelId] })(call);
+  });
+  b1seq += 1;
+  return (await liveRun(s, instruction, modelId, fake.clients, { id: `b1-${b1seq}` })).run;
+}
+
+/** A fully-ok run whose versions report the given model ids (an id left out is not reported). */
+async function splitRun(modelId: string, instruction: string, ids: { a?: string; b?: string }): Promise<Run> {
+  const inputs = renderInputs(s);
+  const fake = fakeClients((call) => {
+    const u = (call.body.messages as Array<{ role: string; content: string }>).find((m) => m.role === "user")!.content;
+    const v = u === inputs.a ? "a" : "b";
+    const text = (instruction === BASE ? BAD : GOOD)[v];
+    const id = ids[v];
+    const base = call.provider === "anthropic" ? { content: [{ type: "text", text }], stop_reason: "end_turn" } : { choices: [{ index: 0, message: { role: "assistant", content: text, refusal: null }, finish_reason: "stop" }] };
+    return id ? { ...base, model: id } : base;
+  });
+  b1seq += 1;
+  return (await liveRun(s, instruction, modelId, fake.clients, { id: `b1s-${b1seq}` })).run;
+}
+
+/** What section 5 shows: an empty state, or the comparison/refusal against the planned baseline. */
+type Section5 =
+  | { empty: "no_live_run" | "baseline_only" | "baseline_errors" }
+  | { notComparable: string }
+  | { baselineId: string; comparison: ReturnType<typeof compareRuns> };
+function section5(runs: Run[], latest: Run): Section5 {
+  const plan = planLiveComparison(runs, latest, BASE);
+  if ("empty" in plan) return { empty: plan.empty };
+  if ("notComparable" in plan) return { notComparable: plan.notComparable };
+  return { baselineId: plan.baseline.id, comparison: compareRuns(plan.baseline, latest) };
+}
+
+describe("B1: the PO's sequence — a new model's baseline is 'baseline only', then compared with itself", () => {
+  it("the actionable config reason is the exact copy in the source", () => {
+    expect(LIVE_CONFIG_DIFFERS).toBe("config differs (provider, model, temperature, or max tokens) — click “Run baseline live” with this model first.");
+  });
+
+  it("Haiku baseline → Sonnet baseline → Sonnet edited → Haiku edited → GPT-4o mini edited", async () => {
+    const runs: Run[] = [];
+    const haikuBase = await modelRun(HAIKU, BASE);
+    runs.push(haikuBase);
+    expect(section5(runs, haikuBase)).toEqual({ empty: "baseline_only" });
+
+    // The reported bug: the Sonnet baseline was compared with the Haiku baseline ("config differs").
+    const sonnetBase = await modelRun(SONNET, BASE);
+    runs.push(sonnetBase);
+    expect(section5(runs, sonnetBase)).toEqual({ empty: "baseline_only" });
+
+    const sonnetEdited = await modelRun(SONNET, EDITED);
+    runs.push(sonnetEdited);
+    const s5 = section5(runs, sonnetEdited);
+    expect("baselineId" in s5 && s5.baselineId).toBe(sonnetBase.id);
+    if (!("comparison" in s5)) throw new Error("expected a comparison");
+    expect(s5.comparison.compatible).toBe(true);
+    if (s5.comparison.compatible) {
+      expect(s5.comparison.summary.improved).toBeGreaterThan(0);
+      expect(s5.comparison.rows.some((r) => r.variation)).toBe(false);
+    }
+
+    const haikuEdited = await modelRun(HAIKU, EDITED);
+    runs.push(haikuEdited);
+    const h5 = section5(runs, haikuEdited);
+    expect("baselineId" in h5 && h5.baselineId).toBe(haikuBase.id);
+    expect("comparison" in h5 && h5.comparison.compatible).toBe(true);
+
+    const gptEdited = await modelRun(GPT4O_MINI, EDITED);
+    runs.push(gptEdited);
+    const g5 = section5(runs, gptEdited);
+    if (!("comparison" in g5)) throw new Error("expected a refusal with a reason");
+    expect(g5.comparison.compatible).toBe(false);
+    if (!g5.comparison.compatible) expect(g5.comparison.reason).toBe(LIVE_CONFIG_DIFFERS);
+
+    const gptBase = await modelRun(GPT4O_MINI, BASE);
+    runs.push(gptBase);
+    expect(section5(runs, gptBase)).toEqual({ empty: "baseline_only" });
+    const gptEdited2 = await modelRun(GPT4O_MINI, EDITED);
+    runs.push(gptEdited2);
+    const g6 = section5(runs, gptEdited2);
+    expect("baselineId" in g6 && g6.baselineId).toBe(gptBase.id);
+    expect("comparison" in g6 && g6.comparison.compatible).toBe(true);
+  });
+});
+
+describe("B1: each planning rule", () => {
+  it("a compatible fully-ok baseline is always used, even when the latest is itself an unedited run (run-to-run variation)", async () => {
+    const h1 = await modelRun(HAIKU, BASE);
+    const sb = await modelRun(SONNET, BASE);
+    const h2 = await modelRun(HAIKU, BASE);
+    const r = section5([h1, sb, h2], h2);
+    expect("baselineId" in r && r.baselineId).toBe(h1.id);
+    if ("comparison" in r && r.comparison.compatible) expect(r.comparison.rows.every((x) => x.variation)).toBe(true);
+    else throw new Error("expected a compatible comparison");
+  });
+
+  it("an unedited latest run with errors is compared with a same-model ok baseline, to say which version did not complete", async () => {
+    const sOk = await modelRun(SONNET, BASE);
+    const hOk = await modelRun(HAIKU, BASE); // newer, but another model
+    const sErr = await modelRun(SONNET, BASE, false);
+    const r = section5([sOk, hOk, sErr], sErr);
+    expect("baselineId" in r && r.baselineId).toBe(sOk.id);
+    if ("comparison" in r && !r.comparison.compatible) expect(r.comparison.reason).toBe("Version B did not complete (model error) — rerun to compare");
+    else throw new Error("expected a refusal naming the failed version");
+  });
+
+  it("an unedited latest run with errors and only another model's ok baseline → 'baseline had errors', never 'config differs'", async () => {
+    const hOk = await modelRun(HAIKU, BASE);
+    const sErr = await modelRun(SONNET, BASE, false);
+    expect(section5([hOk, sErr], sErr)).toEqual({ empty: "baseline_errors" });
+  });
+
+  it("an edited run prefers the most recent same-model ok baseline over a newer other-model baseline", async () => {
+    const hOld = await modelRun(HAIKU, BASE);
+    const hNew = await modelRun(HAIKU, BASE);
+    const sNewest = await modelRun(SONNET, BASE);
+    const hEdited = await modelRun(HAIKU, EDITED);
+    const r = section5([hOld, hNew, sNewest, hEdited], hEdited);
+    expect("baselineId" in r && r.baselineId).toBe(hNew.id);
+    expect("comparison" in r && r.comparison.compatible).toBe(true);
+  });
+
+  it("an edited run whose same-model baseline was answered by another model version shows that reason, not 'config differs'", async () => {
+    const hBase = await modelRun(HAIKU, BASE);
+    const hEdited = await (async () => {
+      const fake = fakeClients(perVariant(s, GOOD, { a: "claude-haiku-4-5-20260301", b: "claude-haiku-4-5-20260301" }));
+      return (await liveRun(s, EDITED, HAIKU, fake.clients, { id: "b1-newversion" })).run;
+    })();
+    const r = section5([hBase, hEdited], hEdited);
+    expect("baselineId" in r && r.baselineId).toBe(hBase.id);
+    if ("comparison" in r && !r.comparison.compatible) expect(r.comparison.reason).toBe("Different model versions answered the two runs");
+    else throw new Error("expected a refusal");
+  });
+
+  it("an edited run with no ok baseline at all: 'baseline had errors' if a baseline was tried, else 'no live run'", async () => {
+    const err = await modelRun(HAIKU, BASE, false);
+    const edited = await modelRun(HAIKU, EDITED);
+    expect(section5([err, edited], edited)).toEqual({ empty: "baseline_errors" });
+    expect(section5([edited], edited)).toEqual({ empty: "no_live_run" });
+  });
+
+  it("emptyCompareState agrees with the plan", async () => {
+    const hBase = await modelRun(HAIKU, BASE);
+    const sBase = await modelRun(SONNET, BASE);
+    expect(emptyCompareState([hBase, sBase], sBase, BASE)).toBe("baseline_only");
+  });
+});
+
+describe("B1: invariants over every history of up to three runs (4 models × edited/unedited × ok/errored)", () => {
+  it("never compares an unedited run with another setup; always uses the most recent compatible ok baseline", async () => {
+    const MODELS = [HAIKU, SONNET, GPT4O_MINI, GPT41_MINI];
+    const pool: Run[] = [];
+    for (const m of MODELS) for (const instr of [BASE, EDITED]) for (const ok of [true, false]) pool.push(await modelRun(m, instr, ok));
+    // B1 follow-up: fully-ok runs whose A and B model ids differ, or where one is missing.
+    for (const m of [HAIKU, SONNET]) for (const instr of [BASE, EDITED]) {
+      pool.push(await splitRun(m, instr, { a: RETURNED[m], b: `${RETURNED[m]}-other` }));
+      pool.push(await splitRun(m, instr, { a: RETURNED[m] }));
+    }
+    const usable = (r: Run) => returnedModels(r).consistent;
+    const fullyOk = (r: Run) => r.responses.a.status === "ok" && r.responses.b.status === "ok";
+    const sameCfg = (x: Run, y: Run) => JSON.stringify(x.config) === JSON.stringify(y.config);
+    let histories = 0;
+    const histories3: Run[][] = [];
+    for (const a of pool) {
+      histories3.push([a]);
+      for (const b of pool) {
+        histories3.push([a, b]);
+        for (const c of pool) histories3.push([a, b, c]);
+      }
+    }
+    for (const h of histories3) {
+      const runs = h.map((r, i) => ({ ...r, id: `inv-${histories}-${i}` }));
+      histories += 1;
+      const latest = runs[runs.length - 1];
+      const plan = planLiveComparison(runs, latest, BASE);
+      const compatible = selectBaseline(runs, latest, BASE);
+      const ctx = runs.map((r) => `${r.config.model}/${r.instruction === BASE ? "base" : "edit"}/${fullyOk(r) ? "ok" : "err"}`).join(" → ");
+      if (compatible) {
+        // Spec §4: the most recent compatible fully-ok baseline is used; it always reports one model id.
+        expect("baseline" in plan && plan.baseline.id, ctx).toBe(compatible.id);
+        expect(usable(compatible), ctx).toBe(true);
+        continue;
+      }
+      // A latest run whose A and B model ids differ or are missing is never "baseline only".
+      if (fullyOk(latest) && !usable(latest)) expect("empty" in plan && plan.empty, ctx).not.toBe("baseline_only");
+      if ("notComparable" in plan) {
+        expect(latest.instruction === BASE && fullyOk(latest) && !usable(latest), ctx).toBe(true);
+        expect(plan.notComparable, ctx).toMatch(/different model versions|did not return a model id/);
+        continue;
+      }
+      if ("baseline" in plan) {
+        expect(plan.baseline.id, ctx).not.toBe(latest.id);
+        expect(plan.baseline.instruction, ctx).toBe(BASE);
+        expect(fullyOk(plan.baseline), ctx).toBe(true);
+        // An unedited latest run is a baseline of its own setup: never compared with another model.
+        if (latest.instruction === BASE) expect(sameCfg(plan.baseline, latest), ctx).toBe(true);
+        const c = compareRuns(plan.baseline, latest);
+        expect(c.compatible, ctx).toBe(false);
+        if (!c.compatible && !sameCfg(plan.baseline, latest)) expect(c.reason, ctx).toBe(LIVE_CONFIG_DIFFERS);
+      } else {
+        if (latest.instruction === BASE && fullyOk(latest) && usable(latest)) expect(plan.empty, ctx).toBe("baseline_only");
+        if (plan.empty === "baseline_only") expect(latest.instruction === BASE && fullyOk(latest), ctx).toBe(true);
+        if (plan.empty === "no_live_run") expect(runs.some((r) => r.instruction === BASE), ctx).toBe(false);
+      }
+    }
+    expect(histories).toBe(24 + 24 ** 2 + 24 ** 3);
+  });
+});
+
+describe("B1 follow-up: a baseline run whose A and B model ids differ or are missing is not comparable, and never a baseline", () => {
+  const SPLIT = { a: RETURNED[HAIKU], b: "claude-haiku-4-5-20260301" };
+
+  it("alone: not 'baseline only' — not comparable, with the reason", async () => {
+    const split = await splitRun(HAIKU, BASE, SPLIT);
+    expect([split.responses.a.status, split.responses.b.status]).toEqual(["ok", "ok"]);
+    expect(section5([split], split)).toEqual({ notComparable: "Versions A and B were answered by different model versions" });
+    const missing = await splitRun(HAIKU, BASE, { a: RETURNED[HAIKU] });
+    const r = section5([missing], missing);
+    expect("notComparable" in r && r.notComparable).toMatch(/^Version B did not return a model id/);
+  });
+
+  it("with a same-model ok baseline: compared with it, so the reason is shown against that baseline", async () => {
+    const good = await modelRun(HAIKU, BASE);
+    const otherModel = await modelRun(SONNET, BASE);
+    const split = await splitRun(HAIKU, BASE, SPLIT);
+    const r = section5([good, otherModel, split], split);
+    expect("baselineId" in r && r.baselineId).toBe(good.id);
+    if ("comparison" in r && !r.comparison.compatible) expect(r.comparison.reason).toBe("Versions A and B were answered by different model versions");
+    else throw new Error("expected a refusal with the model-version reason");
+  });
+
+  it("never used as a baseline later: an edited run compares with an older consistent baseline, not the newer split one", async () => {
+    const good = await modelRun(HAIKU, BASE);
+    const split = await splitRun(HAIKU, BASE, SPLIT);
+    const edited = await modelRun(HAIKU, EDITED);
+    const r = section5([good, split, edited], edited);
+    expect("baselineId" in r && r.baselineId).toBe(good.id);
+    expect("comparison" in r && r.comparison.compatible).toBe(true);
+  });
+
+  it("never used as a baseline later: a following consistent baseline run is 'baseline only', not compared with the split run", async () => {
+    const split = await splitRun(HAIKU, BASE, SPLIT);
+    const good = await modelRun(HAIKU, BASE);
+    expect(section5([split, good], good)).toEqual({ empty: "baseline_only" });
+  });
+
+  it("with only split baselines, an edited run never gets a comparison (only a refusal)", async () => {
+    const split = await splitRun(HAIKU, BASE, SPLIT);
+    const edited = await modelRun(HAIKU, EDITED);
+    const r = section5([split, edited], edited);
+    if ("comparison" in r) expect(r.comparison.compatible).toBe(false);
+    else expect("empty" in r || "notComparable" in r).toBe(true);
   });
 });
 
