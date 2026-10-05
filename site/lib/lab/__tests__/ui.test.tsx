@@ -452,22 +452,25 @@ describe("A11Y: focus not obscured", () => {
   });
 });
 
-describe("built client bundle (runs only after `npm run build`)", () => {
+describe("built client bundle (after `npm run build`)", () => {
   const STATIC = join(SITE, ".next", "static");
+  // CI sets LAB_BUNDLE_CHECK=1 after the build: then a missing build output is a failure, not a skip.
+  const REQUIRED = process.env.LAB_BUNDLE_CHECK === "1";
   function all(dir: string): string[] {
     return readdirSync(dir).flatMap((n) => {
       const p = join(dir, n);
       return statSync(p).isDirectory() ? all(p) : [p];
     });
   }
-  it.skipIf(!existsSync(STATIC))("contains no provider API hosts, placeholder keys, or bearer tokens", () => {
+  it.skipIf(!REQUIRED && !existsSync(STATIC))("contains no provider API hosts, placeholder keys, or bearer tokens", () => {
+    expect(existsSync(STATIC), "LAB_BUNDLE_CHECK=1 but .next/static is missing; run `npm run build` first").toBe(true);
     const files = all(STATIC).filter((f) => /\.(js|mjs|css|json|txt|map|html)$/.test(f));
     expect(files.length).toBeGreaterThan(0);
     for (const f of files) {
       const src = readFileSync(f, "utf8");
       expect(src, f).not.toContain("api.anthropic.com");
       expect(src, f).not.toContain("api.openai.com");
-      expect(src, f).not.toMatch(/sk-test-PLACEHOLDER|Bearer [A-Za-z0-9]/);
+      expect(src, f).not.toMatch(/PLACEHOLDER|Bearer [A-Za-z0-9]/);
     }
   });
 });

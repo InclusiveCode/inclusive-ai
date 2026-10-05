@@ -53,3 +53,5 @@ jobs:
           cache: npm
           cache-dependency-path: site/package-lock.json
       - run: cd site && npm install && npm test && npm run build
+      - name: Check the built client bundle for provider hosts and keys
+        run: cd site && LAB_BUNDLE_CHECK=1 npx vitest run lib/lab/__tests__/ui.test.tsx -t "built client bundle"

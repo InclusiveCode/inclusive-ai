@@ -185,6 +185,15 @@ describe("callProvider: result mapping", () => {
     expect(refused.text).toBeUndefined();
   });
 
+  it("OpenAI finish_reason content_filter → provider_refused", async () => {
+    const r = await callProvider(
+      call(MINI),
+      fakes({ openai: async () => ({ model: "gpt-4o-mini-2024-07-18", choices: [{ message: { content: "partial", refusal: null }, finish_reason: "content_filter" }] }) }).clients,
+    );
+    expect(r).toMatchObject({ status: "provider_refused", error: REFUSED, stopReason: "content_filter" });
+    expect(r.text).toBeUndefined();
+  });
+
   const anthropicErrors: Array<[string, () => unknown, string, string | undefined]> = [
     ["401", () => new Anthropic.AuthenticationError(401, {}, "bad", headers()), "credentials_unavailable", "The provider rejected the API key"],
     ["403", () => new Anthropic.PermissionDeniedError(403, {}, "no", headers()), "credentials_unavailable", "The provider rejected the API key"],
