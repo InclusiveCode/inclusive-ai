@@ -9,6 +9,7 @@ import "server-only";
  */
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
+import { PROVIDER_MESSAGES as MSG } from "../live-messages";
 import type { LiveModel, Provider } from "../models";
 import type { ResponseStatus } from "../types";
 
@@ -51,7 +52,8 @@ export interface ProviderClients {
   openai(apiKey: string): OpenAILike;
 }
 
-const SERVER_TIMEOUT_MS = 30_000;
+/** Per-call provider timeout. The client waits longer (45 s) so it never abandons a billed call. */
+export const SERVER_TIMEOUT_MS = 30_000;
 
 /**
  * Every option is explicit so nothing comes from the server environment:
@@ -92,16 +94,6 @@ export const realClients: ProviderClients = {
     return { chat: { completions: { create: (body, options) => client.chat.completions.create(body, options) } } };
   },
 };
-
-const MSG = {
-  tokenLimit: "Response cut off at the token limit — not evaluated",
-  refused: "The provider declined to answer (safety system) — not evaluated",
-  badKey: "The provider rejected the API key",
-  rateLimited: "Rate limited by the provider",
-  noQuota: "The provider account has no remaining quota",
-  rejected: "The provider rejected the model or request",
-  unavailable: "Provider unavailable",
-} as const;
 
 /** Returned model ids and stop reasons are short identifiers; anything else is dropped. */
 function identifier(x: unknown): string | undefined {

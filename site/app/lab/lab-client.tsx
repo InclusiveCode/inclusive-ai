@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { scenarioVerdict } from "../../lib/lab/evaluate";
 import { createOverride, reviewLogJson } from "../../lib/lab/overrides";
-import { LIVE_CONFIG, LIVE_RESPONDER_VERSION, makeLiveResponder, runScenario } from "../../lib/lab/run";
+import { LIVE_MODELS } from "../../lib/lab/models";
+import { LIVE_RESPONDER_VERSION, liveConfig, makeLiveResponder, runScenario } from "../../lib/lab/run";
 import { scenarios } from "../../lib/lab/scenarios";
 import { matchSnippets, SIMULATED_CONFIG, SIMULATOR_VERSION, simulatedResponder, SNIPPET_RULES } from "../../lib/lab/simulator";
 import type { CheckResult, FaultKind, Override, Run } from "../../lib/lab/types";
@@ -97,8 +98,8 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
       const run = await runScenario(
         s,
         instruction,
-        live ? makeLiveResponder(s.id) : simulatedResponder,
-        live ? LIVE_CONFIG : SIMULATED_CONFIG,
+        live ? makeLiveResponder({ scenario: s, provider: LIVE_MODELS[0].provider, model: LIVE_MODELS[0], key: { get: () => null } }) : simulatedResponder,
+        live ? liveConfig(LIVE_MODELS[0]) : SIMULATED_CONFIG,
         {
           id: `${s.id}-run-${n}`,
           createdAt: new Date().toISOString(),

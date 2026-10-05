@@ -5,6 +5,8 @@
  */
 import { evaluate, validateResults } from "./evaluate";
 import { fingerprint } from "./fingerprint";
+import { ALLOWED_PROVIDER_MESSAGES, PROVIDER_MESSAGES } from "./live-messages";
+import type { LiveModel, Provider } from "./models";
 import { renderInputs } from "./render";
 import { checksHash, RUBRIC_VERSION, type Scenario } from "./scenarios";
 import type { FaultKind, ResponseRecord, ResponseStatus, Run, RunConfig, RunMode } from "./types";
@@ -19,18 +21,10 @@ export interface RunOptions {
   fault?: FaultKind;
 }
 
-export const LIVE_CONFIG: RunConfig = {
-  provider: "live provider (not configured)",
-  model: "not configured",
-  temperature: 0,
-  maxTokens: 512,
-};
-
-export const LIVE_RESPONDER_VERSION = "live-stub-v1";
+export { LIVE_RESPONDER_VERSION } from "./models";
 
 const RESPONDER_FAILED = "The responder failed. No details are shown.";
 const RESPONDER_INVALID = "The responder returned an invalid response. No details are shown.";
-const LIVE_FAILED = "The live route returned an unexpected response. No details are shown.";
 
 const RESPONSE_STATUSES: readonly ResponseStatus[] = ["ok", "model_error", "timeout", "credentials_unavailable", "not_run", "provider_refused"];
 
@@ -132,44 +126,130 @@ export async function runScenario(
   };
 }
 
-function isRecord(x: unknown): x is Record<string, unknown> {
-  return typeof x === "object" && x !== null;
+/** Client-side wait per live call: longer than the server's 30 s provider timeout. */
+export const LIVE_CLIENT_TIMEOUT_MS = 45_000;
+
+/** Read-only access to the key held outside React state (an input element or a ref). */
+export interface LiveKeyRef {
+  get(): string | null;
+}
+
+export function liveConfig(model: LiveModel): RunConfig {
+  return { provider: model.provider, model: model.id, temperature: model.sampling ? 0 : null, maxTokens: model.maxTokens };
+}
+
+const LIVE_MSG = {
+  noKey: "Enter your API key to run live",
+  keyInInstruction: "Your instruction contains your API key — remove it before running",
+  inputMismatch: "Input does not match the scenario",
+  unreachable: "Could not reach the lab server",
+  serverFailed: "The lab server failed to handle the request",
+  cancelled: "Cancelled",
+  timedOut: "The live request timed out",
+  rejected: "The lab server rejected the request",
+} as const;
+
+/** Fixed messages for non-200 replies, chosen by status code only (the server's text is never shown). */
+const HTTP_MSG: Record<number, string> = {
+  400: "The lab server rejected the request (check the API key format)",
+  409: "This page is out of date — reload it and try again",
+  413: "The request was too large",
+  429: "Too many live requests — wait a minute and try again",
+};
+
+/** The message shown for a result whose own message is not on the allowlist. */
+const STATUS_FALLBACK: Partial<Record<ResponseStatus, string>> = {
+  model_error: PROVIDER_MESSAGES.unavailable,
+  credentials_unavailable: PROVIDER_MESSAGES.badKey,
+  provider_refused: PROVIDER_MESSAGES.refused,
+};
+
+function fromServerResult(body: unknown): ResponseRecord {
+  const status = typeof body === "object" && body !== null ? (body as Record<string, unknown>).status : undefined;
+  if (typeof status !== "string" || !(RESPONSE_STATUSES as readonly string[]).includes(status)) {
+    return { status: "model_error", error: LIVE_MSG.serverFailed, durationMs: 0 };
+  }
+  const rec = normalizeResponse(body);
+  delete rec.rulesMatched;
+  delete rec.failureModesApplied;
+  if (rec.error !== undefined && !ALLOWED_PROVIDER_MESSAGES.has(rec.error)) {
+    const fallback = STATUS_FALLBACK[rec.status];
+    if (fallback) rec.error = fallback;
+    else delete rec.error;
+  }
+  return rec;
 }
 
 /**
- * Client-side responder for the live route. The route is a stub in this
- * version, so the only non-error outcome is credentials_unavailable.
- * Raw error text is never forwarded.
+ * Client responder for live runs. The key is read from `key` at call time and sent
+ * only in the Authorization header; it is never placed in the body, the record, or a message.
  */
-export function makeLiveResponder(scenarioId: string, fetchImpl?: typeof fetch, timeoutMs = 15000): Responder {
-  return async ({ instruction }) => {
-    const doFetch = fetchImpl ?? fetch;
+export function makeLiveResponder(opts: {
+  scenario: Scenario;
+  provider: Provider;
+  model: LiveModel;
+  key: LiveKeyRef;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}): Responder {
+  const { scenario, provider, model, key, signal } = opts;
+  const timeoutMs = opts.timeoutMs ?? LIVE_CLIENT_TIMEOUT_MS;
+  return async ({ instruction, input }) => {
+    const rendered = renderInputs(scenario);
+    const variant = input === rendered.a ? "a" : input === rendered.b ? "b" : null;
+    if (!variant) return { status: "model_error", error: LIVE_MSG.inputMismatch, durationMs: 0 };
+    if (signal?.aborted) return { status: "not_run", error: LIVE_MSG.cancelled, durationMs: 0 };
+    const apiKey = key.get();
+    if (!apiKey) return { status: "credentials_unavailable", error: LIVE_MSG.noKey, durationMs: 0 };
+    if (instruction.includes(apiKey)) return { status: "model_error", error: LIVE_MSG.keyInInstruction, durationMs: 0 };
+
+    const started = performance.now();
+    const elapsed = () => Math.round(performance.now() - started);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let reason: "timeout" | "cancel" | null = null;
+    const timer = setTimeout(() => {
+      reason = reason ?? "timeout";
+      controller.abort();
+    }, timeoutMs);
+    const onCancel = () => {
+      reason = reason ?? "cancel";
+      controller.abort();
+    };
+    signal?.addEventListener("abort", onCancel, { once: true });
     try {
-      const res = await doFetch("/api/lab/run", {
+      const res = await (opts.fetchImpl ?? fetch)("/api/lab/run", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ scenarioId, instruction }),
+        headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          scenarioId: scenario.id,
+          scenarioVersion: scenario.version,
+          variant,
+          instruction,
+          provider,
+          model: model.id,
+        }),
+        cache: "no-store",
         signal: controller.signal,
       });
-      let body: unknown = null;
+      if (res.status !== 200) {
+        const error = res.status >= 400 && res.status < 500 ? (HTTP_MSG[res.status] ?? LIVE_MSG.rejected) : LIVE_MSG.serverFailed;
+        return { status: "model_error", error, durationMs: elapsed() };
+      }
+      let body: unknown;
       try {
         body = await res.json();
       } catch {
-        body = null;
+        return { status: "model_error", error: LIVE_MSG.serverFailed, durationMs: elapsed() };
       }
-      if (res.status === 503 && isRecord(body) && body.status === "credentials_unavailable") {
-        return { status: "credentials_unavailable", error: "Live mode is not configured on this deployment.", durationMs: 0 };
-      }
-      return { status: "model_error", error: LIVE_FAILED, durationMs: 0 };
+      return fromServerResult(body);
     } catch {
-      if (controller.signal.aborted) {
-        return { status: "timeout", error: "The live route did not respond in time.", durationMs: timeoutMs };
-      }
-      return { status: "model_error", error: LIVE_FAILED, durationMs: 0 };
+      if (reason === "cancel") return { status: "not_run", error: LIVE_MSG.cancelled, durationMs: elapsed() };
+      if (reason === "timeout") return { status: "timeout", error: LIVE_MSG.timedOut, durationMs: elapsed() };
+      return { status: "model_error", error: LIVE_MSG.unreachable, durationMs: elapsed() };
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onCancel);
     }
   };
 }
