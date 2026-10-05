@@ -12,7 +12,7 @@ import { scenarios } from "../../lib/lab/scenarios";
 import { matchSnippets, SIMULATED_CONFIG, SIMULATOR_VERSION, simulatedResponder, SNIPPET_RULES } from "../../lib/lab/simulator";
 import type { CheckResult, FaultKind, Override, Run } from "../../lib/lab/types";
 import { LiveSelectedNote, RunBanner } from "./components/banner";
-import { CompareView } from "./components/compare-view";
+import { CompareView, LatestNotComparable } from "./components/compare-view";
 import { Findings } from "./components/findings";
 import { BASELINE_LIVE_HELP_ID, BaselineLiveHelp, clearKeyForProviderSwitch, LivePanel } from "./components/live-panel";
 import { pickFocusAfterRun } from "./focus";
@@ -237,6 +237,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
     if ("empty" in plan) {
       return <p className="text-zinc-300">{EMPTY_LIVE_COMPARE[plan.empty === "no_live_run" ? "no_live_baseline" : plan.empty]}</p>;
     }
+    if ("notComparable" in plan) return <LatestNotComparable latest={latestRun} reason={plan.notComparable} />;
     return <CompareView scenario={scenario} baseline={plan.baseline} latest={latestRun} overrides={overrides} />;
   }
 

@@ -50,7 +50,7 @@ function incompleteReason(r: ResponseRecord): string | null {
 }
 
 /** Live runs: why a run is unusable for comparison (incomplete versions first, then model identity), or null. */
-function modelIdentityProblem(run: Run): string | null {
+export function modelIdentityProblem(run: Run): string | null {
   // A refusal of one version while the other completed (ok) is the asymmetry the D34 note
   // highlights; never suggest rerunning until it goes away. If the other version also failed,
   // the asymmetry is not established and the reasons below name both, with a rerun hint.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareRuns, LIVE_CONFIG_DIFFERS, returnedModels, sameSetup } from "../compare";
+import { compareRuns, LIVE_CONFIG_DIFFERS, modelIdentityProblem, returnedModels, sameSetup } from "../compare";
 import { emptyCompareState, planLiveComparison, selectBaseline } from "../history";
 import { findModel, LIVE_RESPONDER_VERSION } from "../models";
 import { renderInputs } from "../render";
@@ -307,45 +307,162 @@ describe("B1: a live baseline run is never compared with a baseline of another m
     expect(planLiveComparison([oldSnapshot, newSnapshot], newSnapshot, BASE)).toEqual({ empty: "baseline_only" });
   });
 
-  it("over every history of up to three runs (two models × edited or not × ok or timed out), the plan holds the rules", async () => {
-    type Kind = { model: typeof HAIKU; instruction: string; okRun: boolean };
+  it("over every history of up to three runs (two models × edited or not × ok, timed out, split model ids, or a missing id), the plan holds the rules", async () => {
+    type Outcome = "ok" | "timeout" | "split" | "missing";
+    type Kind = { model: typeof HAIKU; instruction: string; outcome: Outcome };
     const kinds: Kind[] = [];
-    for (const model of [HAIKU, SONNET]) for (const instruction of [BASE, EDITED]) for (const okRun of [true, false]) kinds.push({ model, instruction, okRun });
+    for (const model of [HAIKU, SONNET])
+      for (const instruction of [BASE, EDITED])
+        for (const outcome of ["ok", "timeout", "split", "missing"] as const) kinds.push({ model, instruction, outcome });
     const make = (k: Kind) => {
       const v = k.model === HAIKU ? HAIKU_V : SONNET_V;
-      return liveRun(k.instruction, ok(v), k.okRun ? ok(v) : failed("timeout"), k.model);
+      const b: Side = { ok: ok(v), timeout: failed("timeout"), split: ok(`${v}-other`), missing: { status: "ok", text: ok(v).text } as Side }[k.outcome];
+      return liveRun(k.instruction, ok(v), b, k.model);
     };
-    let checked = 0;
-    const histories: Kind[][] = [];
-    for (const x of kinds) {
-      histories.push([x]);
-      for (const y of kinds) {
-        histories.push([x, y]);
-        for (const z of kinds) histories.push([x, y, z]);
+    // One run per kind and position, so ids are distinct within every history.
+    const pool = await Promise.all([0, 1, 2].map(() => Promise.all(kinds.map(make))));
+    const kindOf = new Map<Run, Kind>();
+    pool.forEach((row) => row.forEach((r, i) => kindOf.set(r, kinds[i])));
+    const histories: Run[][] = [];
+    for (let x = 0; x < kinds.length; x++) {
+      histories.push([pool[0][x]]);
+      for (let y = 0; y < kinds.length; y++) {
+        histories.push([pool[0][x], pool[1][y]]);
+        for (let z = 0; z < kinds.length; z++) histories.push([pool[0][x], pool[1][y], pool[2][z]]);
       }
     }
-    for (const h of histories) {
-      const runs = await Promise.all(h.map(make));
+    const usable = (r: Run) => returnedModels(r).consistent;
+    const fullyOkRun = (r: Run) => r.responses.a.status === "ok" && r.responses.b.status === "ok";
+    for (const runs of histories) {
       const latest = runs[runs.length - 1];
       const plan = planLiveComparison(runs, latest, BASE);
-      const label = h.map((k) => `${k.model.id}/${k.instruction === BASE ? "base" : "edited"}/${k.okRun ? "ok" : "timeout"}`).join(" → ");
+      const label = runs.map((r) => `${kindOf.get(r)!.model.id}/${r.instruction === BASE ? "base" : "edited"}/${kindOf.get(r)!.outcome}`).join(" → ");
       const compatible = selectBaseline(runs, latest, BASE);
+      // A run whose A and B model ids differ or are missing is never selected as a baseline.
+      if (compatible) expect(usable(compatible), label).toBe(true);
+      // "Baseline only" means the latest run is a usable run of the unedited instruction.
+      if ("empty" in plan && plan.empty === "baseline_only") expect(latest.instruction === BASE && usable(latest), label).toBe(true);
+      // "Not comparable" on its own: an unedited, fully-ok latest run with an A/B model-id problem and no same-setup ok baseline.
+      if ("notComparable" in plan) {
+        expect(latest.instruction === BASE && fullyOkRun(latest) && !usable(latest), label).toBe(true);
+        expect(plan.notComparable, label).toBe(modelIdentityProblem(latest));
+      }
       if (compatible) {
-        // A compatible baseline is always the one used.
         expect(plan, label).toEqual({ baseline: compatible });
       } else if (latest.instruction === BASE) {
-        // A baseline run is never compared across models, and a fully ok one is the new baseline.
-        if ("baseline" in plan) expect(sameSetup(plan.baseline, latest), label).toBe(true);
-        if (latest.responses.b.status === "ok") expect(plan, label).toEqual({ empty: "baseline_only" });
+        if (usable(latest)) expect(plan, label).toEqual({ empty: "baseline_only" });
+        if ("baseline" in plan) {
+          // Never compared with another model's baseline, nor with an unusable one: the reason is the latest run's own.
+          expect(sameSetup(plan.baseline, latest), label).toBe(true);
+          expect(usable(plan.baseline), label).toBe(true);
+          expect(compareRuns(plan.baseline, latest), label).toEqual({ compatible: false, reason: modelIdentityProblem(latest) });
+        }
+        if (fullyOkRun(latest) && !usable(latest)) expect("notComparable" in plan || "baseline" in plan, label).toBe(true);
+        if ("notComparable" in plan) {
+          const usableSameModel = runs.some((r) => r !== latest && r.instruction === BASE && usable(r) && sameSetup(r, latest));
+          expect(usableSameModel, label).toBe(false);
+        }
       } else if ("baseline" in plan) {
         // An edited run's refusal names a config difference only when no same-model ok baseline exists.
-        const reason = compareRuns(plan.baseline, latest);
-        expect(reason.compatible, label).toBe(false);
-        const sameModelOk = runs.some((r) => r !== latest && r.instruction === BASE && r.responses.b.status === "ok" && sameSetup(r, latest));
-        if (!reason.compatible) expect(reason.reason === LIVE_CONFIG_DIFFERS, label).toBe(!sameModelOk);
+        const c = compareRuns(plan.baseline, latest);
+        expect(c.compatible, label).toBe(false);
+        const sameModelOk = runs.some((r) => r !== latest && r.instruction === BASE && fullyOkRun(r) && sameSetup(r, latest));
+        if (!c.compatible) expect(c.reason === LIVE_CONFIG_DIFFERS, label).toBe(!sameModelOk);
       }
-      checked += 1;
     }
-    expect(checked).toBe(8 + 64 + 512);
+    expect(histories).toHaveLength(16 + 16 ** 2 + 16 ** 3);
+  });
+
+  describe("a baseline run whose A and B model ids differ, or miss one, is not comparable (spec §4)", () => {
+    const SPLIT_REASON = "Versions A and B were answered by different model versions";
+    const MISSING_B = "Version B did not return a model id, so the model version is unknown";
+    const missingId: Side = { status: "ok", text: ok().text };
+
+    it("alone: shows the A/B reason, never 'baseline only'", async () => {
+      const split = await liveRun(BASE, ok(), ok("claude-haiku-4-5-20260101"));
+      expect(planLiveComparison([split], split, BASE)).toEqual({ notComparable: SPLIT_REASON });
+      expect(emptyCompareState([split], split, BASE)).toBeNull();
+      const missing = await liveRun(BASE, ok(), missingId);
+      expect(missing.responses.b.returnedModel).toBeUndefined();
+      expect(planLiveComparison([missing], missing, BASE)).toEqual({ notComparable: MISSING_B });
+    });
+
+    it("after another model's baseline: still the A/B reason, never 'config differs' and never 'baseline only'", async () => {
+      const sonnetBase = await liveRun(BASE, ok(SONNET_V), ok(SONNET_V), SONNET);
+      const split = await liveRun(BASE, ok(), ok("claude-haiku-4-5-20260101"));
+      expect(planLiveComparison([sonnetBase, split], split, BASE)).toEqual({ notComparable: SPLIT_REASON });
+    });
+
+    it("with an ok baseline of the same model: compared with it, so the reason shows", async () => {
+      const good = await liveRun(BASE, ok(), ok());
+      const split = await liveRun(BASE, ok(), ok("claude-haiku-4-5-20260101"));
+      expect(planLiveComparison([good, split], split, BASE)).toEqual({ baseline: good });
+      expect(compareRuns(good, split)).toEqual({ compatible: false, reason: SPLIT_REASON });
+      const missing = await liveRun(BASE, ok(), missingId);
+      expect(planLiveComparison([good, missing], missing, BASE)).toEqual({ baseline: good });
+      expect(compareRuns(good, missing)).toEqual({ compatible: false, reason: MISSING_B });
+    });
+
+    it("is never selected as the baseline for a later run, which uses the older usable baseline instead", async () => {
+      const good = await liveRun(BASE, ok(), ok());
+      const split = await liveRun(BASE, ok(), ok("claude-haiku-4-5-20260101"));
+      const missing = await liveRun(BASE, ok(), missingId);
+      const edited = await liveRun(EDITED, ok(), ok());
+      expect(selectBaseline([good, split, missing, edited], edited, BASE)).toBe(good);
+      expect(planLiveComparison([good, split, missing, edited], edited, BASE)).toEqual({ baseline: good });
+      expect(selectBaseline([split, missing, edited], edited, BASE)).toBeNull();
+      const again = await liveRun(BASE, ok(), ok());
+      expect(selectBaseline([good, split, again], again, BASE)).toBe(good);
+    });
+
+    it("after an unusable same-model baseline: shows its own reason, not the earlier run's", async () => {
+      const split = await liveRun(BASE, ok(), ok("claude-haiku-4-5-20260101"));
+      const missing = await liveRun(BASE, ok(), missingId);
+      expect(planLiveComparison([split, missing], missing, BASE)).toEqual({ notComparable: MISSING_B });
+      const missingThenSplit = await liveRun(BASE, ok(), ok("claude-haiku-4-5-20260101"));
+      expect(planLiveComparison([missing, missingThenSplit], missingThenSplit, BASE)).toEqual({ notComparable: SPLIT_REASON });
+      // A baseline rerun with errors is not compared with an unusable baseline either.
+      const broken = await liveRun(BASE, ok(), failed("timeout"));
+      expect(planLiveComparison([split, broken], broken, BASE)).toEqual({ empty: "baseline_errors" });
+    });
+
+    it("an edited run with only unusable same-model baselines is refused with their reason, not compared silently", async () => {
+      const split = await liveRun(BASE, ok(), ok("claude-haiku-4-5-20260101"));
+      const edited = await liveRun(EDITED, ok(), ok());
+      expect(planLiveComparison([split, edited], edited, BASE)).toEqual({ baseline: split });
+      expect(compareRuns(split, edited)).toEqual({ compatible: false, reason: SPLIT_REASON });
+    });
+
+    it("a usable same-model baseline is preferred over a more recent unusable one", async () => {
+      const v1 = await liveRun(BASE, ok("claude-haiku-4-5-20250101"), ok("claude-haiku-4-5-20250101"));
+      const split = await liveRun(BASE, ok(), ok("claude-haiku-4-5-20260101"));
+      const edited = await liveRun(EDITED, ok(), ok());
+      expect(planLiveComparison([v1, split, edited], edited, BASE)).toEqual({ baseline: v1 });
+      expect(compareRuns(v1, edited)).toEqual({ compatible: false, reason: "Different model versions answered the two runs" });
+    });
+  });
+
+  describe("the most recent same-model ok baseline is used when none is compatible", () => {
+    it("for an edited run answered by a newer model version", async () => {
+      const v1 = await liveRun(BASE, ok("claude-haiku-4-5-20250101"), ok("claude-haiku-4-5-20250101"));
+      const v2 = await liveRun(BASE, ok("claude-haiku-4-5-20250601"), ok("claude-haiku-4-5-20250601"));
+      const edited = await liveRun(EDITED, ok(), ok());
+      expect(selectBaseline([v1, v2, edited], edited, BASE)).toBeNull();
+      expect(planLiveComparison([v1, v2, edited], edited, BASE)).toEqual({ baseline: v2 });
+    });
+
+    it("for a baseline rerun with errors", async () => {
+      const v1 = await liveRun(BASE, ok("claude-haiku-4-5-20250101"), ok("claude-haiku-4-5-20250101"));
+      const v2 = await liveRun(BASE, ok("claude-haiku-4-5-20250601"), ok("claude-haiku-4-5-20250601"));
+      const broken = await liveRun(BASE, ok(), failed("timeout"));
+      expect(planLiveComparison([v1, v2, broken], broken, BASE)).toEqual({ baseline: v2 });
+    });
+
+    it("for an edited run when only another model has baselines", async () => {
+      const s1 = await liveRun(BASE, ok(SONNET_V), ok(SONNET_V), SONNET);
+      const s2 = await liveRun(BASE, ok(SONNET_V), ok(SONNET_V), SONNET);
+      const edited = await liveRun(EDITED, ok(), ok());
+      expect(planLiveComparison([s1, s2, edited], edited, BASE)).toEqual({ baseline: s2 });
+    });
   });
 });

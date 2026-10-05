@@ -12,6 +12,26 @@ const CLASS_TEXT: Record<RowClass, { icon: string; label: string; color: string 
   inconclusive: { icon: "?", label: "Inconclusive", color: "text-amber-300" },
 };
 
+/** The refusal box, for two runs that cannot be compared or a latest run that cannot be compared at all. */
+function NotComparableNote({ reason }: { reason: string }) {
+  return (
+    <div className="rounded-lg border border-zinc-600 p-4 text-zinc-300">
+      <p className="font-semibold text-zinc-100">Not comparable: {reason}</p>
+      <p>This is not an evaluation result.</p>
+    </div>
+  );
+}
+
+/** A latest live run that cannot serve as a baseline or be compared (its A and B model ids differ or one is missing). */
+export function LatestNotComparable({ latest, reason }: { latest: Run; reason: string }) {
+  return (
+    <div className="space-y-3">
+      <NotComparableNote reason={reason} />
+      <RunMeta run={latest} title="Latest run" />
+    </div>
+  );
+}
+
 export function CompareView({
   scenario,
   baseline,
@@ -36,10 +56,7 @@ export function CompareView({
   if (!c.compatible) {
     return (
       <div className="space-y-3">
-        <div className="rounded-lg border border-zinc-600 p-4 text-zinc-300">
-          <p className="font-semibold text-zinc-100">Not comparable: {c.reason}</p>
-          <p>This is not an evaluation result.</p>
-        </div>
+        <NotComparableNote reason={c.reason} />
         {metas}
       </div>
     );

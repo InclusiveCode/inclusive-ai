@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { createRef } from "react";
 import { LiveSelectedNote, RunBanner } from "../../../app/lab/components/banner";
-import { CompareView } from "../../../app/lab/components/compare-view";
+import { CompareView, LatestNotComparable } from "../../../app/lab/components/compare-view";
 import { findingKey } from "../../../app/lab/components/findings";
 import { BASELINE_LIVE_HELP_ID, BaselineLiveHelp, LIVE_NOTICE, LivePanel } from "../../../app/lab/components/live-panel";
 import { Limitations } from "../../../app/lab/components/reference";
@@ -781,5 +781,23 @@ describe("U3: the rubric version is shown in the run metadata", () => {
     const s = getScenario(runs[0].scenarioId);
     expect(textContent(renderToStaticMarkup(<RunDetails scenario={s} run={runs[0]} />))).toContain(`Rubric version${RUBRIC_VERSION}`);
     expect(textContent(renderToStaticMarkup(<LabClient baselineRuns={runs} />))).toContain(`Rubric version${RUBRIC_VERSION}`);
+  });
+});
+
+describe("a latest live run that is not comparable on its own (A/B model ids differ or one is missing)", () => {
+  it("shows the refusal box with the reason, and the latest run's metadata", async () => {
+    const split = await liveRun({ returnedModel: "claude-haiku-4-5-20251001" }, { returnedModel: "claude-haiku-4-5-20260101" });
+    const reason = "Versions A and B were answered by different model versions";
+    const text = textContent(renderToStaticMarkup(<LatestNotComparable latest={split} reason={reason} />));
+    expect(text).toContain(`Not comparable: ${reason}`);
+    expect(text).toContain("This is not an evaluation result.");
+    expect(text).toContain("Latest run");
+    expect(text).toContain("claude-haiku-4-5-20251001 (Version A) / claude-haiku-4-5-20260101 (Version B)");
+    expect(text).not.toContain("Live baseline only");
+  });
+
+  it("the lab shows it for a not-comparable plan, before any comparison", () => {
+    const src = readFileSync(join(SITE, "app/lab/lab-client.tsx"), "utf8");
+    expect(src).toContain('if ("notComparable" in plan) return <LatestNotComparable latest={latestRun} reason={plan.notComparable} />;');
   });
 });
