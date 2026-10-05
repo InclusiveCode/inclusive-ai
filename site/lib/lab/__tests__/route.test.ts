@@ -311,9 +311,25 @@ describe("live route module", () => {
     expect(mod.maxDuration).toBe(60);
   });
 
-  it("answers GET, HEAD, PUT, PATCH, and DELETE with the fixed 405 JSON, Allow: POST, and no-store; OPTIONS is left to Next", async () => {
+  it("answers OPTIONS with 204, Allow: POST, OPTIONS, no-store, and no CORS headers", async () => {
     const mod = (await import("../../../app/api/lab/run/route")) as Record<string, unknown>;
-    expect(mod.OPTIONS).toBeUndefined();
+    const options = mod.OPTIONS as ((req: Request) => Promise<Response>) | undefined;
+    expect(typeof options).toBe("function");
+    const res = await options!(
+      new Request("http://localhost/api/lab/run", {
+        method: "OPTIONS",
+        headers: { origin: "https://evil.example", "access-control-request-method": "POST" },
+      }),
+    );
+    expect(res.status).toBe(204);
+    expect(res.headers.get("allow")).toBe("POST, OPTIONS");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect([...res.headers.keys()].filter((k) => k.toLowerCase().startsWith("access-control-"))).toEqual([]);
+    expect(await res.text()).toBe("");
+  });
+
+  it("answers GET, HEAD, PUT, PATCH, and DELETE with the fixed 405 JSON, Allow: POST, and no-store", async () => {
+    const mod = (await import("../../../app/api/lab/run/route")) as Record<string, unknown>;
     for (const method of ["GET", "HEAD", "PUT", "PATCH", "DELETE"]) {
       const handler = mod[method] as ((req: Request) => Promise<Response>) | undefined;
       expect(typeof handler, method).toBe("function");

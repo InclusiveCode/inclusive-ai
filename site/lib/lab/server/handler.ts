@@ -22,6 +22,11 @@ function reply(httpStatus: number, body: unknown, extra: Record<string, string> 
   return new Response(JSON.stringify(body), { status: httpStatus, headers: { ...HEADERS, ...extra } });
 }
 
+/** OPTIONS: say what the route accepts. No Access-Control-* headers, so cross-origin callers get no CORS grant. */
+export async function options(): Promise<Response> {
+  return new Response(null, { status: 204, headers: { allow: "POST, OPTIONS", "cache-control": "no-store" } });
+}
+
 /** Fixed 405 for any method other than POST. */
 export async function methodNotAllowed(): Promise<Response> {
   return REJECT.method();
