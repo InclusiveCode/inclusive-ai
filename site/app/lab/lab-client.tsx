@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { scenarioVerdict } from "../../lib/lab/evaluate";
-import { emptyCompareState, latestOkBaseline, selectBaseline } from "../../lib/lab/history";
+import { planLiveComparison } from "../../lib/lab/history";
 import { checkKey, KEY_PROBLEM_MESSAGE } from "../../lib/lab/live-key";
 import { CLIENT_MESSAGES } from "../../lib/lab/live-messages";
 import { findModel, LIVE_MODELS, type Provider } from "../../lib/lab/models";
@@ -229,15 +229,15 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
     if (latestRun.mode === "simulated") {
       return <CompareView scenario={scenario} baseline={baseline} latest={latestRun} overrides={overrides} />;
     }
-    const liveRuns = history.filter((r) => r.mode === "live");
-    const empty = emptyCompareState(liveRuns, latestRun, scenario.baselineInstruction);
-    if (empty) {
-      return <p className="text-zinc-300">{EMPTY_LIVE_COMPARE[empty === "no_live_run" ? "no_live_baseline" : empty]}</p>;
+    const plan = planLiveComparison(
+      history.filter((r) => r.mode === "live"),
+      latestRun,
+      scenario.baselineInstruction,
+    );
+    if ("empty" in plan) {
+      return <p className="text-zinc-300">{EMPTY_LIVE_COMPARE[plan.empty === "no_live_run" ? "no_live_baseline" : plan.empty]}</p>;
     }
-    const liveBaseline =
-      selectBaseline(liveRuns, latestRun, scenario.baselineInstruction) ?? latestOkBaseline(liveRuns, latestRun, scenario.baselineInstruction);
-    if (!liveBaseline) return <p className="text-zinc-300">{EMPTY_LIVE_COMPARE.no_live_baseline}</p>;
-    return <CompareView scenario={scenario} baseline={liveBaseline} latest={latestRun} overrides={overrides} />;
+    return <CompareView scenario={scenario} baseline={plan.baseline} latest={latestRun} overrides={overrides} />;
   }
 
   function saveOverride(run: Run, result: CheckResult, humanStatus: string, reason: string): string | null {

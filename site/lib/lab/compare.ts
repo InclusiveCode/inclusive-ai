@@ -81,15 +81,28 @@ export function classify(before: CheckStatus, after: CheckStatus): RowClass {
   return before === "fail" ? "improved" : "regressed";
 }
 
+const SETUP_FIELDS = ["scenarioId", "scenarioVersion", "rubricVersion", "checksHash", "mode", "responderVersion"] as const;
+
+/**
+ * Same scenario, rubric, checks, mode, responder, and requested config: everything `compareRuns`
+ * checks before it looks at the responses.
+ */
+export function sameSetup(x: Run, y: Run): boolean {
+  return SETUP_FIELDS.every((f) => x[f] === y[f]) && sameConfig(x.config, y.config);
+}
+
+/** Shown for an edited live run when the only ok baselines used another model or settings. */
+export const LIVE_CONFIG_DIFFERS = "config differs (provider, model, temperature, or max tokens) — click “Run baseline live” with this model first.";
+
 export function compareRuns(before: Run, after: Run): Comparison {
-  const fields = ["scenarioId", "scenarioVersion", "rubricVersion", "checksHash", "mode", "responderVersion"] as const;
-  for (const f of fields) {
+  for (const f of SETUP_FIELDS) {
     if (before[f] !== after[f]) {
       return { compatible: false, reason: `${f} differs (${before[f]} vs ${after[f]}).` };
     }
   }
   if (!sameConfig(before.config, after.config)) {
-    return { compatible: false, reason: "config differs (provider, model, temperature, or max tokens)." };
+    const reason = before.mode === "live" ? LIVE_CONFIG_DIFFERS : "config differs (provider, model, temperature, or max tokens).";
+    return { compatible: false, reason };
   }
   const live = before.mode === "live";
   if (live) {
