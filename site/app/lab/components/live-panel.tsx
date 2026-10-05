@@ -1,4 +1,5 @@
 import { useEffect, useState, type RefObject } from "react";
+import { CLIENT_MESSAGES } from "../../../lib/lab/live-messages";
 import { LIVE_MODELS, PROVIDER_LABEL, type Provider } from "../../../lib/lab/models";
 import { BUTTON, FOCUS } from "./status";
 
@@ -28,6 +29,12 @@ export function installKeyClearing(target: EventTarget, input: { value: string }
   };
 }
 
+/** Empties the key field when the provider changes; returns the polite announcement. */
+export function clearKeyForProviderSwitch(input: { value: string } | null, provider: Provider): string {
+  if (input) input.value = "";
+  return `Key cleared — enter your ${PROVIDER_LABEL[provider]} key`;
+}
+
 const PROVIDERS: Provider[] = ["anthropic", "openai"];
 
 /**
@@ -48,10 +55,12 @@ export function LivePanel({
   onProviderChange: (p: Provider) => void;
   onModelChange: (id: string) => void;
   keyInputRef: RefObject<HTMLInputElement | null>;
-  keyError: boolean;
+  /** The fixed message for a missing or malformed key; `true` means the standard "no key" message. */
+  keyError: string | boolean | null;
   onKeyErrorClear: () => void;
 }) {
   const [showKey, setShowKey] = useState(false);
+  const keyErrorText = keyError === true ? CLIENT_MESSAGES.noKey : keyError || null;
   const label = PROVIDER_LABEL[provider];
 
   useEffect(() => installKeyClearing(window, keyInputRef.current), [keyInputRef]);
@@ -117,10 +126,10 @@ export function LivePanel({
             autoCapitalize="off"
             autoCorrect="off"
             spellCheck={false}
-            aria-invalid={keyError || undefined}
-            aria-describedby={keyError ? "lab-live-key-error lab-live-notice" : "lab-live-notice"}
+            aria-invalid={keyErrorText ? true : undefined}
+            aria-describedby={keyErrorText ? "lab-live-key-error lab-live-notice" : "lab-live-notice"}
             onInput={() => {
-              if (keyError) onKeyErrorClear();
+              if (keyErrorText) onKeyErrorClear();
             }}
             className={`min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-900 p-2 font-mono text-sm text-zinc-100 ${FOCUS}`}
           />
@@ -131,9 +140,9 @@ export function LivePanel({
             Clear key
           </button>
         </div>
-        {keyError && (
+        {keyErrorText && (
           <p id="lab-live-key-error" role="alert" className="mt-2 text-sm text-rose-300">
-            Enter your API key to run live.
+            {keyErrorText}.
           </p>
         )}
       </div>

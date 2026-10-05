@@ -5,6 +5,7 @@
  */
 import { evaluate, validateResults } from "./evaluate";
 import { fingerprint } from "./fingerprint";
+import { checkKey, KEY_PROBLEM_MESSAGE } from "./live-key";
 import { ALLOWED_PROVIDER_MESSAGES, CLIENT_MESSAGES, HTTP_MESSAGES, PROVIDER_MESSAGES } from "./live-messages";
 import type { LiveModel, Provider } from "./models";
 import { renderInputs } from "./render";
@@ -184,8 +185,11 @@ export function makeLiveResponder(opts: {
     const variant = input === rendered.a ? "a" : input === rendered.b ? "b" : null;
     if (!variant) return { status: "model_error", error: LIVE_MSG.inputMismatch, durationMs: 0 };
     if (signal?.aborted) return { status: "not_run", error: LIVE_MSG.cancelled, durationMs: 0 };
-    const apiKey = key.get();
+    const apiKey = (key.get() ?? "").trim();
     if (!apiKey) return { status: "credentials_unavailable", error: LIVE_MSG.noKey, durationMs: 0 };
+    // Same rule as the server, checked before any request (no request for a malformed or mismatched key).
+    const problem = checkKey(apiKey, provider);
+    if (problem) return { status: "credentials_unavailable", error: KEY_PROBLEM_MESSAGE[problem], durationMs: 0 };
     if (instruction.includes(apiKey)) return { status: "model_error", error: LIVE_MSG.keyInInstruction, durationMs: 0 };
 
     const started = performance.now();

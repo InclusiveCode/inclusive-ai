@@ -159,7 +159,7 @@ describe("liveAlertText (derived from response statuses)", () => {
 });
 
 describe("LivePanel", () => {
-  const render = (provider: "anthropic" | "openai" = "anthropic", keyError = false) =>
+  const render = (provider: "anthropic" | "openai" = "anthropic", keyError: string | null = null) =>
     renderToStaticMarkup(
       <LivePanel
         provider={provider}
@@ -210,10 +210,22 @@ describe("LivePanel", () => {
     expect(input).toContain('data-form-type="other"');
   });
 
-  it("shows the missing-key error as an alert", () => {
-    const html = render("anthropic", true);
-    expect(html).toContain('role="alert"');
-    expect(textContent(html)).toContain("Enter your API key to run live.");
+  it("shows the missing-key and key-format errors as an alert", () => {
+    for (const message of ["Enter your API key to run live", "The API key format is not valid", "This key does not match the selected provider"]) {
+      const html = render("anthropic", message);
+      expect(html).toContain('role="alert"');
+      expect(textContent(html)).toContain(`${message}.`);
+    }
+    expect(render("anthropic", null)).not.toContain('role="alert"');
+    expect(textContent(render("anthropic", true as unknown as string))).toContain("Enter your API key to run live.");
+  });
+
+  it("switching provider clears the key field and announces it", async () => {
+    const { clearKeyForProviderSwitch } = await import("../../../app/lab/components/live-panel");
+    const input = { value: "sk-ant-test-PLACEHOLDER-0000000000" };
+    expect(clearKeyForProviderSwitch(input, "openai")).toBe("Key cleared — enter your OpenAI key");
+    expect(input.value).toBe("");
+    expect(clearKeyForProviderSwitch(null, "anthropic")).toBe("Key cleared — enter your Anthropic key");
   });
 });
 

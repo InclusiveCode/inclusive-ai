@@ -319,7 +319,9 @@ describe("AC6: fault injection", () => {
 });
 
 describe("makeLiveResponder (live client)", () => {
-  const KEY = "sk-test-PLACEHOLDER-0000000000";
+  // Placeholder keys only; Anthropic keys start with sk-ant-.
+  const KEY = "sk-ant-test-PLACEHOLDER-0000000000";
+  const OPENAI_KEY = "sk-test-PLACEHOLDER-0000000000";
   const HAIKU = findModel("anthropic", "claude-haiku-4-5")!;
   const keyRef = (k: string | null = KEY): LiveKeyRef => ({ get: () => k });
   const inputs = renderInputs(S1);
@@ -490,6 +492,43 @@ describe("makeLiveResponder (live client)", () => {
       expect(r).toMatchObject({ status: "credentials_unavailable", error: "Enter your API key to run live" });
       expect(calls).toEqual([]);
     }
+  });
+
+  it("rejects a key for the other provider before any request, in both directions", async () => {
+    const MINI = findModel("openai", "gpt-4o-mini")!;
+    const cases: Array<[typeof HAIKU, string]> = [
+      [HAIKU, OPENAI_KEY],
+      [MINI, KEY],
+    ];
+    for (const [model, key] of cases) {
+      const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
+      const r = await makeLiveResponder({ scenario: S1, provider: model.provider, model, key: keyRef(key), fetchImpl })(req());
+      expect(r).toMatchObject({ status: "credentials_unavailable", error: "This key does not match the selected provider" });
+      expect(JSON.stringify(r)).not.toContain("PLACEHOLDER");
+      expect(calls).toEqual([]);
+    }
+  });
+
+  it("rejects a malformed key before any request", async () => {
+    for (const bad of [
+      "sk-ant-test PLACEHOLDER-0000000000",
+      "sk-ant-test-PLACEHOLDER-0000000000\u200B",
+      "sk-ant-tést-PLACEHOLDER-0000000000",
+      "sk-ant-short",
+      `sk-ant-${"a".repeat(260)}`,
+    ]) {
+      const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
+      const r = await responder(fetchImpl, { key: keyRef(bad) })(req());
+      expect(r, JSON.stringify(bad)).toMatchObject({ status: "credentials_unavailable", error: "The API key format is not valid" });
+      expect(calls).toEqual([]);
+    }
+  });
+
+  it("trims surrounding whitespace before checking and sending the key", async () => {
+    const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
+    const r = await responder(fetchImpl, { key: keyRef(`  ${KEY}\n`) })(req());
+    expect(r.status).toBe("ok");
+    expect(new Headers(calls[0].init.headers).get("authorization")).toBe(`Bearer ${KEY}`);
   });
 
   it("blocks an instruction that contains the key, without fetching or echoing it", async () => {

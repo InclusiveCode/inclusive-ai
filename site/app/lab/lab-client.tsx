@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { scenarioVerdict } from "../../lib/lab/evaluate";
 import { emptyCompareState, latestOkBaseline, selectBaseline } from "../../lib/lab/history";
+import { checkKey, KEY_PROBLEM_MESSAGE } from "../../lib/lab/live-key";
 import { CLIENT_MESSAGES } from "../../lib/lab/live-messages";
 import { findModel, LIVE_MODELS, type Provider } from "../../lib/lab/models";
 import { createOverride, reviewLogJson } from "../../lib/lab/overrides";
@@ -13,7 +14,7 @@ import type { CheckResult, FaultKind, Override, Run } from "../../lib/lab/types"
 import { RunBanner } from "./components/banner";
 import { CompareView } from "./components/compare-view";
 import { Findings } from "./components/findings";
-import { LivePanel } from "./components/live-panel";
+import { clearKeyForProviderSwitch, LivePanel } from "./components/live-panel";
 import { Limitations, SimulatorRules } from "./components/reference";
 import { RunDetails } from "./components/run-details";
 import { BUTTON, FOCUS, liveAlertText, statusLabel } from "./components/status";
@@ -62,7 +63,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
   const [fault, setFault] = useState<FaultKind>("none");
   const [liveProvider, setLiveProvider] = useState<Provider>(LIVE_MODELS[0].provider);
   const [liveModelId, setLiveModelId] = useState(LIVE_MODELS[0].id);
-  const [keyError, setKeyError] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
   const [overrides, setOverrides] = useState<Override[]>([]);
   const [announcement, setAnnouncement] = useState("");
   const [runError, setRunError] = useState<{ key: string; text: string } | null>(null);
@@ -115,6 +116,9 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
   function chooseProvider(p: Provider) {
     setLiveProvider(p);
     setLiveModelId((LIVE_MODELS.find((m) => m.provider === p) ?? LIVE_MODELS[0]).id);
+    // A key is only ever valid for one provider: clear it so it cannot be sent to the other one.
+    setKeyError(null);
+    setAnnouncement(clearKeyForProviderSwitch(keyInputRef.current, p));
   }
 
   function setInstruction(text: string) {
@@ -133,13 +137,14 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
     setRunError(null);
     if (live) {
       const key = readKey();
-      if (!key) {
+      const problem = key ? checkKey(key, liveModel.provider) : null;
+      if (!key || problem) {
         // No request is sent; the button stays enabled and focus moves to the key field.
-        setKeyError(true);
+        setKeyError(key && problem ? KEY_PROBLEM_MESSAGE[problem] : CLIENT_MESSAGES.noKey);
         keyInputRef.current?.focus();
         return;
       }
-      setKeyError(false);
+      setKeyError(null);
       if (runInstruction.includes(key)) {
         errorSeq.current += 1;
         setRunError({ key: `blocked-${errorSeq.current}`, text: `${CLIENT_MESSAGES.keyInInstruction}.` });
@@ -423,7 +428,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                 onModelChange={setLiveModelId}
                 keyInputRef={keyInputRef}
                 keyError={keyError}
-                onKeyErrorClear={() => setKeyError(false)}
+                onKeyErrorClear={() => setKeyError(null)}
               />
             )}
             <div className="flex flex-wrap items-center gap-4">
