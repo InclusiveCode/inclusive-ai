@@ -160,6 +160,10 @@ Recorded-run import/export; live provider integration (stub only); `localStorage
 | D17 | `RUBRIC_VERSION` → `2026-10-05.2` because check behavior changed (D15, D16) | Runs scored under different rubric semantics must not be compared | Lead decision |
 | D18 | Pre-existing `next` 16.1.6 advisories (fixed in ≥ 16.3.3) handled in a separate follow-up, not in this change | Keeps this change focused; recorded as a known issue | **Approved by PO** |
 | D19 | Merge by squash | Keeps the main branch history to one reviewed commit | **Approved by PO** |
+| D20 | Integrate the lab into the main product (`InclusiveCode/inclusive-ai`) via PR, starting from the reviewed squash commit; supersedes the "never push lab work to the original project repo" part of D5 | PO decision after the lab shipped; makes `/lab` available to users of the main site | **Approved by PO** |
+| D21 | Live mode uses bring-your-own-key: the user's provider key is held only in page memory, sent per request over HTTPS to the server route, and never stored, logged, or echoed | No cost or abuse exposure for the site owner | **Approved by PO** (design pending) |
+| D22 | Live providers: Anthropic and OpenAI, with a server-owned model allowlist | Matches the existing CLI | **Approved by PO** (design pending) |
+| D23 | Live mode is post-submission product work in the main product; the separate lab repository stays frozen at its merged revision | Keeps the reviewed submission stable | **Approved by PO** |
 
 ## 15. Design-review record
 

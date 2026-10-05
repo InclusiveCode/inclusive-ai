@@ -20,6 +20,12 @@ const features = [
     icon: "📋",
   },
   {
+    title: "Evaluation Lab",
+    description: "Inspect paired LGBTQIA+ scenarios, edit a system instruction, rerun, and compare what improved or regressed — in your browser, no setup.",
+    href: "/lab",
+    icon: "🧪",
+  },
+  {
     title: "Developer Tools",
     description: "Eval suite, Claude Code plugin, GitHub Action, and pre-commit hook — drop into your pipeline.",
     href: "/tools",
@@ -53,7 +59,7 @@ export default function HomePage() {
           </span>
         </h1>
         <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-8">
-          Patterns, checklists, eval suite, CI pipeline tools, and a Claude Code plugin — everything LLM engineers need to protect LGBTQIA+ communities before they ship.
+          Patterns, checklists, an interactive evaluation lab, eval suite, CI pipeline tools, and a Claude Code plugin — everything LLM engineers need to protect LGBTQIA+ communities before they ship.
         </p>
         <div className="flex gap-4 justify-center flex-wrap">
           <Link
@@ -66,11 +72,14 @@ export default function HomePage() {
           <Link href="/patterns" className="px-6 py-3 border border-zinc-700 rounded-lg font-medium hover:border-zinc-500 transition-colors">
             Browse Patterns
           </Link>
+          <Link href="/lab" className="px-6 py-3 border border-zinc-700 rounded-lg font-medium hover:border-zinc-500 transition-colors">
+            Try the Evaluation Lab
+          </Link>
         </div>
       </div>
 
       {/* Feature Cards */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-20">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-20">
         {features.map((f) => (
           <Link key={f.href} href={f.href} className="card-rainbow-hover group p-6 border border-zinc-800 rounded-xl transition-colors">
             <div className="text-2xl mb-3">{f.icon}</div>
