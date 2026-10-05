@@ -52,14 +52,26 @@ function leaksKey(text) {
   return false;
 }
 
+/** Reads the key-format hint, the provider-mismatch message, and the key pattern's bounds from the product source. */
+function readKeySource() {
+  const src = readFileSync(new URL("../../lib/lab/live-key.ts", import.meta.url), "utf8");
+  const hint = /export const KEY_FORMAT_HINT = "([^"]+)";/.exec(src)?.[1];
+  const provider = /provider: "([^"]+)",/.exec(src)?.[1];
+  const bounds = /API_KEY_PATTERN = \/\^\[A-Za-z0-9_-\]\{(\d+),(\d+)\}\$\//.exec(src);
+  if (!hint || !provider || !bounds) throw new Error("could not read the key messages from site/lib/lab/live-key.ts");
+  return { hint, provider, min: Number(bounds[1]), max: Number(bounds[2]) };
+}
+const KEY_SOURCE = readKeySource();
+
 const BANNER_TAIL = "One sample per run; differences between runs can be nondeterministic. A pass means only that the displayed checks passed.";
 const ALL_PASS = "All displayed checks passed";
 const MSG = {
   noKey: "Enter your API key to run live",
-  // Exact strings from site/lib/lab/live-key.ts and live-messages.ts (WCAG 3.3.3 correction hints).
-  badFormat: "The API key format is not valid — keys contain only letters, numbers, hyphens and underscores, with no spaces",
-  badProvider: "This key does not match the selected provider — check the provider or paste that provider's key",
-  routeKey: "Missing or malformed API key — keys contain only letters, numbers, hyphens and underscores, with no spaces",
+  // Derived from the product's own constants in site/lib/lab/live-key.ts (WCAG 3.3.3 correction hints);
+  // the hint's content is checked below against the key pattern, so a stale or empty hint still fails.
+  badFormat: `The API key format is not valid — ${KEY_SOURCE.hint}`,
+  badProvider: KEY_SOURCE.provider,
+  routeKey: `Missing or malformed API key — ${KEY_SOURCE.hint}`,
   keyInInstruction: "Your instruction contains your API key — remove it before running",
   tokenLimit: "Response cut off at the token limit — not evaluated",
   refused: "The provider declined to answer (safety system) — not evaluated",
@@ -89,6 +101,12 @@ async function step(name, fn) {
   }
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+check(
+  "WCAG 3.3.3 the key-format hint (read from live-key.ts) states the enforced length and characters",
+  KEY_SOURCE.min === 20 && KEY_SOURCE.max === 256 && new RegExp(`${KEY_SOURCE.min}\\s*[–-]\\s*${KEY_SOURCE.max} characters`).test(KEY_SOURCE.hint) && /letters, numbers, hyphens and underscores/.test(KEY_SOURCE.hint) && /no spaces/.test(KEY_SOURCE.hint),
+  KEY_SOURCE.hint,
+);
 
 // ---------- fake outbound proxy (server-side checks only) ----------
 const proxyLog = [];

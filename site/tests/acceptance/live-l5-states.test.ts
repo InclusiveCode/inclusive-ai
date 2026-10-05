@@ -10,7 +10,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { afterEach, describe, expect, it } from "vitest";
 import { scenarioVerdict } from "../../lib/lab/evaluate";
-import { KEY_PROBLEM_MESSAGE } from "../../lib/lab/live-key";
+import { API_KEY_PATTERN, KEY_PROBLEM_MESSAGE } from "../../lib/lab/live-key";
 import { ALLOWED_LIVE_MESSAGES, CLIENT_MESSAGES, HTTP_MESSAGES, PROVIDER_MESSAGES, ROUTE_MESSAGES } from "../../lib/lab/live-messages";
 import { renderInputs } from "../../lib/lab/render";
 import { liveConfig, makeLiveResponder } from "../../lib/lab/run";
@@ -185,8 +185,21 @@ describe("L5: every request-check failure returns its fixed status and message b
   }
 
   it("key errors carry a correction hint (WCAG 3.3.3), and no message quotes a key", () => {
-    expect(ROUTE_MESSAGES.key).toMatch(/^Missing or malformed API key — .*letters, numbers, hyphens and underscores.*no spaces/);
-    expect(KEY_PROBLEM_MESSAGE.format).toMatch(/^The API key format is not valid — .*letters, numbers, hyphens and underscores.*no spaces/);
+    // The hint must state the rule the server enforces: the length bounds and the allowed characters.
+    const [, min, max] = /\{(\d+),(\d+)\}/.exec(API_KEY_PATTERN.source) ?? [];
+    expect([min, max]).toEqual(["20", "256"]);
+    const length = new RegExp(`${min}\\s*[–-]\\s*${max} characters`);
+    for (const [msg, lead] of [
+      [ROUTE_MESSAGES.key, "Missing or malformed API key — "],
+      [KEY_PROBLEM_MESSAGE.format, "The API key format is not valid — "],
+    ] as const) {
+      expect(msg.startsWith(lead), msg).toBe(true);
+      expect(msg).toMatch(length);
+      expect(msg).toMatch(/letters, numbers, hyphens and underscores/);
+      expect(msg).toMatch(/no spaces/);
+    }
+    // Both messages carry the same hint.
+    expect(ROUTE_MESSAGES.key.slice("Missing or malformed API key — ".length)).toBe(KEY_PROBLEM_MESSAGE.format.slice("The API key format is not valid — ".length));
     expect(KEY_PROBLEM_MESSAGE.provider).toMatch(/^This key does not match the selected provider — .*provider/);
     for (const msg of [ROUTE_MESSAGES.key, KEY_PROBLEM_MESSAGE.format, KEY_PROBLEM_MESSAGE.provider]) {
       expect(ALLOWED_LIVE_MESSAGES.has(msg)).toBe(true);
