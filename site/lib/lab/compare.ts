@@ -13,6 +13,8 @@ export interface CompareRow {
   before: CheckStatus;
   after: CheckStatus;
   classification: RowClass;
+  /** Live runs only: both runs used the same instruction, so any difference is run-to-run variation. */
+  variation?: true;
 }
 
 export type Comparison =
@@ -21,6 +23,27 @@ export type Comparison =
 
 function sameConfig(x: RunConfig, y: RunConfig): boolean {
   return x.provider === y.provider && x.model === y.model && x.temperature === y.temperature && x.maxTokens === y.maxTokens;
+}
+
+/** The model ids the provider reported for each version. Consistent = both ok with the same id. */
+export function returnedModels(run: Run): { a?: string; b?: string; consistent: boolean } {
+  const { a, b } = run.responses;
+  return {
+    a: a.returnedModel,
+    b: b.returnedModel,
+    consistent: a.status === "ok" && b.status === "ok" && a.returnedModel !== undefined && a.returnedModel === b.returnedModel,
+  };
+}
+
+/** Live runs: why a run's model identity is unusable for comparison, or null. */
+function modelIdentityProblem(run: Run): string | null {
+  const m = returnedModels(run);
+  if (m.a !== undefined && m.b !== undefined && m.a !== m.b) return "Versions A and B were answered by different model versions";
+  const missing = (["a", "b"] as const).filter((v) => m[v] === undefined).map((v) => v.toUpperCase());
+  if (missing.length > 0) {
+    return `Version${missing.length > 1 ? "s" : ""} ${missing.join(" and ")} did not return a model id, so the model version is unknown`;
+  }
+  return null;
 }
 
 export function classify(before: CheckStatus, after: CheckStatus): RowClass {
@@ -39,6 +62,14 @@ export function compareRuns(before: Run, after: Run): Comparison {
   }
   if (!sameConfig(before.config, after.config)) {
     return { compatible: false, reason: "config differs (provider, model, temperature, or max tokens)." };
+  }
+  const live = before.mode === "live";
+  if (live) {
+    const problem = modelIdentityProblem(before) ?? modelIdentityProblem(after);
+    if (problem) return { compatible: false, reason: problem };
+    if (before.responses.a.returnedModel !== after.responses.a.returnedModel) {
+      return { compatible: false, reason: "Different model versions answered the two runs" };
+    }
   }
 
   const key = (r: { checkId: string; variant: ResultVariant }) => `${r.checkId}/${r.variant}`;
@@ -63,10 +94,8 @@ export function compareRuns(before: Run, after: Run): Comparison {
   const summary: Record<RowClass, number> = { improved: 0, regressed: 0, unchanged: 0, inconclusive: 0 };
   for (const r of rows) summary[r.classification] += 1;
 
-  return {
-    compatible: true,
-    instructionUnchanged: before.instructionFingerprint === after.instructionFingerprint && before.instruction === after.instruction,
-    rows,
-    summary,
-  };
+  const instructionUnchanged = before.instructionFingerprint === after.instructionFingerprint && before.instruction === after.instruction;
+  if (live && instructionUnchanged) for (const r of rows) r.variation = true;
+
+  return { compatible: true, instructionUnchanged, rows, summary };
 }
