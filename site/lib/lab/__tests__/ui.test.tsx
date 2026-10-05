@@ -245,6 +245,14 @@ describe("labels follow the displayed run", () => {
     expect(text).not.toContain("Simulated demo");
   });
 
+  it("the live banner lets a long single-token returned-model id wrap (no horizontal scroll at 320px)", async () => {
+    const long = `${"m".repeat(60)}.${"x".repeat(39)}`; // 100 characters, all allowed by the server's id pattern
+    const run = await liveRun({ returnedModel: long }, { returnedModel: long });
+    const html = renderToStaticMarkup(<RunBanner run={run} />);
+    expect(html).toMatch(new RegExp(`<span class="[^"]*break-all[^"]*">${long.replace(".", "\\.")}</span>`));
+    expect(html).toMatch(/<p class="[^"]*min-w-0[^"]*"/);
+  });
+
   it("the live banner shows both returned models when they differ", async () => {
     const run = await liveRun({ returnedModel: "claude-haiku-4-5-a" }, { returnedModel: "claude-haiku-4-5-b" });
     expect(textContent(renderToStaticMarkup(<RunBanner run={run} />))).toContain("claude-haiku-4-5-a (Version A) / claude-haiku-4-5-b (Version B)");

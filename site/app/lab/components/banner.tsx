@@ -20,9 +20,9 @@ export function RunBanner({ run }: { run: Run }) {
   if (run.mode === "live") {
     return (
       <div role="note" className="mb-8 rounded-xl border-2 border-sky-300/70 bg-sky-950/40 p-4 text-sky-100">
-        <p>
-          Live run: responses from {providerLabel(run.config.provider)} {returnedModelText(run)}. One sample per run; differences between
-          runs can be nondeterministic. A pass means only that the displayed checks passed.
+        <p className="min-w-0">
+          Live run: responses from {providerLabel(run.config.provider)} <span className="break-all">{returnedModelText(run)}</span>. One sample
+          per run; differences between runs can be nondeterministic. A pass means only that the displayed checks passed.
         </p>
       </div>
     );
