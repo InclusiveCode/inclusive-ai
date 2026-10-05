@@ -10,7 +10,7 @@ export const API_KEY_PATTERN = /^[A-Za-z0-9_-]{20,256}$/;
 export type KeyProblem = "format" | "provider";
 
 /** What the format rule allows, phrased as a correction hint (WCAG 3.3.3). */
-export const KEY_FORMAT_HINT = "keys contain only letters, numbers, hyphens and underscores, with no spaces";
+export const KEY_FORMAT_HINT = "keys are 20–256 characters long and contain only letters, numbers, hyphens and underscores, with no spaces";
 
 export const KEY_PROBLEM_MESSAGE: Record<KeyProblem, string> = {
   format: `The API key format is not valid — ${KEY_FORMAT_HINT}`,

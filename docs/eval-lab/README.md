@@ -169,7 +169,7 @@ What the page tells users: this site doesn't store or log the key; it is sent ov
 | Body is not JSON | 400 |
 | Unknown scenario, bad variant, instruction over 4000 characters, or model not allowlisted | 400 |
 | `scenarioVersion` does not match the server | 409 |
-| `Authorization` is not `Bearer` + 20–256 characters of `[A-Za-z0-9_-]` | 400 "Missing or malformed API key — keys contain only letters, numbers, hyphens and underscores, with no spaces" |
+| `Authorization` is not `Bearer` + 20–256 characters of `[A-Za-z0-9_-]` | 400 "Missing or malformed API key — keys are 20–256 characters long and contain only letters, numbers, hyphens and underscores, with no spaces" |
 | The key is well formed but does not match the selected provider (an `sk-ant-` key only goes to Anthropic) | 400 "This key does not match the selected provider — check the provider or paste that provider's key" (D35) |
 | The instruction contains the key | 400 "Your instruction contains your API key — remove it before running" |
 
@@ -187,7 +187,7 @@ The server renders the scenario input itself; the client never sends input text.
 | Timeout or abort | `timeout` | — |
 | Anything else | `model_error` | Provider unavailable |
 
-The client waits 45 s per call (longer than the server's 30 s), runs both versions concurrently, and has a **Cancel** button. A 4xx reply shows the route's own fixed request-check message when it carries one (for example "Unknown scenario" or "Missing or malformed API key — keys contain only letters, numbers, hyphens and underscores, with no spaces"); otherwise each status code has its own fixed fallback (405 and 415 included). The client never shows server or provider text outside the allowlist in `live-messages.ts`.
+The client waits 45 s per call (longer than the server's 30 s), runs both versions concurrently, and has a **Cancel** button. A 4xx reply shows the route's own fixed request-check message when it carries one (for example "Unknown scenario" or "Missing or malformed API key — keys are 20–256 characters long and contain only letters, numbers, hyphens and underscores, with no spaces"); otherwise each status code has its own fixed fallback (405 and 415 included). The client never shows server or provider text outside the allowlist in `live-messages.ts`.
 
 When exactly one version of a live run is `provider_refused` and the other version completed (`ok`), the page shows an unscored, pair-level note near the findings headline (decision D34): "Only Version {X} was declined by the provider's safety system (one sample). This asymmetry may itself be the harm under test." The affected checks stay `not_evaluated`, the headline stays "Incomplete — not a pass", and the note is not added to the review-log export.
 

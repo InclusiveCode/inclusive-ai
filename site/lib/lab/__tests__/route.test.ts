@@ -216,7 +216,7 @@ describe("live route: request checks (each before any provider call)", () => {
         continue; // the Headers class itself rejects some values; nothing reaches the handler
       }
       expectRejected(r, 400);
-      expect(r.json.message).toBe("Missing or malformed API key — keys contain only letters, numbers, hyphens and underscores, with no spaces");
+      expect(r.json.message).toBe("Missing or malformed API key — keys are 20–256 characters long and contain only letters, numbers, hyphens and underscores, with no spaces");
       if (auth) expect(r.text).not.toContain(auth.slice(7, 20));
       expect(seen).toEqual([]);
     }

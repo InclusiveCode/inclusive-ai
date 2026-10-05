@@ -211,7 +211,7 @@ describe("LivePanel", () => {
   });
 
   it("shows the missing-key and key-format errors as an alert", () => {
-    for (const message of ["Enter your API key to run live", "The API key format is not valid — keys contain only letters, numbers, hyphens and underscores, with no spaces", "This key does not match the selected provider — check the provider or paste that provider's key"]) {
+    for (const message of ["Enter your API key to run live", "The API key format is not valid — keys are 20–256 characters long and contain only letters, numbers, hyphens and underscores, with no spaces", "This key does not match the selected provider — check the provider or paste that provider's key"]) {
       const html = render("anthropic", message);
       expect(html).toContain('role="alert"');
       expect(textContent(html)).toContain(`${message}.`);

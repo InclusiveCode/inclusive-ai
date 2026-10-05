@@ -34,7 +34,7 @@ describe("checkKey (shared by the client and the server)", () => {
   it("uses the server's pattern and fixed, key-free messages", () => {
     expect(API_KEY_PATTERN.source).toBe("^[A-Za-z0-9_-]{20,256}$");
     expect(KEY_PROBLEM_MESSAGE).toEqual({
-      format: "The API key format is not valid — keys contain only letters, numbers, hyphens and underscores, with no spaces",
+      format: "The API key format is not valid — keys are 20–256 characters long and contain only letters, numbers, hyphens and underscores, with no spaces",
       provider: "This key does not match the selected provider — check the provider or paste that provider's key",
     });
   });
