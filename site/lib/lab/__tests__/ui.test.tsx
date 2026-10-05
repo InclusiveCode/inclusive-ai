@@ -595,3 +595,43 @@ describe("D34: one-sided provider refusal note", () => {
     expect(textContent(findings)).toContain("Incomplete — not a pass");
   });
 });
+
+describe("COMPLIANCE: non-text contrast of lab form fields (WCAG 1.4.11)", () => {
+  /** Bordered inputs, selects, and textareas must use zinc-500 (>= 3.67:1 against the page and field fill). */
+  function expectFieldBorders(html: string, min: number) {
+    const fields = (html.match(/<(input|select|textarea)\b[^>]*>/g) ?? []).filter((t) => /class="[^"]*\bborder\b/.test(t));
+    expect(fields.length).toBeGreaterThanOrEqual(min);
+    for (const f of fields) {
+      expect(f, f).toContain("border-zinc-500");
+      expect(f, f).not.toContain("border-zinc-700");
+    }
+  }
+
+  it("lab client fields (instruction, fault select)", async () => {
+    expectFieldBorders(renderToStaticMarkup(<LabClient baselineRuns={await baselines()} />), 2);
+  });
+
+  it("live panel fields (provider, model, key)", () => {
+    expectFieldBorders(
+      renderToStaticMarkup(
+        <LivePanel
+          provider="anthropic"
+          modelId="claude-haiku-4-5"
+          onProviderChange={() => {}}
+          onModelChange={() => {}}
+          keyInputRef={createRef<HTMLInputElement>()}
+          keyError={null}
+          onKeyErrorClear={() => {}}
+        />,
+      ),
+      3,
+    );
+  });
+
+  it("the override reason textarea", () => {
+    const src = readFileSync(join(SITE, "app/lab/components/findings.tsx"), "utf8");
+    const textarea = src.slice(src.indexOf("<textarea"), src.indexOf("/>", src.indexOf("<textarea")));
+    expect(textarea).toContain("border-zinc-500");
+    expect(textarea).not.toContain("border-zinc-700");
+  });
+});

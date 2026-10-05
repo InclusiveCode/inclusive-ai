@@ -178,7 +178,7 @@ function OverrideControl({
               maxLength={2000}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className={`mt-1 w-full rounded-md border border-zinc-700 bg-zinc-950 p-2 text-sm text-zinc-100 ${FOCUS}`}
+              className={`mt-1 w-full rounded-md border border-zinc-500 bg-zinc-950 p-2 text-sm text-zinc-100 ${FOCUS}`}
             />
           </div>
           {error && (

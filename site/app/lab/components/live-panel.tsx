@@ -83,7 +83,7 @@ export function LivePanel({
             id="lab-live-provider"
             value={provider}
             onChange={(e) => onProviderChange(e.target.value as Provider)}
-            className={`mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 p-2 text-sm text-zinc-100 ${FOCUS}`}
+            className={`mt-1 w-full rounded-md border border-zinc-500 bg-zinc-900 p-2 text-sm text-zinc-100 ${FOCUS}`}
           >
             {PROVIDERS.map((p) => (
               <option key={p} value={p}>
@@ -100,7 +100,7 @@ export function LivePanel({
             id="lab-live-model"
             value={modelId}
             onChange={(e) => onModelChange(e.target.value)}
-            className={`mt-1 w-full rounded-md border border-zinc-700 bg-zinc-900 p-2 text-sm text-zinc-100 ${FOCUS}`}
+            className={`mt-1 w-full rounded-md border border-zinc-500 bg-zinc-900 p-2 text-sm text-zinc-100 ${FOCUS}`}
           >
             {LIVE_MODELS.filter((m) => m.provider === provider).map((m) => (
               <option key={m.id} value={m.id}>
@@ -131,7 +131,7 @@ export function LivePanel({
             onInput={() => {
               if (keyErrorText) onKeyErrorClear();
             }}
-            className={`min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-900 p-2 font-mono text-sm text-zinc-100 ${FOCUS}`}
+            className={`min-w-0 flex-1 rounded-md border border-zinc-500 bg-zinc-900 p-2 font-mono text-sm text-zinc-100 ${FOCUS}`}
           />
           <button type="button" aria-pressed={showKey} className={BUTTON} onClick={() => setShowKey((v) => !v)}>
             Show key

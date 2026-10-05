@@ -370,7 +370,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                 value={instruction}
                 onChange={(e) => setInstruction(e.target.value)}
                 aria-describedby="lab-instruction-count"
-                className={`mt-2 w-full rounded-md border border-zinc-700 bg-zinc-900 p-3 font-mono text-sm text-zinc-100 ${FOCUS}`}
+                className={`mt-2 w-full rounded-md border border-zinc-500 bg-zinc-900 p-3 font-mono text-sm text-zinc-100 ${FOCUS}`}
               />
               <p id="lab-instruction-count" className="text-sm text-zinc-400">
                 {instruction.length} / {MAX_INSTRUCTION} characters
@@ -435,7 +435,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                   value={fault}
                   disabled={source === "live"}
                   onChange={(e) => setFault(e.target.value as FaultKind)}
-                  className={`mt-2 w-full max-w-sm rounded-md border border-zinc-700 bg-zinc-900 p-2 text-sm text-zinc-100 disabled:opacity-60 ${FOCUS}`}
+                  className={`mt-2 w-full max-w-sm rounded-md border border-zinc-500 bg-zinc-900 p-2 text-sm text-zinc-100 disabled:opacity-60 ${FOCUS}`}
                 >
                   {FAULTS.map(([v, label]) => (
                     <option key={v} value={v}>
