@@ -24,6 +24,7 @@ import {
   ANTHROPIC_KEY,
   anthropicReply,
   callRoute,
+  captureOutput,
   FAKE_KEY,
   OPENAI_KEY,
   fakeClients,
@@ -329,10 +330,14 @@ const EXPECTED_ROWS: Row[] = [
   { row: "normal completion", status: "ok" },
   { row: "token limit", status: "model_error", error: PROVIDER_MESSAGES.tokenLimit },
   { row: "refusal", status: "provider_refused", error: PROVIDER_MESSAGES.refused },
-  { row: "authentication or permission", status: "credentials_unavailable", error: PROVIDER_MESSAGES.badKey },
+  // D40: 401, 403, 404, 402, and 400 each have their own fixed message, the same for both providers.
+  { row: "authentication (401)", status: "credentials_unavailable", error: PROVIDER_MESSAGES.badKey },
+  { row: "permission (403)", status: "credentials_unavailable", error: PROVIDER_MESSAGES.keyDenied },
+  { row: "model not found (404)", status: "model_error", error: PROVIDER_MESSAGES.modelUnavailable },
+  { row: "billing (402)", status: "model_error", error: PROVIDER_MESSAGES.billing },
+  { row: "bad request (400)", status: "model_error", error: PROVIDER_MESSAGES.rejected },
   { row: "rate limit", status: "model_error", error: PROVIDER_MESSAGES.rateLimited },
   { row: "insufficient quota", status: "model_error", error: PROVIDER_MESSAGES.noQuota },
-  { row: "model not found or bad request", status: "model_error", error: PROVIDER_MESSAGES.rejected },
   { row: "timeout or abort", status: "timeout" },
   { row: "anything else", status: "model_error", error: PROVIDER_MESSAGES.unavailable },
 ];
@@ -344,11 +349,14 @@ const THROWN: Array<{ provider: "anthropic" | "openai"; row: string; name: strin
   { provider: "anthropic", row: "normal completion", name: "stop_sequence", script: () => anthropicReply("Hello", { stop_reason: "stop_sequence" }) },
   { provider: "anthropic", row: "token limit", name: "stop_reason max_tokens", script: () => anthropicReply("cut", { stop_reason: "max_tokens" }) },
   { provider: "anthropic", row: "refusal", name: "stop_reason refusal", script: () => anthropicReply("", { stop_reason: "refusal" }) },
-  { provider: "anthropic", row: "authentication or permission", name: "401", script: () => { throw Anthropic.APIError.generate(401, { type: "error", error: { type: "authentication_error", message: KEYED } }, KEYED, H()); } },
-  { provider: "anthropic", row: "authentication or permission", name: "403", script: () => { throw Anthropic.APIError.generate(403, { type: "error", error: { type: "permission_error", message: KEYED } }, KEYED, H()); } },
+  { provider: "anthropic", row: "authentication (401)", name: "401", script: () => { throw Anthropic.APIError.generate(401, { type: "error", error: { type: "authentication_error", message: KEYED } }, KEYED, H()); } },
+  { provider: "anthropic", row: "permission (403)", name: "403", script: () => { throw Anthropic.APIError.generate(403, { type: "error", error: { type: "permission_error", message: KEYED } }, KEYED, H()); } },
   { provider: "anthropic", row: "rate limit", name: "429", script: () => { throw Anthropic.APIError.generate(429, { type: "error", error: { type: "rate_limit_error", message: KEYED } }, KEYED, H()); } },
-  { provider: "anthropic", row: "model not found or bad request", name: "400", script: () => { throw Anthropic.APIError.generate(400, { type: "error", error: { type: "invalid_request_error", message: KEYED } }, KEYED, H()); } },
-  { provider: "anthropic", row: "model not found or bad request", name: "404", script: () => { throw Anthropic.APIError.generate(404, { type: "error", error: { type: "not_found_error", message: KEYED } }, KEYED, H()); } },
+  { provider: "anthropic", row: "bad request (400)", name: "400", script: () => { throw Anthropic.APIError.generate(400, { type: "error", error: { type: "invalid_request_error", message: KEYED } }, KEYED, H()); } },
+  { provider: "anthropic", row: "model not found (404)", name: "404", script: () => { throw Anthropic.APIError.generate(404, { type: "error", error: { type: "not_found_error", message: KEYED } }, KEYED, H()); } },
+  { provider: "anthropic", row: "billing (402)", name: "402 billing_error", script: () => { throw Anthropic.APIError.generate(402, { type: "error", error: { type: "billing_error", message: KEYED } }, KEYED, H()); } },
+  { provider: "anthropic", row: "anything else", name: "409", script: () => { throw Anthropic.APIError.generate(409, { type: "error", error: { type: "conflict", message: KEYED } }, KEYED, H()); } },
+  { provider: "anthropic", row: "anything else", name: "422", script: () => { throw Anthropic.APIError.generate(422, { type: "error", error: { type: "invalid_request_error", message: KEYED } }, KEYED, H()); } },
   { provider: "anthropic", row: "timeout or abort", name: "connection timeout", script: () => { throw new Anthropic.APIConnectionTimeoutError({ message: KEYED }); } },
   { provider: "anthropic", row: "timeout or abort", name: "user abort", script: () => { throw new Anthropic.APIUserAbortError({ message: KEYED }); } },
   { provider: "anthropic", row: "anything else", name: "500", script: () => { throw Anthropic.APIError.generate(500, { type: "error", error: { type: "api_error", message: KEYED } }, KEYED, H()); } },
@@ -361,12 +369,15 @@ const THROWN: Array<{ provider: "anthropic" | "openai"; row: string; name: strin
   { provider: "openai", row: "normal completion", name: "null content", script: () => openaiReply(null) },
   { provider: "openai", row: "token limit", name: "finish_reason length", script: () => openaiReply("cut", { finish_reason: "length" }) },
   { provider: "openai", row: "refusal", name: "message.refusal", script: () => openaiReply(null, { refusal: "I can't help with that." }) },
-  { provider: "openai", row: "authentication or permission", name: "401", script: () => { throw OpenAI.APIError.generate(401, { error: { code: "invalid_api_key", type: "invalid_request_error", message: KEYED } }, KEYED, H()); } },
-  { provider: "openai", row: "authentication or permission", name: "403", script: () => { throw OpenAI.APIError.generate(403, { error: { code: null, type: "invalid_request_error", message: KEYED } }, KEYED, H()); } },
+  { provider: "openai", row: "authentication (401)", name: "401", script: () => { throw OpenAI.APIError.generate(401, { error: { code: "invalid_api_key", type: "invalid_request_error", message: KEYED } }, KEYED, H()); } },
+  { provider: "openai", row: "permission (403)", name: "403", script: () => { throw OpenAI.APIError.generate(403, { error: { code: null, type: "invalid_request_error", message: KEYED } }, KEYED, H()); } },
   { provider: "openai", row: "rate limit", name: "429 rate_limit_exceeded", script: () => { throw OpenAI.APIError.generate(429, { error: { code: "rate_limit_exceeded", type: "requests", message: KEYED } }, KEYED, H()); } },
   { provider: "openai", row: "insufficient quota", name: "429 insufficient_quota", script: () => { throw OpenAI.APIError.generate(429, { error: { code: "insufficient_quota", type: "insufficient_quota", message: KEYED } }, KEYED, H()); } },
-  { provider: "openai", row: "model not found or bad request", name: "400", script: () => { throw OpenAI.APIError.generate(400, { error: { code: null, type: "invalid_request_error", message: KEYED } }, KEYED, H()); } },
-  { provider: "openai", row: "model not found or bad request", name: "404 model_not_found", script: () => { throw OpenAI.APIError.generate(404, { error: { code: "model_not_found", type: "invalid_request_error", message: KEYED } }, KEYED, H()); } },
+  { provider: "openai", row: "bad request (400)", name: "400", script: () => { throw OpenAI.APIError.generate(400, { error: { code: null, type: "invalid_request_error", message: KEYED } }, KEYED, H()); } },
+  { provider: "openai", row: "billing (402)", name: "402", script: () => { throw OpenAI.APIError.generate(402, { error: { code: "billing_hard_limit_reached", type: "billing", message: KEYED } }, KEYED, H()); } },
+  { provider: "openai", row: "anything else", name: "409", script: () => { throw OpenAI.APIError.generate(409, { error: { message: KEYED } }, KEYED, H()); } },
+  { provider: "openai", row: "anything else", name: "422", script: () => { throw OpenAI.APIError.generate(422, { error: { message: KEYED } }, KEYED, H()); } },
+  { provider: "openai", row: "model not found (404)", name: "404 model_not_found", script: () => { throw OpenAI.APIError.generate(404, { error: { code: "model_not_found", type: "invalid_request_error", message: KEYED } }, KEYED, H()); } },
   { provider: "openai", row: "timeout or abort", name: "connection timeout", script: () => { throw new OpenAI.APIConnectionTimeoutError({ message: KEYED }); } },
   { provider: "openai", row: "timeout or abort", name: "user abort", script: () => { throw new OpenAI.APIUserAbortError({ message: KEYED }); } },
   { provider: "openai", row: "anything else", name: "500", script: () => { throw OpenAI.APIError.generate(500, { error: { message: KEYED } }, KEYED, H()); } },
@@ -392,7 +403,8 @@ describe("L5: provider result mapping through the route (fake clients throwing r
     });
   }
 
-  it("the nine mapping rows are pairwise distinct (status, message) pairs", () => {
+  it("every mapping row (12 after D40) is a pairwise distinct (status, message) pair", () => {
+    expect(EXPECTED_ROWS).toHaveLength(12);
     const keys = EXPECTED_ROWS.map((r) => `${r.status}|${r.error ?? ""}`);
     expect(new Set(keys).size).toBe(EXPECTED_ROWS.length);
   });
@@ -402,6 +414,7 @@ describe("L5: provider result mapping through the route (fake clients throwing r
     const alerts = new Map<string, string>();
     for (const row of EXPECTED_ROWS) {
       const c = THROWN.find((t) => t.row === row.row && t.provider === (row.row === "insufficient quota" ? "openai" : "anthropic"))!;
+      expect(c, row.row).toBeTruthy();
       const fake = fakeClients(c.script);
       const { run } = await liveRun(s, s.baselineInstruction, c.provider === "anthropic" ? HAIKU : GPT4O_MINI, fake.clients);
       expect(run.responses.a.status).toBe(row.status);
@@ -433,21 +446,29 @@ describe("L5: provider result mapping with the real SDK clients and scripted HTT
     { provider: "anthropic", row: "normal completion", name: "200 end_turn", reply: () => json(200, anthropicReply("Hi")) },
     { provider: "anthropic", row: "token limit", name: "200 max_tokens", reply: () => json(200, anthropicReply("Hi", { stop_reason: "max_tokens" })) },
     { provider: "anthropic", row: "refusal", name: "200 refusal", reply: () => json(200, anthropicReply("", { stop_reason: "refusal" })) },
-    { provider: "anthropic", row: "authentication or permission", name: "401", reply: () => json(401, { type: "error", error: { type: "authentication_error", message: `invalid x-api-key ${FAKE_KEY}` } }) },
-    { provider: "anthropic", row: "authentication or permission", name: "403", reply: () => json(403, { type: "error", error: { type: "permission_error", message: KEYED } }) },
+    { provider: "anthropic", row: "authentication (401)", name: "401", reply: () => json(401, { type: "error", error: { type: "authentication_error", message: `invalid x-api-key ${FAKE_KEY}` } }) },
+    { provider: "anthropic", row: "permission (403)", name: "403", reply: () => json(403, { type: "error", error: { type: "permission_error", message: KEYED } }) },
     { provider: "anthropic", row: "rate limit", name: "429", reply: () => json(429, { type: "error", error: { type: "rate_limit_error", message: KEYED } }) },
-    { provider: "anthropic", row: "model not found or bad request", name: "400", reply: () => json(400, { type: "error", error: { type: "invalid_request_error", message: KEYED } }) },
-    { provider: "anthropic", row: "model not found or bad request", name: "404", reply: () => json(404, { type: "error", error: { type: "not_found_error", message: "model: claude-haiku-4-5" } }) },
+    { provider: "anthropic", row: "bad request (400)", name: "400", reply: () => json(400, { type: "error", error: { type: "invalid_request_error", message: KEYED } }) },
+    { provider: "anthropic", row: "model not found (404)", name: "404", reply: () => json(404, { type: "error", error: { type: "not_found_error", message: "model: claude-haiku-4-5" } }) },
+    { provider: "anthropic", row: "billing (402)", name: "402 billing_error", reply: () => json(402, { type: "error", error: { type: "billing_error", message: KEYED } }) },
+    { provider: "anthropic", row: "anything else", name: "409", reply: () => json(409, { type: "error", error: { type: "conflict", message: KEYED } }) },
+    { provider: "anthropic", row: "anything else", name: "422", reply: () => json(422, { type: "error", error: { type: "invalid_request_error", message: KEYED } }) },
     { provider: "anthropic", row: "anything else", name: "500", reply: () => json(500, { type: "error", error: { type: "api_error", message: KEYED } }) },
     { provider: "anthropic", row: "anything else", name: "529", reply: () => json(529, { type: "error", error: { type: "overloaded_error", message: "Overloaded" } }) },
     { provider: "anthropic", row: "anything else", name: "200 non-JSON", reply: () => new Response(`<html>${FAKE_KEY}</html>`, { status: 200, headers: { "content-type": "text/html" } }) },
     { provider: "openai", row: "normal completion", name: "200 stop", reply: () => json(200, openaiReply("Hi")) },
     { provider: "openai", row: "token limit", name: "200 length", reply: () => json(200, openaiReply("Hi", { finish_reason: "length" })) },
     { provider: "openai", row: "refusal", name: "200 refusal", reply: () => json(200, openaiReply(null, { refusal: "I can't help with that." })) },
-    { provider: "openai", row: "authentication or permission", name: "401", reply: () => json(401, { error: { code: "invalid_api_key", type: "invalid_request_error", message: `Incorrect API key provided: ${FAKE_KEY}` } }) },
+    { provider: "openai", row: "authentication (401)", name: "401", reply: () => json(401, { error: { code: "invalid_api_key", type: "invalid_request_error", message: `Incorrect API key provided: ${FAKE_KEY}` } }) },
     { provider: "openai", row: "rate limit", name: "429", reply: () => json(429, { error: { code: "rate_limit_exceeded", type: "requests", message: KEYED } }) },
     { provider: "openai", row: "insufficient quota", name: "429 insufficient_quota", reply: () => json(429, { error: { code: "insufficient_quota", type: "insufficient_quota", message: KEYED } }) },
-    { provider: "openai", row: "model not found or bad request", name: "404", reply: () => json(404, { error: { code: "model_not_found", type: "invalid_request_error", message: KEYED } }) },
+    { provider: "openai", row: "permission (403)", name: "403", reply: () => json(403, { error: { code: "unsupported_country_region_territory", type: "request_forbidden", message: KEYED } }) },
+    { provider: "openai", row: "bad request (400)", name: "400", reply: () => json(400, { error: { code: null, type: "invalid_request_error", message: KEYED } }) },
+    { provider: "openai", row: "model not found (404)", name: "404", reply: () => json(404, { error: { code: "model_not_found", type: "invalid_request_error", message: KEYED } }) },
+    { provider: "openai", row: "billing (402)", name: "402", reply: () => json(402, { error: { code: "billing_hard_limit_reached", type: "billing", message: KEYED } }) },
+    { provider: "openai", row: "anything else", name: "409", reply: () => json(409, { error: { message: KEYED } }) },
+    { provider: "openai", row: "anything else", name: "422", reply: () => json(422, { error: { message: KEYED } }) },
     { provider: "openai", row: "anything else", name: "503", reply: () => json(503, { error: { message: KEYED } }) },
   ];
 
@@ -474,6 +495,99 @@ describe("L5: provider result mapping with the real SDK clients and scripted HTT
     expect(r.json).toMatchObject({ status: "model_error", error: PROVIDER_MESSAGES.unavailable });
     expect(stub.calls).toHaveLength(1);
     expect(leaksKey(r.text)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D40: provider rejections 400, 402, 403, 404 — distinct, fixed, never provider text
+// ---------------------------------------------------------------------------
+
+describe("D40: 400, 402, 403, and 404 provider rejections are distinct not-evaluated states with fixed messages (both providers)", () => {
+  let restore: (() => void) | null = null;
+  afterEach(() => {
+    restore?.();
+    restore = null;
+  });
+  const CANARY = "PROVIDER-TEXT-CANARY";
+  const providerText = (code: number) => `${CANARY} ${code}: details mention ${ANTHROPIC_KEY} and ${OPENAI_KEY}`;
+  const bodyFor = (provider: "anthropic" | "openai", code: number) =>
+    provider === "anthropic"
+      ? { type: "error", error: { type: { 400: "invalid_request_error", 402: "billing_error", 403: "permission_error", 404: "not_found_error" }[code], message: providerText(code) } }
+      : { error: { code: { 400: null, 402: "billing_hard_limit_reached", 403: "unsupported_country_region_territory", 404: "model_not_found" }[code], type: "invalid_request_error", message: providerText(code) } };
+  const EXPECT: Record<number, { status: ResponseStatus; error: string }> = {
+    400: { status: "model_error", error: PROVIDER_MESSAGES.rejected },
+    402: { status: "model_error", error: PROVIDER_MESSAGES.billing },
+    403: { status: "credentials_unavailable", error: PROVIDER_MESSAGES.keyDenied },
+    404: { status: "model_error", error: PROVIDER_MESSAGES.modelUnavailable },
+  };
+
+  it("the four messages are fixed, allowlisted, pairwise distinct, and distinct from the 401 key message and 'Provider unavailable'", () => {
+    const msgs = Object.values(EXPECT).map((e) => e.error);
+    expect(new Set([...msgs, PROVIDER_MESSAGES.badKey, PROVIDER_MESSAGES.unavailable]).size).toBe(6);
+    for (const m of msgs) expect(ALLOWED_LIVE_MESSAGES.has(m)).toBe(true);
+  });
+
+  for (const provider of ["anthropic", "openai"] as const) {
+    it(`${provider}: client → route → real SDK (scripted HTTP replies): each code gets its own state, message, and alert; no provider text or key anywhere`, async () => {
+      const s = getScenario("spouse-parity");
+      const seenAlerts = new Map<number, string>();
+      for (const code of [400, 402, 403, 404]) {
+        const stub = stubProviderFetch(() => new Response(JSON.stringify(bodyFor(provider, code)), { status: code, headers: { "content-type": "application/json" } }));
+        restore = stub.restore;
+        const { value, output } = await captureOutput(() => liveRun(s, s.baselineInstruction, provider === "anthropic" ? HAIKU : GPT4O_MINI, realClients));
+        const { run, responses } = value;
+        stub.restore();
+        restore = null;
+        expect(stub.calls, `${provider} ${code}`).toHaveLength(2); // one call per version, no retries
+        for (const v of ["a", "b"] as const) {
+          expect(run.responses[v].status, `${provider} ${code}`).toBe(EXPECT[code].status);
+          expect(run.responses[v].error, `${provider} ${code}`).toBe(EXPECT[code].error);
+        }
+        expect(run.results.every((r) => r.status === "not_evaluated")).toBe(true);
+        expect(scenarioVerdict(run.results).headline).not.toBe(ALL_PASS_HEADLINE);
+        const alert = liveAlertText(run) ?? "";
+        expect(alert).toContain(EXPECT[code].error);
+        const everything = [JSON.stringify(run), ...responses.map((r) => r.text), alert, output].join("\n");
+        expect(everything).not.toContain(CANARY);
+        expect(leaksKey(everything)).toBe(false);
+        expect(output).toBe("");
+        seenAlerts.set(code, alert);
+      }
+      expect(new Set(seenAlerts.values()).size).toBe(4);
+    });
+  }
+
+  it("402 has no SDK error class in either SDK, and is still mapped by status through the real SDK", async () => {
+    for (const [provider, SDK] of [
+      ["anthropic", Anthropic],
+      ["openai", OpenAI],
+    ] as const) {
+      const err = SDK.APIError.generate(402, bodyFor(provider, 402), "x", H());
+      // A plain APIError (not one of the named subclasses).
+      expect(err.constructor.name, provider).toBe("APIError");
+      const stub = stubProviderFetch(() => new Response(JSON.stringify(bodyFor(provider, 402)), { status: 402, headers: { "content-type": "application/json" } }));
+      restore = stub.restore;
+      const r = await callRoute(routeRequest(provider === "anthropic" ? validBody() : validBody({ provider: "openai", model: GPT4O_MINI })), realClients);
+      stub.restore();
+      restore = null;
+      expect(r.json).toMatchObject({ status: "model_error", error: PROVIDER_MESSAGES.billing });
+      expect(r.text).not.toContain(CANARY);
+      expect(leaksKey(r.text)).toBe(false);
+    }
+  });
+
+  it("the message depends only on the status: different provider wording for the same code gives the same message", async () => {
+    for (const code of [400, 402, 403, 404]) {
+      const msgs = new Set<string>();
+      for (const wording of ["short", "A much longer explanation with a URL https://example.invalid/docs", ""]) {
+        const fake = fakeClients(() => {
+          throw Anthropic.APIError.generate(code, { type: "error", error: { type: "whatever_error", message: wording } }, wording, H());
+        });
+        const r = await callRoute(routeRequest(validBody()), fake.clients);
+        msgs.add(String(r.json?.error));
+      }
+      expect([...msgs], String(code)).toEqual([EXPECT[code].error]);
+    }
   });
 });
 

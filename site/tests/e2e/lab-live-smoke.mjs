@@ -63,6 +63,18 @@ function readKeySource() {
 }
 const KEY_SOURCE = readKeySource();
 
+/** Reads PROVIDER_MESSAGES (the fixed provider-result messages) from the product source. */
+function readProviderMessages() {
+  const src = readFileSync(new URL("../../lib/lab/live-messages.ts", import.meta.url), "utf8");
+  const block = /export const PROVIDER_MESSAGES = \{([\s\S]*?)\} as const;/.exec(src)?.[1] ?? "";
+  const out = Object.fromEntries([...block.matchAll(/^\s*(\w+): "([^"]+)",?$/gm)].map((m) => [m[1], m[2]]));
+  const need = ["tokenLimit", "refused", "badKey", "keyDenied", "modelUnavailable", "billing", "rateLimited", "noQuota", "rejected", "unavailable"];
+  const missing = need.filter((k) => !out[k]);
+  if (missing.length) throw new Error(`could not read PROVIDER_MESSAGES.${missing.join(", ")} from site/lib/lab/live-messages.ts`);
+  return out;
+}
+const PROVIDER_SOURCE = readProviderMessages();
+
 const BANNER_TAIL = "One sample per run; differences between runs can be nondeterministic. A pass means only that the displayed checks passed.";
 const ALL_PASS = "All displayed checks passed";
 const MSG = {
@@ -73,13 +85,9 @@ const MSG = {
   badProvider: KEY_SOURCE.provider,
   routeKey: `Missing or malformed API key — ${KEY_SOURCE.hint}`,
   keyInInstruction: "Your instruction contains your API key — remove it before running",
-  tokenLimit: "Response cut off at the token limit — not evaluated",
-  refused: "The provider declined to answer (safety system) — not evaluated",
-  badKey: "The provider rejected the API key",
-  rateLimited: "Rate limited by the provider",
-  noQuota: "The provider account has no remaining quota",
-  rejected: "The provider rejected the model or request",
-  unavailable: "Provider unavailable",
+  // Provider result messages (D40 included), read from PROVIDER_MESSAGES in site/lib/lab/live-messages.ts:
+  // tokenLimit, refused, badKey, keyDenied, modelUnavailable, billing, rateLimited, noQuota, rejected, unavailable.
+  ...PROVIDER_SOURCE,
 };
 const ASYM = (v) => `Only Version ${v} was declined by the provider's safety system (one sample). This asymmetry may itself be the harm under test.`;
 
@@ -102,6 +110,11 @@ async function step(name, fn) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+check(
+  "D40 the provider messages read from live-messages.ts are pairwise distinct and never empty",
+  new Set(Object.values(PROVIDER_SOURCE)).size === Object.keys(PROVIDER_SOURCE).length && Object.values(PROVIDER_SOURCE).every((m) => m.length > 10),
+  Object.values(PROVIDER_SOURCE).join(" | "),
+);
 check(
   "WCAG 3.3.3 the key-format hint (read from live-key.ts) states the enforced length and characters",
   KEY_SOURCE.min === 20 && KEY_SOURCE.max === 256 && new RegExp(`${KEY_SOURCE.min}\\s*[–-]\\s*${KEY_SOURCE.max} characters`).test(KEY_SOURCE.hint) && /letters, numbers, hyphens and underscores/.test(KEY_SOURCE.hint) && /no spaces/.test(KEY_SOURCE.hint),
@@ -453,7 +466,11 @@ await step("C. L5 error matrix in the UI", async () => {
     ["provider: refusal (both)", () => ({ body: { status: "provider_refused", error: MSG.refused, returnedModel: "claude-haiku-4-5-20251001", stopReason: "refusal", durationMs: 5 } }), "Provider declined (safety system) — not evaluated"],
     ["provider: rate limit", () => ({ body: { status: "model_error", error: MSG.rateLimited, durationMs: 5 } }), `Live request failed — not evaluated (${MSG.rateLimited})`],
     ["provider: no quota", () => ({ body: { status: "model_error", error: MSG.noQuota, durationMs: 5 } }), `Live request failed — not evaluated (${MSG.noQuota})`],
-    ["provider: rejected model or request", () => ({ body: { status: "model_error", error: MSG.rejected, durationMs: 5 } }), `Live request failed — not evaluated (${MSG.rejected})`],
+    // D40: the provider's 400, 402, 403, and 404 each have their own state and message.
+    ["provider: 400 bad request", () => ({ body: { status: "model_error", error: MSG.rejected, durationMs: 5 } }), `Live request failed — not evaluated (${MSG.rejected})`],
+    ["provider: 402 billing", () => ({ body: { status: "model_error", error: MSG.billing, durationMs: 5 } }), `Live request failed — not evaluated (${MSG.billing})`],
+    ["provider: 403 key denied", () => ({ body: { status: "credentials_unavailable", error: MSG.keyDenied, durationMs: 5 } }), `Credentials unavailable — not evaluated (${MSG.keyDenied})`],
+    ["provider: 404 model unavailable", () => ({ body: { status: "model_error", error: MSG.modelUnavailable, durationMs: 5 } }), `Live request failed — not evaluated (${MSG.modelUnavailable})`],
     ["provider: anything else", () => ({ body: { status: "model_error", error: MSG.unavailable, durationMs: 5 } }), `Live request failed — not evaluated (${MSG.unavailable})`],
     ["provider: timeout (server 30 s)", () => ({ body: { status: "timeout", durationMs: 30000 } }), "Live request timed out — not evaluated"],
     ["network failure", () => ({ abort: true }), "Live request failed — not evaluated (Could not reach the lab server)"],
