@@ -15,6 +15,7 @@ import { ALLOWED_LIVE_MESSAGES, CLIENT_MESSAGES, HTTP_MESSAGES, PROVIDER_MESSAGE
 import { renderInputs } from "../../lib/lab/render";
 import { liveConfig, makeLiveResponder } from "../../lib/lab/run";
 import { getScenario, scenarios } from "../../lib/lab/scenarios";
+import { createHandler } from "../../lib/lab/server/handler";
 import { realClients } from "../../lib/lab/server/providers";
 import type { ResponseStatus } from "../../lib/lab/types";
 import { liveAlertText, RESPONSE_STATUS_TEXT } from "../../app/lab/components/status";
@@ -419,17 +420,61 @@ describe("L5: the client turns every non-200 reply into a non-pass state with a 
     });
   }
 
-  it("400, 409, 413, 429, and 5xx each have their own message; 405 and 415 fall back to the generic rejection", async () => {
-    const msg: Record<number, string | undefined> = {};
-    for (const code of CODES) msg[code] = (await viaStatus(code, "{}")).error;
-    expect(msg[400]).toBe(HTTP_MESSAGES[400]);
-    expect(msg[409]).toBe(HTTP_MESSAGES[409]);
-    expect(msg[413]).toBe(HTTP_MESSAGES[413]);
-    expect(msg[429]).toBe(HTTP_MESSAGES[429]);
-    expect(msg[500]).toBe(CLIENT_MESSAGES.serverFailed);
-    expect(new Set([msg[400], msg[409], msg[413], msg[429], msg[500]]).size).toBe(5);
-    expect(msg[405]).toBe(CLIENT_MESSAGES.rejected);
-    expect(msg[415]).toBe(CLIENT_MESSAGES.rejected);
+  it("every request-check failure shows the route's own fixed message on the page, distinct per check", async () => {
+    // For each check category, take the real handler's actual reply and hand it to the client responder.
+    const shown = new Map<string, string>();
+    for (const [cat, def] of Object.entries(CATEGORIES)) {
+      for (const c of def.cases) {
+        const routeReply = await createHandler({ clients: fakeClients().clients })(c.req());
+        expect(routeReply.status, `${cat} ${c.name}`).toBe(def.code);
+        const rec = await makeLiveResponder({
+          scenario: s,
+          provider: "anthropic",
+          model: m,
+          key: { get: () => FAKE_KEY },
+          fetchImpl: (async () => routeReply) as typeof fetch,
+        })({ instruction: "x", input: renderInputs(s).a, config: liveConfig(m) });
+        expect(rec.status, `${cat} ${c.name}`).toBe("model_error");
+        expect(rec.error, `${cat} ${c.name}`).toBe(def.message);
+        expect(leaksKey(JSON.stringify(rec))).toBe(false);
+        shown.set(cat, rec.error!);
+      }
+    }
+    // One message per check category, and none of them is a pass or a provider result.
+    expect(new Set(shown.values()).size).toBe(Object.keys(CATEGORIES).length);
+    for (const v of shown.values()) expect(ALLOWED_LIVE_MESSAGES.has(v)).toBe(true);
+  });
+
+  it("without a usable route message, each status code has its own fixed fallback", async () => {
+    const bodies = ["{}", "not json", "", JSON.stringify({ status: "model_error", message: `raw text ${FAKE_KEY}` })];
+    const fallback: Record<number, string> = {};
+    for (const code of [400, 405, 409, 413, 415, 429, 500, 502, 503]) {
+      const seenForCode = new Set<string>();
+      for (const body of bodies) {
+        const rec = await viaStatus(code, body);
+        expect(rec.status).toBe("model_error");
+        expect(ALLOWED_LIVE_MESSAGES.has(rec.error ?? ""), `${code} ${body}`).toBe(true);
+        expect(leaksKey(JSON.stringify(rec))).toBe(false);
+        seenForCode.add(rec.error!);
+      }
+      // The fallback depends on the status code only, never on the body.
+      expect(seenForCode.size, String(code)).toBe(1);
+      fallback[code] = [...seenForCode][0];
+    }
+    expect(fallback[400]).toBe(HTTP_MESSAGES[400]);
+    expect(fallback[405]).toBe(HTTP_MESSAGES[405]);
+    expect(fallback[409]).toBe(HTTP_MESSAGES[409]);
+    expect(fallback[413]).toBe(HTTP_MESSAGES[413]);
+    expect(fallback[415]).toBe(HTTP_MESSAGES[415]);
+    expect(fallback[429]).toBe(HTTP_MESSAGES[429]);
+    expect(fallback[500]).toBe(CLIENT_MESSAGES.serverFailed);
+    expect(fallback[502]).toBe(CLIENT_MESSAGES.serverFailed);
+    // 400, 405, 409, 413, 415, 429, and 5xx are pairwise distinct.
+    const distinct = [400, 405, 409, 413, 415, 429, 500].map((c) => fallback[c]);
+    expect(new Set(distinct).size).toBe(distinct.length);
+    // A route message is shown only for a 4xx; a 5xx carrying one still gets the server-failure fallback.
+    const fivexx = await viaStatus(503, JSON.stringify({ status: "model_error", message: "Method not allowed" }));
+    expect(fivexx.error).toBe(CLIENT_MESSAGES.serverFailed);
   });
 
   it("a 200 reply that is not a valid result is never ok", async () => {
@@ -463,10 +508,16 @@ describe("L5: the client turns every non-200 reply into a non-pass state with a 
     const out400 = await liveRun({ ...s, id: "retired-scenario" }, s.baselineInstruction, HAIKU, fake.clients);
     // 413: an instruction far beyond the page's own limit.
     const out413 = await liveRun(s, "q".repeat(17_000), HAIKU, fake.clients);
-    for (const [code, out] of [[409, out409], [400, out400], [413, out413]] as const) {
+    for (const [code, out, message] of [
+      [409, out409, CATEGORIES.version.message],
+      [400, out400, CATEGORIES.scenario.message],
+      [413, out413, CATEGORIES.size.message],
+    ] as const) {
       expect(out.responses.map((x) => x.status)).toEqual([code, code]);
-      expect(out.run.responses.a.status).toBe("model_error");
-      expect(out.run.responses.a.error).toBe(HTTP_MESSAGES[code]);
+      for (const v of ["a", "b"] as const) {
+        expect(out.run.responses[v].status).toBe("model_error");
+        expect(out.run.responses[v].error).toBe(message);
+      }
       expect(out.run.results.every((r) => r.status === "not_evaluated")).toBe(true);
       expect(scenarioVerdict(out.run.results).headline).not.toBe(ALL_PASS_HEADLINE);
     }

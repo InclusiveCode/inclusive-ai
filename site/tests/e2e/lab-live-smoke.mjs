@@ -413,11 +413,19 @@ await step("B. baseline had errors; no live run yet (L2 empty states)", async ()
 await step("C. L5 error matrix in the UI", async () => {
   await page.locator("#lab-live-key").fill(ANT_KEY);
   const rows = [
-    ["route 400", () => ({ status: 400, body: { status: "model_error", message: "Missing or malformed API key" } }), "Live request failed — not evaluated (The lab server rejected the request (check the API key format))"],
-    ["route 405", () => ({ status: 405, body: { status: "model_error", message: "Method not allowed" } }), "Live request failed — not evaluated (The lab server rejected the request)"],
-    ["route 409", () => ({ status: 409, body: { status: "model_error", message: "Scenario version mismatch — reload the page" } }), "Live request failed — not evaluated (This page is out of date — reload it and try again)"],
-    ["route 413", () => ({ status: 413, body: { status: "model_error", message: "Request body too large" } }), "Live request failed — not evaluated (The request was too large)"],
-    ["route 415", () => ({ status: 415, body: { status: "model_error", message: "Content type must be application/json" } }), "Live request failed — not evaluated (The lab server rejected the request)"],
+    // The route's own fixed request-check messages are shown as they are (each check has its own).
+    ["route 400 (key)", () => ({ status: 400, body: { status: "model_error", message: "Missing or malformed API key" } }), "Live request failed — not evaluated (Missing or malformed API key)"],
+    ["route 400 (scenario)", () => ({ status: 400, body: { status: "model_error", message: "Unknown scenario" } }), "Live request failed — not evaluated (Unknown scenario)"],
+    ["route 405", () => ({ status: 405, body: { status: "model_error", message: "Method not allowed" } }), "Live request failed — not evaluated (Method not allowed)"],
+    ["route 409", () => ({ status: 409, body: { status: "model_error", message: "Scenario version mismatch — reload the page" } }), "Live request failed — not evaluated (Scenario version mismatch — reload the page)"],
+    ["route 413", () => ({ status: 413, body: { status: "model_error", message: "Request body too large" } }), "Live request failed — not evaluated (Request body too large)"],
+    ["route 415", () => ({ status: 415, body: { status: "model_error", message: "Content type must be application/json" } }), "Live request failed — not evaluated (Content type must be application/json)"],
+    // Without a usable route message, each status code has its own fixed fallback; raw text is never shown.
+    ["bare 400 (unlisted message quoting the key)", () => ({ status: 400, body: { status: "model_error", message: `bad key ${ANT_KEY}` } }), "Live request failed — not evaluated (The lab server rejected the request)"],
+    ["bare 405 (empty body)", () => ({ status: 405, body: "" }), "Live request failed — not evaluated (The lab server only accepts POST requests)"],
+    ["bare 409 (HTML body)", () => ({ status: 409, body: "<html>oops</html>" }), "Live request failed — not evaluated (This page is out of date — reload it and try again)"],
+    ["bare 413 (proxy reply)", () => ({ status: 413, body: "<html>oops</html>" }), "Live request failed — not evaluated (The request was too large)"],
+    ["bare 415 (empty JSON)", () => ({ status: 415, body: {} }), "Live request failed — not evaluated (The lab server only accepts JSON requests)"],
     ["firewall 429", () => ({ status: 429, body: "rate limited" }), "Live request failed — not evaluated (Too many live requests — wait a minute and try again)"],
     ["route 500", () => ({ status: 500, body: { status: "model_error", message: "Internal error" } }), "Live request failed — not evaluated (The lab server failed to handle the request)"],
     ["provider: bad key", () => ({ body: { status: "credentials_unavailable", error: MSG.badKey, durationMs: 5 } }), `Credentials unavailable — not evaluated (${MSG.badKey})`],
@@ -455,9 +463,10 @@ await step("C. L5 error matrix in the UI", async () => {
   await page.screenshot({ path: join(EVIDENCE, "verifier-live-03-error-state.png"), fullPage: false });
   const providerRows = [...seen.entries()].filter(([k]) => k.startsWith("provider:")).map(([, v]) => v);
   check("L5 every provider result-mapping row has its own alert text", new Set(providerRows).size === providerRows.length, providerRows.join(" | "));
-  const routeRows = ["route 400", "route 409", "route 413", "firewall 429", "route 500"].map((k) => seen.get(k));
-  check("L5 route 400/409/413/429/500 each have their own alert text", new Set(routeRows).size === routeRows.length, routeRows.join(" | "));
-  if (seen.get("route 405") === seen.get("route 415")) observe("L5 the page shows the same message for a route 405 and a route 415 ('The lab server rejected the request'); the route's own replies differ (405 'Method not allowed', 415 'Content type must be application/json'). The real page only ever sends POST with JSON, so neither occurs in normal use.");
+  const routeRows = [...seen.entries()].filter(([k]) => k.startsWith("route 4")).map(([, v]) => v);
+  check("L5 every route request-check failure (400 key, 400 scenario, 405, 409, 413, 415) has its own alert text", routeRows.length === 6 && new Set(routeRows).size === routeRows.length, routeRows.join(" | "));
+  const fallbackRows = ["bare 400 (unlisted message quoting the key)", "bare 405 (empty body)", "bare 409 (HTML body)", "bare 413 (proxy reply)", "bare 415 (empty JSON)", "firewall 429", "route 500"].map((k) => seen.get(k));
+  check("L5 without a usable route message, 400/405/409/413/415/429/5xx each have their own fallback alert", new Set(fallbackRows).size === fallbackRows.length, fallbackRows.join(" | "));
   main.cap.handler = okHandler();
 });
 
