@@ -16,6 +16,7 @@ import { CompareView } from "./components/compare-view";
 import { Findings } from "./components/findings";
 import { clearKeyForProviderSwitch, LivePanel } from "./components/live-panel";
 import { pickFocusAfterRun } from "./focus";
+import { completionAnnouncement } from "./announce";
 import { abortInFlight } from "./inflight";
 import { Limitations, SimulatorRules } from "./components/reference";
 import { RunDetails } from "./components/run-details";
@@ -83,6 +84,12 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
   const errorSeq = useRef(0);
   // The API key lives only in this uncontrolled input element; it is read at call time.
   const keyInputRef = useRef<HTMLInputElement>(null);
+
+  // The scenario on screen right now, read when a run finishes (the run may belong to another one).
+  const displayedScenarioRef = useRef(scenarioId);
+  useEffect(() => {
+    displayedScenarioRef.current = scenarioId;
+  }, [scenarioId]);
 
   // Leaving /lab (including client-side navigation) aborts any in-flight live calls.
   useEffect(() => () => abortInFlight(cancelRef), []);
@@ -194,10 +201,17 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
       setRuns((prev) => ({ ...prev, [s.id]: [...(prev[s.id] ?? []), run] }));
       setRunCount((prev) => ({ ...prev, [s.id]: n }));
       setView("latest");
-      setAnnouncement(`Run ${n} complete: ${scenarioVerdict(run.results).headline}`);
+      setAnnouncement(
+        completionAnnouncement({
+          n,
+          headline: scenarioVerdict(run.results).headline,
+          scenarioTitle: s.title,
+          displayed: displayedScenarioRef.current === s.id,
+        }),
+      );
       setNoMatch(!live && runInstruction !== s.baselineInstruction && matchSnippets(runInstruction).length === 0);
     } catch {
-      setAnnouncement(`Run ${n} could not be completed.`);
+      setAnnouncement(displayedScenarioRef.current === s.id ? `Run ${n} could not be completed.` : `Run ${n} for ${s.title} could not be completed.`);
       setRunError({ key: `${s.id}-run-${n}-failed`, text: "The run could not be completed. This is not an evaluation result." });
     } finally {
       cancelRef.current = null;

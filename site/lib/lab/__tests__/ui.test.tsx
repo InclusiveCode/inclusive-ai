@@ -698,3 +698,20 @@ describe("abort in-flight live requests on unmount", () => {
     expect(src).toMatch(/onClick=\{\(\) => abortInFlight\(cancelRef\)\}/);
   });
 });
+
+describe("run completion announcement after a scenario switch", () => {
+  it("names the run's scenario only when another scenario is displayed", async () => {
+    const { completionAnnouncement } = await import("../../../app/lab/announce");
+    const title = getScenario("spouse-parity").title;
+    expect(completionAnnouncement({ n: 1, headline: "Checks failed", scenarioTitle: title, displayed: true })).toBe("Run 1 complete: Checks failed");
+    expect(completionAnnouncement({ n: 1, headline: "Checks failed", scenarioTitle: title, displayed: false })).toBe(
+      `Run 1 complete for ${title}: Checks failed`,
+    );
+  });
+
+  it("the lab client compares the run's scenario with the one displayed at completion time", () => {
+    const src = readFileSync(join(SITE, "app/lab/lab-client.tsx"), "utf8");
+    expect(src).toMatch(/displayed: displayedScenarioRef\.current === s\.id/);
+    expect(src).toMatch(/displayedScenarioRef\.current = scenarioId/);
+  });
+});
