@@ -91,9 +91,17 @@ describe("compareRuns: live runs", () => {
     const NOTE_A = "Version A was declined by the provider's safety system — not comparable (see the note under “3. Review findings”)";
     expect(compareRuns(before, await liveRun(EDITED, ok(), refused))).toEqual({ compatible: false, reason: NOTE_B });
     expect(compareRuns(before, await liveRun(EDITED, refused, ok()))).toEqual({ compatible: false, reason: NOTE_A });
-    // Still the refusal wording when the other version also failed for another reason.
-    expect(compareRuns(before, await liveRun(EDITED, failed("timeout"), refused))).toEqual({ compatible: false, reason: NOTE_B });
     for (const r of [NOTE_A, NOTE_B]) expect(r).not.toMatch(/rerun/i);
+    // When the other version also failed for another reason, the asymmetry is not established:
+    // both are named and rerunning is legitimate.
+    expect(compareRuns(before, await liveRun(EDITED, refused, failed("timeout")))).toEqual({
+      compatible: false,
+      reason: "Versions A and B did not complete (A: declined by the provider; B: timed out) — rerun to compare",
+    });
+    expect(compareRuns(before, await liveRun(EDITED, failed("model_error"), refused))).toEqual({
+      compatible: false,
+      reason: "Versions A and B did not complete (A: model error; B: declined by the provider) — rerun to compare",
+    });
     // Timeouts and errors keep the rerun hint.
     const timedOut = compareRuns(before, await liveRun(EDITED, ok(), failed("timeout")));
     expect(timedOut.compatible === false && timedOut.reason).toBe("Version B did not complete (timed out) — rerun to compare");

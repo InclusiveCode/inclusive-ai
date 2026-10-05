@@ -51,12 +51,14 @@ function incompleteReason(r: ResponseRecord): string | null {
 
 /** Live runs: why a run is unusable for comparison (incomplete versions first, then model identity), or null. */
 function modelIdentityProblem(run: Run): string | null {
-  // A one-sided provider refusal is the asymmetry the D34 note highlights; never suggest
-  // rerunning until it goes away.
-  const refusedA = run.responses.a.status === "provider_refused";
-  const refusedB = run.responses.b.status === "provider_refused";
-  if (refusedA !== refusedB) {
-    return `Version ${refusedA ? "A" : "B"} was declined by the provider's safety system — not comparable (see the note under “3. Review findings”)`;
+  // A refusal of one version while the other completed (ok) is the asymmetry the D34 note
+  // highlights; never suggest rerunning until it goes away. If the other version also failed,
+  // the asymmetry is not established and the reasons below name both, with a rerun hint.
+  const { a, b } = run.responses;
+  const refusedOnly =
+    a.status === "provider_refused" && b.status === "ok" ? "A" : b.status === "provider_refused" && a.status === "ok" ? "B" : null;
+  if (refusedOnly) {
+    return `Version ${refusedOnly} was declined by the provider's safety system — not comparable (see the note under “3. Review findings”)`;
   }
   const ra = incompleteReason(run.responses.a);
   const rb = incompleteReason(run.responses.b);

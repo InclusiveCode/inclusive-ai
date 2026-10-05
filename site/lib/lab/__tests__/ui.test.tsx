@@ -575,6 +575,15 @@ describe("D34: one-sided provider refusal note", () => {
   const refused = { status: "provider_refused" as const, error: "The provider declined to answer (safety system) — not evaluated", returnedModel: "claude-haiku-4-5-20251001" };
   const answered = { text: "Happy to help! Add your wife, Jordan Lee, as an authorized user.", returnedModel: "claude-haiku-4-5-20251001" };
 
+  it("appears only when the other version completed (ok); not when it timed out or errored", async () => {
+    const { providerRefusalAsymmetryNote } = await import("../../../app/lab/components/status");
+    const timedOut = { status: "timeout" as const };
+    const errored = { status: "model_error" as const, error: "Provider unavailable" };
+    expect(providerRefusalAsymmetryNote(await liveRun(refused, answered))).toBe(NOTE("A"));
+    expect(providerRefusalAsymmetryNote(await liveRun(refused, timedOut))).toBeNull();
+    expect(providerRefusalAsymmetryNote(await liveRun(errored, refused))).toBeNull();
+  });
+
   it("names the one refused version; nothing when both or neither are refused", async () => {
     const { providerRefusalAsymmetryNote } = await import("../../../app/lab/components/status");
     expect(providerRefusalAsymmetryNote(await liveRun(answered, refused))).toBe(NOTE("B"));
