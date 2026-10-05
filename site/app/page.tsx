@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const features = [
+const features: Array<{ title: string; description: string; href: string; icon: string; className?: string }> = [
   {
     title: "Anti-Pattern Library",
     description: "Common LLM prompt and code patterns that harm LGBTQIA+ users — with safer alternatives.",
@@ -21,15 +21,17 @@ const features = [
   },
   {
     title: "Evaluation Lab",
-    description: "Inspect paired LGBTQIA+ scenarios, edit a system instruction, rerun, and compare what improved or regressed — in your browser, no setup.",
+    description: "A simulated, in-browser demo: inspect paired LGBTQIA+ scenarios, edit a system instruction, rerun, and compare what improved or regressed — no setup.",
     href: "/lab",
     icon: "🧪",
+    className: "lg:col-span-2",
   },
   {
     title: "Developer Tools",
     description: "Eval suite, Claude Code plugin, GitHub Action, and pre-commit hook — drop into your pipeline.",
     href: "/tools",
     icon: "🛠️",
+    className: "sm:col-span-2 lg:col-span-1",
   },
 ];
 
@@ -59,7 +61,7 @@ export default function HomePage() {
           </span>
         </h1>
         <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-8">
-          Patterns, checklists, an interactive evaluation lab, eval suite, CI pipeline tools, and a Claude Code plugin — everything LLM engineers need to protect LGBTQIA+ communities before they ship.
+          Patterns, checklists, an interactive evaluation lab, an eval suite, CI pipeline tools, and a Claude Code plugin — everything LLM engineers need to protect LGBTQIA+ communities before they ship.
         </p>
         <div className="flex gap-4 justify-center flex-wrap">
           <Link
@@ -81,8 +83,8 @@ export default function HomePage() {
       {/* Feature Cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-20">
         {features.map((f) => (
-          <Link key={f.href} href={f.href} className="card-rainbow-hover group p-6 border border-zinc-800 rounded-xl transition-colors">
-            <div className="text-2xl mb-3">{f.icon}</div>
+          <Link key={f.href} href={f.href} className={`card-rainbow-hover group p-6 border border-zinc-800 rounded-xl transition-colors ${f.className ?? ""}`}>
+            <div className="text-2xl mb-3" aria-hidden="true">{f.icon}</div>
             <h2 className="font-semibold mb-2 group-hover:text-zinc-100">{f.title}</h2>
             <p className="text-sm text-zinc-500">{f.description}</p>
           </Link>

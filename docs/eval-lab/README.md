@@ -125,9 +125,9 @@ OVER-NEUTRAL also turns every spouse term into "partner", which produces a regre
 
 ## Future work: adding a live adapter
 
-Not part of v1. A live adapter would:
+Not part of v1. **Update:** live mode is being designed as bring-your-own-key (spec decisions D21–D22): the user's own Anthropic or OpenAI key is held only in page memory and sent per request to the server route, which forwards it to the provider and never stores, logs, or echoes it. That supersedes the server-side-credentials approach in step 1 below. The rest of this list still applies. A live adapter would:
 
-1. Implement the provider call on the server inside `site/app/api/lab/run/route.ts` (or a server-only module it imports), reading credentials from server-side environment variables only. No key, provider name, or env-var name may reach the client bundle; keep the existing `.next/static` grep check in review.
+1. Implement the provider call on the server inside `site/app/api/lab/run/route.ts` (or a server-only module it imports). ~~Read credentials from server-side environment variables only.~~ (Superseded by D21: the key comes from the user per request and must never be stored, logged, or echoed.) No server-side secret or env-var name may reach the client bundle; keep the existing `.next/static` grep check in review.
 2. Accept only `{ scenarioId, instruction }` from the client, look up the scenario on the server, render the inputs with `renderInputs`, and send the instruction as the system message and each input as an independent user message with a fixed server-side config (temperature, max tokens).
 3. Return a `ResponseRecord` per version, mapping provider failures to `model_error` or `timeout` with fixed messages (never raw error text), and never log request bodies.
 4. Extend `makeLiveResponder` to accept an `ok` response, and give live runs their own `responderVersion` and `RunConfig`, so `compareRuns` keeps refusing simulated-vs-live comparisons.

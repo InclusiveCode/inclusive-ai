@@ -163,7 +163,8 @@ Recorded-run import/export; live provider integration (stub only); `localStorage
 | D20 | Integrate the lab into the main product (`InclusiveCode/inclusive-ai`) via PR, starting from the reviewed squash commit; supersedes the "never push lab work to the original project repo" part of D5 | PO decision after the lab shipped; makes `/lab` available to users of the main site | **Approved by PO** |
 | D21 | Live mode uses bring-your-own-key: the user's provider key is held only in page memory, sent per request over HTTPS to the server route, and never stored, logged, or echoed | No cost or abuse exposure for the site owner | **Approved by PO** (design pending) |
 | D22 | Live providers: Anthropic and OpenAI, with a server-owned model allowlist | Matches the existing CLI | **Approved by PO** (design pending) |
-| D23 | Live mode is post-submission product work in the main product; the separate lab repository stays frozen at its merged revision | Keeps the reviewed submission stable | **Approved by PO** |
+| D23 | Live mode is built after the initial lab release, in the main product; the separate lab repository stays frozen at its merged revision | Keeps the reviewed first release stable | **Approved by PO** |
+| D24 | AI-vendor and model-provider names are allowed in this repository; the earlier no-vendor-names rule applied only to the separate lab repository | The main product already names providers (CLI, Action, reports); live mode needs them | **Approved by PO** |
 
 ## 15. Design-review record
 
