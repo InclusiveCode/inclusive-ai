@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { afterEach, describe, expect, it } from "vitest";
+import { ALLOWED_LIVE_MESSAGES, ALLOWED_PROVIDER_MESSAGES, NAMEABLE_ERROR_TYPES, PROVIDER_MESSAGES } from "../live-messages";
 import { findModel, type LiveModel } from "../models";
 import { customHeadersConfigured } from "../server/env-guard";
 import {
@@ -198,10 +199,10 @@ describe("callProvider: result mapping", () => {
 
   const anthropicErrors: Array<[string, () => unknown, string, string | undefined]> = [
     ["401", () => new Anthropic.AuthenticationError(401, {}, "bad", headers()), "credentials_unavailable", "The provider rejected the API key"],
-    ["403", () => new Anthropic.PermissionDeniedError(403, {}, "no", headers()), "credentials_unavailable", "The provider rejected the API key"],
+    ["403", () => new Anthropic.PermissionDeniedError(403, {}, "no", headers()), "credentials_unavailable", "The provider denied this key access (check the account's permissions or region)"],
     ["429", () => new Anthropic.RateLimitError(429, {}, "slow", headers()), "model_error", "Rate limited by the provider"],
-    ["400", () => new Anthropic.BadRequestError(400, {}, "bad", headers()), "model_error", "The provider rejected the model or request"],
-    ["404", () => new Anthropic.NotFoundError(404, {}, "none", headers()), "model_error", "The provider rejected the model or request"],
+    ["400", () => new Anthropic.BadRequestError(400, {}, "bad", headers()), "model_error", "The provider rejected the request"],
+    ["404", () => new Anthropic.NotFoundError(404, {}, "none", headers()), "model_error", "This model isn't available to the account behind this key"],
     ["500", () => new Anthropic.InternalServerError(500, {}, "boom", headers()), "model_error", "Provider unavailable"],
     ["529", () => Anthropic.APIError.generate(529, {}, "overloaded", headers()), "model_error", "Provider unavailable"],
     ["connection", () => new Anthropic.APIConnectionError({ message: "refused" }), "model_error", "Provider unavailable"],
@@ -228,7 +229,7 @@ describe("callProvider: result mapping", () => {
 
   const openaiErrors: Array<[string, () => unknown, string, string | undefined]> = [
     ["401", () => new OpenAI.AuthenticationError(401, {}, "bad", headers()), "credentials_unavailable", "The provider rejected the API key"],
-    ["403", () => new OpenAI.PermissionDeniedError(403, {}, "no", headers()), "credentials_unavailable", "The provider rejected the API key"],
+    ["403", () => new OpenAI.PermissionDeniedError(403, {}, "no", headers()), "credentials_unavailable", "The provider denied this key access (check the account's permissions or region)"],
     [
       "429 insufficient_quota",
       () => new OpenAI.RateLimitError(429, { code: "insufficient_quota", type: "insufficient_quota" }, "quota", headers()),
@@ -236,8 +237,8 @@ describe("callProvider: result mapping", () => {
       "The provider account has no remaining quota",
     ],
     ["429", () => new OpenAI.RateLimitError(429, { code: "rate_limit_exceeded" }, "slow", headers()), "model_error", "Rate limited by the provider"],
-    ["400", () => new OpenAI.BadRequestError(400, {}, "bad", headers()), "model_error", "The provider rejected the model or request"],
-    ["404", () => new OpenAI.NotFoundError(404, {}, "none", headers()), "model_error", "The provider rejected the model or request"],
+    ["400", () => new OpenAI.BadRequestError(400, {}, "bad", headers()), "model_error", "The provider rejected the request"],
+    ["404", () => new OpenAI.NotFoundError(404, {}, "none", headers()), "model_error", "This model isn't available to the account behind this key"],
     ["500", () => new OpenAI.InternalServerError(500, {}, "boom", headers()), "model_error", "Provider unavailable"],
     ["timeout", () => new OpenAI.APIConnectionTimeoutError(), "timeout", undefined],
     ["user abort", () => new OpenAI.APIUserAbortError(), "timeout", undefined],
@@ -305,6 +306,143 @@ describe("callProvider: result mapping", () => {
     );
     expect(r.status).toBe("ok");
     expect(r.returnedModel).toBeUndefined();
+  });
+});
+
+describe("D40: 400, 402, 403 and 404 each get their own fixed message, for both providers", () => {
+  /** Provider text that must never reach a result: a distinctive marker plus the key. */
+  const PROVIDER_TEXT = `provider-detail-text-Z9 ${KEY}`;
+  const DENIED = "The provider denied this key access (check the account's permissions or region)";
+  const NO_MODEL = "This model isn't available to the account behind this key";
+  const BILLING = "The provider reports a billing problem on this account (check credits or payment)";
+  const REJECTED = "The provider rejected the request";
+
+  // Response bodies shaped like each provider's real error JSON, built through the SDKs' own
+  // APIError.generate (the path a real HTTP error takes).
+  const anthropicBody = (type: string) => ({ type: "error", error: { type, message: PROVIDER_TEXT } });
+  const openaiBody = (type: string, code: string | null) => ({ error: { message: PROVIDER_TEXT, type, param: null, code } });
+  const cases: Array<{ provider: "anthropic" | "openai"; status: number; make: () => unknown; sdkClass: string; result: string; error: string }> = [
+    { provider: "anthropic", status: 400, make: () => Anthropic.APIError.generate(400, anthropicBody("invalid_request_error"), undefined, headers()), sdkClass: "BadRequestError", result: "model_error", error: `${REJECTED} (invalid_request_error)` },
+    { provider: "anthropic", status: 402, make: () => Anthropic.APIError.generate(402, anthropicBody("billing_error"), undefined, headers()), sdkClass: "APIError", result: "model_error", error: BILLING },
+    { provider: "anthropic", status: 403, make: () => Anthropic.APIError.generate(403, anthropicBody("permission_error"), undefined, headers()), sdkClass: "PermissionDeniedError", result: "credentials_unavailable", error: DENIED },
+    { provider: "anthropic", status: 404, make: () => Anthropic.APIError.generate(404, anthropicBody("not_found_error"), undefined, headers()), sdkClass: "NotFoundError", result: "model_error", error: NO_MODEL },
+    { provider: "openai", status: 400, make: () => OpenAI.APIError.generate(400, openaiBody("invalid_request_error", null), undefined, headers()), sdkClass: "BadRequestError", result: "model_error", error: `${REJECTED} (invalid_request_error)` },
+    { provider: "openai", status: 402, make: () => OpenAI.APIError.generate(402, openaiBody("billing_error", "billing_hard_limit_reached"), undefined, headers()), sdkClass: "APIError", result: "model_error", error: BILLING },
+    { provider: "openai", status: 403, make: () => OpenAI.APIError.generate(403, openaiBody("invalid_request_error", "unsupported_country_region_territory"), undefined, headers()), sdkClass: "PermissionDeniedError", result: "credentials_unavailable", error: DENIED },
+    { provider: "openai", status: 404, make: () => OpenAI.APIError.generate(404, openaiBody("invalid_request_error", "model_not_found"), undefined, headers()), sdkClass: "NotFoundError", result: "model_error", error: NO_MODEL },
+  ];
+
+  const throwing = (provider: "anthropic" | "openai", make: () => unknown) =>
+    fakes({
+      [provider]: async () => {
+        throw make();
+      },
+    }).clients;
+
+  for (const c of cases) {
+    it(`${c.provider} ${c.status} (${c.sdkClass}) → ${c.result}: "${c.error}", with no provider text or key`, async () => {
+      const thrown = c.make() as Error;
+      expect(thrown.constructor.name).toBe(c.sdkClass); // the real SDK class for this status
+      expect(thrown.message).toContain("provider-detail-text-Z9"); // the SDK's own message carries provider text…
+      const r = await callProvider(call(c.provider === "anthropic" ? HAIKU : MINI), throwing(c.provider, c.make));
+      expect(r).toEqual({ status: c.result, error: c.error, durationMs: expect.any(Number) });
+      const json = JSON.stringify(r); // …and none of it reaches the result
+      expect(json).not.toContain("provider-detail-text");
+      expect(json).not.toContain("PLACEHOLDER");
+      expect(json).not.toContain("sk-test");
+      expect(ALLOWED_PROVIDER_MESSAGES.has(c.error)).toBe(true);
+      expect(ALLOWED_LIVE_MESSAGES.has(c.error)).toBe(true);
+    });
+  }
+
+  it("the four messages are distinct from each other and from the key, quota, rate-limit and unavailable messages", () => {
+    const four = [`${REJECTED} (invalid_request_error)`, BILLING, DENIED, NO_MODEL];
+    const others = [REJECTED, PROVIDER_MESSAGES.badKey, PROVIDER_MESSAGES.unavailable, PROVIDER_MESSAGES.rateLimited, PROVIDER_MESSAGES.noQuota];
+    expect(new Set([...four, ...others]).size).toBe(four.length + others.length);
+    expect(PROVIDER_MESSAGES).toMatchObject({ rejected: REJECTED, keyDenied: DENIED, modelUnavailable: NO_MODEL, billing: BILLING });
+  });
+
+  it("401 still reads 'The provider rejected the API key' for both providers", async () => {
+    for (const [provider, make] of [
+      ["anthropic", () => Anthropic.APIError.generate(401, anthropicBody("authentication_error"), undefined, headers())],
+      ["openai", () => OpenAI.APIError.generate(401, openaiBody("invalid_request_error", "invalid_api_key"), undefined, headers())],
+    ] as const) {
+      const r = await callProvider(call(provider === "anthropic" ? HAIKU : MINI), throwing(provider, make));
+      expect(r).toMatchObject({ status: "credentials_unavailable", error: PROVIDER_MESSAGES.badKey });
+    }
+  });
+
+  it("a 400 names its error type only when the type is on the fixed allowlist", async () => {
+    expect([...NAMEABLE_ERROR_TYPES]).toEqual(["invalid_request_error", "billing_error", "not_found_error", "permission_error"]);
+    const typed: Array<[unknown, string]> = [
+      ...NAMEABLE_ERROR_TYPES.map((t): [unknown, string] => [t, `${REJECTED} (${t})`]),
+      ["overloaded_error", REJECTED],
+      ["Invalid_Request_Error", REJECTED],
+      [`invalid_request_error ${PROVIDER_TEXT}`, REJECTED],
+      [PROVIDER_TEXT, REJECTED],
+      [undefined, REJECTED],
+      [null, REJECTED],
+      [42, REJECTED],
+    ];
+    for (const [type, expected] of typed) {
+      for (const provider of ["anthropic", "openai"] as const) {
+        const make =
+          provider === "anthropic"
+            ? () => new Anthropic.BadRequestError(400, { type: "error", error: { type, message: PROVIDER_TEXT } }, PROVIDER_TEXT, headers(), type as never)
+            : () => new OpenAI.BadRequestError(400, { message: PROVIDER_TEXT, type }, PROVIDER_TEXT, headers());
+        const r = await callProvider(call(provider === "anthropic" ? HAIKU : MINI), throwing(provider, make));
+        expect(r.error, `${provider} ${String(type)}`).toBe(expected);
+        expect(ALLOWED_PROVIDER_MESSAGES.has(r.error!)).toBe(true);
+        expect(JSON.stringify(r)).not.toContain("provider-detail-text");
+      }
+    }
+  });
+
+  it("a 402 maps by status, not by its type, and other uncovered statuses stay 'Provider unavailable'", async () => {
+    for (const provider of ["anthropic", "openai"] as const) {
+      const sdk = provider === "anthropic" ? Anthropic : OpenAI;
+      const m = provider === "anthropic" ? HAIKU : MINI;
+      const r402 = await callProvider(call(m), throwing(provider, () => sdk.APIError.generate(402, { error: { message: PROVIDER_TEXT } }, undefined, headers())));
+      expect(r402).toMatchObject({ status: "model_error", error: BILLING });
+      for (const status of [409, 418, 422, 500, 529]) {
+        const r = await callProvider(call(m), throwing(provider, () => sdk.APIError.generate(status, anthropicBody("billing_error"), undefined, headers())));
+        expect(r, `${provider} ${status}`).toMatchObject({ status: "model_error", error: PROVIDER_MESSAGES.unavailable });
+      }
+    }
+  });
+
+  it("through the real SDK clients and a real HTTP error response, each status gets its message", async () => {
+    const bodies: Record<number, { anthropic: object; openai: object }> = {
+      400: { anthropic: anthropicBody("invalid_request_error"), openai: openaiBody("invalid_request_error", null) },
+      402: { anthropic: anthropicBody("billing_error"), openai: openaiBody("billing_error", null) },
+      403: { anthropic: anthropicBody("permission_error"), openai: openaiBody("invalid_request_error", "unsupported_country_region_territory") },
+      404: { anthropic: anthropicBody("not_found_error"), openai: openaiBody("invalid_request_error", "model_not_found") },
+    };
+    const expected: Record<number, string> = { 400: `${REJECTED} (invalid_request_error)`, 402: BILLING, 403: DENIED, 404: NO_MODEL };
+    for (const status of [400, 402, 403, 404]) {
+      const requests: number[] = [];
+      const fetchFor = (body: object) => async () => {
+        requests.push(status);
+        return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "x-should-retry": "false" } });
+      };
+      const clients: ProviderClients = {
+        anthropic(apiKey) {
+          const client = new Anthropic({ apiKey, authToken: null, baseURL: "https://api.anthropic.com", maxRetries: 0, logLevel: "off", fetch: fetchFor(bodies[status].anthropic) });
+          return { messages: { create: (body, options) => client.messages.create(body, options) } };
+        },
+        openai(apiKey) {
+          const client = new OpenAI({ apiKey, baseURL: "https://api.openai.com/v1", maxRetries: 0, logLevel: "off", fetch: fetchFor(bodies[status].openai) });
+          return { chat: { completions: { create: (body, options) => client.chat.completions.create(body, options) } } };
+        },
+      };
+      for (const m of [HAIKU, MINI]) {
+        const r = await callProvider(call(m), clients);
+        expect(r.error, `${m.provider} ${status}`).toBe(expected[status]);
+        expect(JSON.stringify(r)).not.toContain("provider-detail-text");
+        expect(JSON.stringify(r)).not.toContain("PLACEHOLDER");
+      }
+      expect(requests).toHaveLength(2); // one call per provider, no retries
+    }
   });
 });
 

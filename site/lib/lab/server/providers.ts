@@ -9,7 +9,7 @@ import "server-only";
  */
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import { PROVIDER_MESSAGES as MSG } from "../live-messages";
+import { PROVIDER_MESSAGES as MSG, providerRejectedMessage } from "../live-messages";
 import { customHeadersConfigured } from "./env-guard";
 import type { LiveModel, Provider } from "../models";
 import type { ResponseStatus } from "../types";
@@ -127,6 +127,7 @@ function identifier(x: unknown): string | undefined {
 }
 
 interface SdkErrors {
+  APIError: abstract new (...args: never[]) => unknown;
   APIUserAbortError: abstract new (...args: never[]) => unknown;
   APIConnectionTimeoutError: abstract new (...args: never[]) => unknown;
   AuthenticationError: abstract new (...args: never[]) => unknown;
@@ -140,16 +141,28 @@ function mapError(err: unknown, sdk: SdkErrors, signal: AbortSignal, durationMs:
   if (signal.aborted || err instanceof sdk.APIUserAbortError || err instanceof sdk.APIConnectionTimeoutError) {
     return { status: "timeout", durationMs };
   }
-  if (err instanceof sdk.AuthenticationError || err instanceof sdk.PermissionDeniedError) {
+  // Decision D40: each status gets its own fixed message, the same for both providers.
+  if (err instanceof sdk.AuthenticationError) {
     return { status: "credentials_unavailable", error: MSG.badKey, durationMs };
+  }
+  if (err instanceof sdk.PermissionDeniedError) {
+    return { status: "credentials_unavailable", error: MSG.keyDenied, durationMs };
   }
   if (err instanceof sdk.RateLimitError) {
     const e = err as { code?: unknown; type?: unknown };
     const quota = e.code === "insufficient_quota" || e.type === "insufficient_quota";
     return { status: "model_error", error: quota ? MSG.noQuota : MSG.rateLimited, durationMs };
   }
-  if (err instanceof sdk.BadRequestError || err instanceof sdk.NotFoundError) {
-    return { status: "model_error", error: MSG.rejected, durationMs };
+  if (err instanceof sdk.NotFoundError) {
+    return { status: "model_error", error: MSG.modelUnavailable, durationMs };
+  }
+  if (err instanceof sdk.BadRequestError) {
+    // Only an allowlisted `.type` identifier may be named; `.message` is never read.
+    return { status: "model_error", error: providerRejectedMessage((err as { type?: unknown }).type), durationMs };
+  }
+  // Neither SDK has a class for 402 (Anthropic's billing_error); it arrives as a plain APIError.
+  if (err instanceof sdk.APIError && (err as { status?: unknown }).status === 402) {
+    return { status: "model_error", error: MSG.billing, durationMs };
   }
   return { status: "model_error", error: MSG.unavailable, durationMs };
 }

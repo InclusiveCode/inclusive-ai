@@ -173,17 +173,20 @@ What the page tells users: this site doesn't store or log the key; it is sent ov
 | The key is well formed but does not match the selected provider (an `sk-ant-` key only goes to Anthropic) | 400 "This key does not match the selected provider — check the provider or paste that provider's key" (D35) |
 | The instruction contains the key | 400 "Your instruction contains your API key — remove it before running" |
 
-The server renders the scenario input itself; the client never sends input text. Provider outcomes map by SDK error class and status/code, never by message text:
+The server renders the scenario input itself; the client never sends input text. Provider outcomes map by SDK error class and status/code, never by message text, and each status has its own fixed message, the same for both providers (decision D40):
 
 | Condition | Status | Message |
 |---|---|---|
 | Normal completion | `ok` | — |
 | `max_tokens` / `length` | `model_error` | Response cut off at the token limit — not evaluated |
 | Anthropic `refusal`, OpenAI `refusal` or `content_filter` | `provider_refused` | The provider declined to answer (safety system) — not evaluated |
-| 401 / 403 | `credentials_unavailable` | The provider rejected the API key |
+| 401 | `credentials_unavailable` | The provider rejected the API key |
+| 403 | `credentials_unavailable` | The provider denied this key access (check the account's permissions or region) |
+| 404 | `model_error` | This model isn't available to the account behind this key |
+| 402 (Anthropic `billing_error`; neither SDK has a class for it) | `model_error` | The provider reports a billing problem on this account (check credits or payment) |
+| 400 | `model_error` | The provider rejected the request — followed by the error's `type` in parentheses only when it is `invalid_request_error`, `billing_error`, `not_found_error`, or `permission_error`, e.g. "The provider rejected the request (invalid_request_error)". The provider's message text is never shown. |
 | 429 `insufficient_quota` | `model_error` | The provider account has no remaining quota |
 | Other 429 | `model_error` | Rate limited by the provider |
-| 400 / 404 | `model_error` | The provider rejected the model or request |
 | Timeout or abort | `timeout` | — |
 | Anything else | `model_error` | Provider unavailable |
 
