@@ -54,4 +54,6 @@ jobs:
           cache-dependency-path: site/package-lock.json
       - run: cd site && npm install && npm test && npm run build
       - name: Check the built client bundle for provider hosts and keys
-        run: cd site && LAB_BUNDLE_CHECK=1 npx vitest run lib/lab/__tests__/ui.test.tsx -t "built client bundle"
+        # Runs the bundle tests by file path (a wrong path fails with "No test files found").
+        # LAB_BUNDLE_CHECK=1 makes bundle.test.ts fail, not skip, if the build output is missing.
+        run: cd site && LAB_BUNDLE_CHECK=1 npx vitest run lib/lab/__tests__/bundle.test.ts tests/acceptance/req01-11-12-14-rendering-and-hygiene.test.tsx
