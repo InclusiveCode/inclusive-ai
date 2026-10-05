@@ -446,8 +446,8 @@ describe("makeLiveResponder (live client)", () => {
       ["405", (i) => ({ ...i, method: "GET", body: undefined }), "Method not allowed"],
       ["415", (i) => ({ ...i, headers: { ...(i.headers as Record<string, string>), "content-type": "text/plain" } }), "Content type must be application/json"],
       ["400 unknown scenario", (i) => withBody(i, { scenarioId: "nope" }), "Unknown scenario"],
-      ["400 key format", (i) => withAuth(i, "Bearer short"), "Missing or malformed API key"],
-      ["400 key/provider mismatch", (i) => withAuth(i, `Bearer ${OPENAI_KEY}`), "This key does not match the selected provider"],
+      ["400 key format", (i) => withAuth(i, "Bearer short"), "Missing or malformed API key — keys contain only letters, numbers, hyphens and underscores, with no spaces"],
+      ["400 key/provider mismatch", (i) => withAuth(i, `Bearer ${OPENAI_KEY}`), "This key does not match the selected provider — check the provider or paste that provider's key"],
       ["409", (i) => withBody(i, { scenarioVersion: "0" }), "Scenario version mismatch — reload the page"],
     ];
     const onPage: string[] = [];
@@ -584,7 +584,7 @@ describe("makeLiveResponder (live client)", () => {
     for (const [model, key] of cases) {
       const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
       const r = await makeLiveResponder({ scenario: S1, provider: model.provider, model, key: keyRef(key), fetchImpl })(req());
-      expect(r).toMatchObject({ status: "credentials_unavailable", error: "This key does not match the selected provider" });
+      expect(r).toMatchObject({ status: "credentials_unavailable", error: "This key does not match the selected provider — check the provider or paste that provider's key" });
       expect(JSON.stringify(r)).not.toContain("PLACEHOLDER");
       expect(calls).toEqual([]);
     }
@@ -600,7 +600,7 @@ describe("makeLiveResponder (live client)", () => {
     ]) {
       const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
       const r = await responder(fetchImpl, { key: keyRef(bad) })(req());
-      expect(r, JSON.stringify(bad)).toMatchObject({ status: "credentials_unavailable", error: "The API key format is not valid" });
+      expect(r, JSON.stringify(bad)).toMatchObject({ status: "credentials_unavailable", error: "The API key format is not valid — keys contain only letters, numbers, hyphens and underscores, with no spaces" });
       expect(calls).toEqual([]);
     }
   });

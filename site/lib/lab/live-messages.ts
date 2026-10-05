@@ -1,4 +1,4 @@
-import { KEY_PROBLEM_MESSAGE } from "./live-key";
+import { KEY_FORMAT_HINT, KEY_PROBLEM_MESSAGE } from "./live-key";
 
 /**
  * Fixed, provider-neutral messages for live results. The server sends only these
@@ -42,7 +42,7 @@ export const ROUTE_MESSAGES = {
   variant: "Variant must be a or b",
   instruction: "Instruction must be text of at most 4000 characters",
   model: "Unknown provider or model",
-  key: "Missing or malformed API key",
+  key: `Missing or malformed API key — ${KEY_FORMAT_HINT}`,
   keyProvider: KEY_PROBLEM_MESSAGE.provider,
   keyInInstruction: CLIENT_MESSAGES.keyInInstruction,
 } as const;

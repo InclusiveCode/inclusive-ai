@@ -171,7 +171,7 @@ describe("live route: request checks (each before any provider call)", () => {
     expect(current.res.status).toBe(200);
   });
 
-  it("400 'Missing or malformed API key' for a missing or malformed key, never echoing it", async () => {
+  it("400 with the fixed malformed-key message (and a correction hint) for a missing or malformed key, never echoing it", async () => {
     const bad: Array<string | null> = [
       null,
       "",
@@ -194,7 +194,7 @@ describe("live route: request checks (each before any provider call)", () => {
         continue; // the Headers class itself rejects some values; nothing reaches the handler
       }
       expectRejected(r, 400);
-      expect(r.json.message).toBe("Missing or malformed API key");
+      expect(r.json.message).toBe("Missing or malformed API key — keys contain only letters, numbers, hyphens and underscores, with no spaces");
       if (auth) expect(r.text).not.toContain(auth.slice(7, 20));
       expect(seen).toEqual([]);
     }
@@ -209,7 +209,7 @@ describe("live route: request checks (each before any provider call)", () => {
       const { clients, seen } = fakeClients();
       const r = await send(request(body, { headers: { authorization: `Bearer ${key}` } }), clients);
       expectRejected(r, 400);
-      expect(r.json.message).toBe("This key does not match the selected provider");
+      expect(r.json.message).toBe("This key does not match the selected provider — check the provider or paste that provider's key");
       expect(r.text).not.toContain("PLACEHOLDER");
       expect(seen).toEqual([]);
     }
