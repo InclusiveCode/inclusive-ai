@@ -191,8 +191,8 @@ describe("LivePanel", () => {
     for (const sentence of LIVE_NOTICE("Anthropic")) expect(text).toContain(sentence);
     expect(LIVE_NOTICE("OpenAI")).toEqual([
       "This site doesn't store or log your key. It's sent over HTTPS to this site's server (hosted on Vercel) and on to OpenAI for each run, and isn't kept after the request.",
-      "OpenAI's own data-retention policies apply to the instruction and scenario text you send.",
-      "Your key stays in this field until you clear it, switch to simulated mode, reload, or leave the page.",
+      "Your instruction and the fictional scenario text also go through this site's server to OpenAI, and OpenAI's own data-retention policies apply to them.",
+      "Your key stays in this field until you clear it, switch provider, switch to simulated mode, reload, or leave the page.",
       "Each run makes 2 billed calls. Cancelling stops waiting but may not stop calls already sent.",
       "Use a low-limit key you can revoke. Do not enter personal data.",
     ]);
@@ -280,6 +280,8 @@ describe("labels follow the displayed run", () => {
       "The checks were designed against scripted text. Real model output may phrase refusals and relationship terms in ways the word lists miss, so expect more 'inconclusive' results and occasional false findings.",
     );
     expect(text).not.toContain("Live mode is not configured");
+    expect(text).toContain("this site doesn't store or log the key");
+    expect(text).not.toContain("the key is never stored");
   });
 });
 
@@ -312,6 +314,10 @@ describe("LabClient", () => {
     const text = textContent(html);
     expect(text).toContain("Simulated demo — no AI model is called.");
     expect(text).toContain("All people, organizations, and data are fictional.");
+    expect(text).toContain(
+      "Checks are deterministic word-matching rules; every failure shows its evidence: the exact words that triggered it, or what was missing.",
+    );
+    expect(text).not.toContain("every failure points to the exact words");
     expect(html.match(/<input(?=[^>]*type="radio")(?=[^>]*name="scenario")[^>]*>/g)).toHaveLength(3);
     for (const s of scenarios) expect(text).toContain(s.title);
     expect(text).toContain("Rerun to compare.");

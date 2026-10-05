@@ -247,8 +247,8 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
         <h1 className="scroll-mt-24 text-3xl font-bold tracking-tight text-zinc-100 sm:text-4xl">Evaluation Lab</h1>
         <p className="mt-4 max-w-3xl text-lg text-zinc-300">
           Inspect how an assistant handles LGBTQIA+-specific situations, change its system instruction, rerun, and compare. Each scenario
-          sends two inputs that differ in exactly one detail. Checks are deterministic word-matching rules; every failure points to the
-          exact words that triggered it.
+          sends two inputs that differ in exactly one detail. Checks are deterministic word-matching rules; every failure shows its evidence: the exact words that triggered it,
+          or what was missing.
         </p>
       </header>
 

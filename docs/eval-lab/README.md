@@ -151,7 +151,7 @@ There is no automatic fallback to another model when a provider declines, becaus
 - The field is cleared by **Clear key**, on `pagehide` (which also covers the back/forward cache), and when the live panel unmounts (switching to simulated mode). A reload leaves it empty.
 - A run is blocked, without any request, when the key is missing (inline error; focus moves to the key field) or when the instruction contains the key. The server repeats the second check.
 
-What the page tells users: this site doesn't store or log the key; it is sent over HTTPS to this site's server (hosted on Vercel) and on to the provider for each run, and isn't kept after the request. The provider's own data-retention policies apply to the instruction and scenario text sent. Each run makes 2 billed calls, and cancelling stops waiting but may not stop calls already sent.
+What the page tells users: this site doesn't store or log the key; it is sent over HTTPS to this site's server (hosted on Vercel) and on to the provider for each run, and isn't kept after the request. The instruction and the fictional scenario text also go through this site's server to the provider, and the provider's own data-retention policies apply to them. The key stays in the field until it is cleared, the provider is switched, the page switches to simulated mode, reloads, or is left. Each run makes 2 billed calls, and cancelling stops waiting but may not stop calls already sent.
 
 ### Route checks and results
 

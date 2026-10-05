@@ -116,7 +116,7 @@ Claude will automatically apply LGBTQIA+ safety rules when writing or reviewing 
 
 ## Evaluation Lab
 
-The Evaluation Lab at [`/lab`](https://inclusive-ai.vercel.app/lab) shows the evaluation workflow end to end (with no setup in simulated mode): pick one of three fictional paired scenarios (two inputs that differ in one detail), inspect both responses, review deterministic word-matching checks that cite the exact words behind every failure, edit the system instruction, rerun, compare the baseline with the latest run, and record a human disagreement with any result.
+The Evaluation Lab at [`/lab`](https://inclusive-ai.vercel.app/lab) shows the evaluation workflow end to end (with no setup in simulated mode): pick one of three fictional paired scenarios (two inputs that differ in one detail), inspect both responses, review deterministic word-matching checks that show the evidence for every failure (the exact words that triggered it, or what was missing), edit the system instruction, rerun, compare the baseline with the latest run, and record a human disagreement with any result.
 
 **Simulated mode (default).** No AI model is called. Responses come from a scripted, fully documented simulator (`lab-simulator-rules-v1`) built to show known failure modes, and reruns happen entirely in the browser, so an improvement demonstrates the workflow, not real model behavior.
 
