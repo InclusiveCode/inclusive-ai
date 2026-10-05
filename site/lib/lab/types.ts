@@ -27,7 +27,7 @@ export interface CheckResult {
   omissionTerms?: string[];
 }
 
-export type ResponseStatus = "ok" | "model_error" | "timeout" | "credentials_unavailable" | "not_run";
+export type ResponseStatus = "ok" | "model_error" | "timeout" | "credentials_unavailable" | "not_run" | "provider_refused";
 
 export interface ResponseRecord {
   status: ResponseStatus;
@@ -36,6 +36,10 @@ export interface ResponseRecord {
   durationMs: number;
   rulesMatched?: string[];
   failureModesApplied?: string[];
+  /** Live runs: the model id the provider reports it used. */
+  returnedModel?: string;
+  /** Live runs: the provider's stop or finish reason. */
+  stopReason?: string;
 }
 
 export interface RunConfig {

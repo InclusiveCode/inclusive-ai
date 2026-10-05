@@ -32,7 +32,12 @@ const RESPONDER_FAILED = "The responder failed. No details are shown.";
 const RESPONDER_INVALID = "The responder returned an invalid response. No details are shown.";
 const LIVE_FAILED = "The live route returned an unexpected response. No details are shown.";
 
-const RESPONSE_STATUSES: readonly ResponseStatus[] = ["ok", "model_error", "timeout", "credentials_unavailable", "not_run"];
+const RESPONSE_STATUSES: readonly ResponseStatus[] = ["ok", "model_error", "timeout", "credentials_unavailable", "not_run", "provider_refused"];
+
+/** A short, non-empty string (at most 100 characters), or undefined. */
+function shortString(x: unknown): string | undefined {
+  return typeof x === "string" && x.length > 0 && x.length <= 100 ? x : undefined;
+}
 
 function stringList(x: unknown): string[] | undefined {
   return Array.isArray(x) ? x.filter((v): v is string => typeof v === "string") : undefined;
@@ -55,6 +60,10 @@ export function normalizeResponse(raw: unknown): ResponseRecord {
   if (rules) out.rulesMatched = rules;
   const modes = stringList(r.failureModesApplied);
   if (modes) out.failureModesApplied = modes;
+  const returnedModel = shortString(r.returnedModel);
+  if (returnedModel) out.returnedModel = returnedModel;
+  const stopReason = shortString(r.stopReason);
+  if (stopReason) out.stopReason = stopReason;
   return out;
 }
 

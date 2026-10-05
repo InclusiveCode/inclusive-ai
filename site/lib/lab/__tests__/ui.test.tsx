@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { findingKey } from "../../../app/lab/components/findings";
 import { RunDetails } from "../../../app/lab/components/run-details";
-import { liveAlertText, StatusBadge, statusLabel } from "../../../app/lab/components/status";
+import { liveAlertText, RESPONSE_STATUS_TEXT, StatusBadge, statusLabel } from "../../../app/lab/components/status";
 import { HighlightedText } from "../../../app/lab/highlight";
 import { LabClient } from "../../../app/lab/lab-client";
 import { runScenario, type Responder } from "../run";
@@ -98,6 +98,12 @@ describe("StatusBadge", () => {
     expect(statusLabel("error", ["malformed"])).toBe("Evaluator error (malformed) — not evaluated");
     expect(statusLabel("inconclusive", ["unsupported_claim"])).toBe("Inconclusive — unsupported claim");
     expect(statusLabel("inconclusive", ["vacuous"])).toBe("Inconclusive — response too empty to judge");
+  });
+});
+
+describe("response status text", () => {
+  it("labels a provider refusal as not evaluated", () => {
+    expect(RESPONSE_STATUS_TEXT.provider_refused).toBe("Provider declined (safety system) — not evaluated");
   });
 });
 
@@ -198,7 +204,10 @@ describe("lab source hygiene", () => {
     ...files(join(SITE, "app/api/lab"), /\.(ts|tsx)$/),
   ];
   // Built from parts so this test file does not match itself.
-  const banned = new RegExp(["Anthr" + "opic", "Cla" + "ude", "Open" + "AI", "\\bG" + "PT\\b", "assign" + "ment"].join("|"), "i");
+  // Provider names are allowed (D24) only in these files; everything else stays provider-neutral.
+  const vendor = /Anthropic|Claude|OpenAI|\bGPT\b|claude-|gpt-/i;
+  const PROVIDER_FILES = [/\/lib\/lab\/models\.ts$/, /\/lib\/lab\/server\//, /\/app\/api\/lab\/run\/route\.ts$/, /\/app\/lab\/components\/live-panel\.tsx$/];
+  const banned = new RegExp("assign" + "ment", "i");
 
   it("scans the page, components, library, and route", () => {
     expect(all.some((f) => f.endsWith("lab-client.tsx"))).toBe(true);
@@ -209,6 +218,7 @@ describe("lab source hygiene", () => {
     for (const f of all) {
       const src = readFileSync(f, "utf8");
       expect(src, f).not.toMatch(banned);
+      if (!PROVIDER_FILES.some((re) => re.test(f))) expect(src, f).not.toMatch(vendor);
       expect(src, f).not.toMatch(/localStorage|sessionStorage|dangerouslySetInnerHTML|innerHTML/);
       expect(src, f).not.toMatch(/console\./);
     }

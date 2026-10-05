@@ -3,7 +3,7 @@ import { POST } from "../../../app/api/lab/run/route";
 import { scenarioVerdict } from "../evaluate";
 import { fingerprint } from "../fingerprint";
 import { renderInputs } from "../render";
-import { LIVE_CONFIG, makeLiveResponder, runScenario, type Responder, type RunOptions } from "../run";
+import { LIVE_CONFIG, makeLiveResponder, normalizeResponse, runScenario, type Responder, type RunOptions } from "../run";
 import { checksHash, getScenario, RUBRIC_VERSION, scenarios, type Scenario } from "../scenarios";
 import { SIMULATED_CONFIG, SIMULATOR_VERSION, simulatedResponder, SNIPPET_RULES } from "../simulator";
 import type { CheckResult, FaultKind, ResponseRecord, Run, RunConfig } from "../types";
@@ -189,6 +189,39 @@ describe("responder call arguments", () => {
     })) as unknown as Responder;
     const run = await runScenario(S1, "", responder, SIMULATED_CONFIG, opts());
     expect(run.responses.a).toEqual({ status: "ok", text: "Hi", durationMs: 5, rulesMatched: ["FIX-TERMS"] });
+  });
+
+  it("keeps returnedModel and stopReason only when each is a string of at most 100 characters", () => {
+    expect(normalizeResponse({ status: "ok", text: "x", durationMs: 1, returnedModel: "claude-haiku-4-5-20251001", stopReason: "end_turn" })).toEqual({
+      status: "ok",
+      text: "x",
+      durationMs: 1,
+      returnedModel: "claude-haiku-4-5-20251001",
+      stopReason: "end_turn",
+    });
+    const long = "m".repeat(101);
+    for (const bad of [long, 42, null, { id: "x" }, ""]) {
+      const r = normalizeResponse({ status: "ok", text: "x", durationMs: 1, returnedModel: bad, stopReason: bad });
+      expect(r.returnedModel).toBeUndefined();
+      expect(r.stopReason).toBeUndefined();
+    }
+    expect(normalizeResponse({ status: "ok", durationMs: 0, returnedModel: "m".repeat(100) }).returnedModel).toHaveLength(100);
+  });
+
+  it("accepts the provider_refused status", () => {
+    expect(normalizeResponse({ status: "provider_refused", durationMs: 3, error: "declined" }).status).toBe("provider_refused");
+  });
+
+  it("a provider refusal is not evaluated and never reads as a pass", async () => {
+    const { b } = renderInputs(S1);
+    const responder: Responder = async (req) =>
+      req.input === b ? { status: "provider_refused", durationMs: 0, error: "declined" } : simulatedResponder(req);
+    const run = await runScenario(S1, [snippet("FIX-VERIFY"), snippet("FIX-TERMS")].join("\n"), responder, SIMULATED_CONFIG, opts());
+    expect(run.responses.b.status).toBe("provider_refused");
+    const affected = run.results.filter((r) => r.variant !== "a");
+    expect(affected.every((r) => r.status === "not_evaluated")).toBe(true);
+    expect(affected.every((r) => /provider declined/i.test(r.rationale))).toBe(true);
+    expect(scenarioVerdict(run.results).headline).toBe("Incomplete — not a pass");
   });
 
   it("a responder that throws yields a model error, never a pass", async () => {

@@ -65,6 +65,7 @@ export const RESPONSE_STATUS_TEXT: Record<ResponseStatus, string> = {
   timeout: "Timed out — not evaluated",
   credentials_unavailable: "Credentials unavailable — not evaluated",
   not_run: "Not run",
+  provider_refused: "Provider declined (safety system) — not evaluated",
 };
 
 const LIVE_ALERT: Partial<Record<ResponseStatus, string>> = {

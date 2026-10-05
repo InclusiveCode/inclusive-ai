@@ -26,6 +26,7 @@ const RESPONSE_LABEL: Record<ResponseStatus, string> = {
   timeout: "Timed out",
   credentials_unavailable: "Credentials unavailable",
   not_run: "Not run",
+  provider_refused: "Provider declined (safety system)",
 };
 
 const KNOWN_FLAGS: readonly ResultFlag[] = ["unsupported_claim", "malformed", "vacuous"];
