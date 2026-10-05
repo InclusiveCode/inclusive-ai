@@ -228,6 +228,9 @@ export function makeLiveResponder(opts: {
       try {
         body = await res.json();
       } catch {
+        // An abort while the body is still arriving is a cancel or timeout, not a server failure.
+        if (reason === "cancel") return { status: "not_run", error: LIVE_MSG.cancelled, durationMs: elapsed() };
+        if (reason === "timeout") return { status: "timeout", error: LIVE_MSG.timedOut, durationMs: elapsed() };
         return { status: "model_error", error: LIVE_MSG.serverFailed, durationMs: elapsed() };
       }
       return fromServerResult(body);

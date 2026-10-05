@@ -446,6 +446,30 @@ describe("makeLiveResponder (live client)", () => {
     return { fetchImpl, signals };
   }
 
+  /** Headers arrive, then the body read hangs until the request is aborted. */
+  function hangingBody(): typeof fetch {
+    return (async (_url: string, init: RequestInit) => ({
+      status: 200,
+      json: () =>
+        new Promise((_resolve, reject) => {
+          init.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    })) as unknown as typeof fetch;
+  }
+
+  it("Cancel while the response body is still being read reports 'Cancelled'", async () => {
+    const ac = new AbortController();
+    const pending = responder(hangingBody(), { signal: ac.signal })(req());
+    await new Promise((r) => setTimeout(r, 5));
+    ac.abort();
+    expect(await pending).toMatchObject({ status: "not_run", error: "Cancelled" });
+  });
+
+  it("a timeout while the response body is still being read reports a timeout", async () => {
+    const r = await responder(hangingBody(), { timeoutMs: 5 })(req());
+    expect(r).toMatchObject({ status: "timeout", error: "The live request timed out" });
+  });
+
   it("Cancel aborts the call and reports not_run 'Cancelled'", async () => {
     const ac = new AbortController();
     const { fetchImpl, signals } = hanging();
