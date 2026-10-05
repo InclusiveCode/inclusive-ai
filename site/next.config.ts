@@ -14,6 +14,7 @@ const SITE_CSP = "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; fo
 
 const nextConfig: NextConfig = {
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
+  poweredByHeader: false,
   async headers() {
     return [
       {
@@ -27,7 +28,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // The handler sets this on its own responses; this also covers Next's automatic 405.
+        // The handler sets this on its own responses; this also covers what Next answers itself (OPTIONS).
         source: "/api/lab/run",
         headers: [{ key: "Cache-Control", value: "no-store" }],
       },

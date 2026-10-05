@@ -18,8 +18,13 @@ const BEARER = "Bearer ";
 
 const HEADERS = { "content-type": "application/json", "cache-control": "no-store" } as const;
 
-function reply(httpStatus: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status: httpStatus, headers: HEADERS });
+function reply(httpStatus: number, body: unknown, extra: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body), { status: httpStatus, headers: { ...HEADERS, ...extra } });
+}
+
+/** Fixed 405 for any method other than POST. */
+export async function methodNotAllowed(): Promise<Response> {
+  return reply(405, { status: "model_error", message: "Method not allowed" }, { allow: "POST" });
 }
 
 /** Fixed request-check failure: `{ status, message }`, never echoing input. */
@@ -28,7 +33,7 @@ function reject(httpStatus: number, message: string): Response {
 }
 
 const REJECT = {
-  method: () => reject(405, "Method not allowed"),
+  method: () => reply(405, { status: "model_error", message: "Method not allowed" }, { allow: "POST" }),
   contentType: () => reject(415, "Content type must be application/json"),
   tooLarge: () => reject(413, "Request body too large"),
   badJson: () => reject(400, "Request body is not valid JSON"),

@@ -435,6 +435,11 @@ describe("security headers (next.config.ts)", () => {
     expect(withCsp.map((r) => r.source)).toEqual(["/:path*"]);
   });
 
+  it("does not advertise the framework (no X-Powered-By)", async () => {
+    const cfg = (await import("../../../next.config")).default as { poweredByHeader?: boolean };
+    expect(cfg.poweredByHeader).toBe(false);
+  });
+
   it("marks every live-route response no-store, including Next's own 405", async () => {
     const api = (await rules()).find((r) => r.source === "/api/lab/run");
     expect(api?.headers).toEqual([{ key: "Cache-Control", value: "no-store" }]);

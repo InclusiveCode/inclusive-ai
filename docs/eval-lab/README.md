@@ -159,7 +159,7 @@ What the page tells users: this site doesn't store or log the key; it is sent ov
 
 | Check | Response |
 |---|---|
-| Method is not POST | 405 (Next.js; `no-store` set in `next.config.ts`) |
+| GET, HEAD, PUT, PATCH, or DELETE | 405 with `Allow: POST` (OPTIONS is left to Next.js; `no-store` also set in `next.config.ts`) |
 | Content type is not `application/json` | 415 |
 | Body over 16 384 bytes (declared or measured) | 413 |
 | Body is not JSON | 400 |
