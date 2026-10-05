@@ -415,7 +415,8 @@ describe("security headers (next.config.ts)", () => {
     expect(typeof cfg.headers).toBe("function");
     return cfg.headers!();
   }
-  const SITE_CSP = "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'";
+  // connect-src is site-wide so it still applies after client-side navigation into /lab.
+  const SITE_CSP = "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; connect-src 'self'";
 
   it("sets the baseline headers site-wide", async () => {
     const site = (await rules()).find((r) => r.source === "/:path*");
@@ -429,12 +430,9 @@ describe("security headers (next.config.ts)", () => {
     });
   });
 
-  it("gives /lab one combined CSP that adds connect-src 'self', listed after the site-wide rule", async () => {
-    const all = await rules();
-    const labIndex = all.findIndex((r) => r.source === "/lab");
-    expect(labIndex).toBeGreaterThan(all.findIndex((r) => r.source === "/:path*"));
-    const csp = all[labIndex].headers.filter((h) => h.key === "Content-Security-Policy");
-    expect(csp).toEqual([{ key: "Content-Security-Policy", value: `${SITE_CSP}; connect-src 'self'` }]);
+  it("sends exactly one CSP for every path: only the site-wide rule sets one", async () => {
+    const withCsp = (await rules()).filter((r) => r.headers.some((h) => h.key.toLowerCase() === "content-security-policy"));
+    expect(withCsp.map((r) => r.source)).toEqual(["/:path*"]);
   });
 
   it("marks every live-route response no-store, including Next's own 405", async () => {

@@ -52,7 +52,7 @@ site/
     highlight.tsx          HighlightedText: <mark> segments built from text slices
     components/            banner, live panel, status badges, run details, findings + override form, comparison, reference tables
   app/api/lab/run/route.ts POST = createHandler({ clients: realClients }), Node runtime, maxDuration 60
-  next.config.ts           security headers; /lab adds connect-src 'self' to its CSP
+  next.config.ts           site-wide security headers, including one CSP with connect-src 'self'
   vitest.config.ts         aliases `server-only` to an empty module under Vitest
 ```
 
@@ -190,7 +190,7 @@ Runs are kept per scenario for the session. For a live run, the baseline is the 
 
 ### Abuse controls
 
-The route can be used to test whether a key is valid, and it proxies to two fixed hosts. Controls: a Vercel Firewall rate-limit rule (D27, see [`vercel-firewall.md`](vercel-firewall.md)), no CORS headers, a JSON content type and `Authorization` header (which force a CORS preflight), and `Content-Security-Policy: connect-src 'self'` on `/lab`.
+The route can be used to test whether a key is valid, and it proxies to two fixed hosts. Controls: a Vercel Firewall rate-limit rule (D27, see [`vercel-firewall.md`](vercel-firewall.md)), no CORS headers, a JSON content type and `Authorization` header (which force a CORS preflight), and a site-wide `Content-Security-Policy` with `connect-src 'self'`. It is site-wide rather than `/lab`-only so it still applies after client-side navigation into `/lab`. Nothing in the site connects cross-origin from the browser: the only client request is the lab's same-origin `POST /api/lab/run`, and there are no analytics or third-party scripts.
 
 ## Limitations
 

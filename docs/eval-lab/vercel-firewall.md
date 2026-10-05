@@ -40,5 +40,5 @@ Use a low-limit key for each provider that you can revoke afterwards. Open the d
 6. **Key clearing.** Click **Clear key**, then check the field is empty. Enter the key again and reload: the field is empty. Enter it again, navigate away, then use Back: the field is empty.
 7. **No key at rest.** In DevTools → Application, Local Storage, Session Storage, and Cookies contain no key. Download the review log (JSON) and check it does not contain the key.
 8. **Server logs.** In the Vercel project's logs for these requests, search for a distinctive part of your key; it must not appear.
-9. **Headers.** Run `curl -sI https://<your-domain>/lab`. It shows exactly one `Content-Security-Policy`, ending in `connect-src 'self'`, plus `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, and `Permissions-Policy`.
+9. **Headers.** Run `curl -sI` on `https://<your-domain>/`, `/lab`, and `/checklist`. Each shows exactly one `Content-Security-Policy`, ending in `connect-src 'self'`, plus `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, and `Permissions-Policy`, and no `X-Powered-By`.
 10. **Clean up.** Revoke both keys.
