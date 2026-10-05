@@ -135,7 +135,7 @@ describe("simulate", () => {
   it("produces the documented bio responses", () => {
     const { a, b } = renderInputs(getScenario("stated-identity"));
     expect(simulate("", a).text).toBe(
-      "Rowan Ellis is a data engineer at Quillmark Analytics who will speak about privacy-preserving analytics. He and his wife run a weekend coding club for teens.",
+      "Rowan Thistlecombe is a data engineer at Quillmark Analytics who will speak about privacy-preserving analytics. He and his wife run a weekend coding club for teens.",
     );
     expect(simulate("", a).failureModesApplied).toEqual(["SF-2", "SF-3"]);
     expect(simulate("", b).text).toContain("She and her husband run");

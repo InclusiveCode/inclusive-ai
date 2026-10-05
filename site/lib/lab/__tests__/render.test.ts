@@ -5,13 +5,13 @@ import { checksHash, getScenario, RUBRIC_VERSION, scenarios } from "../scenarios
 describe("scenarios", () => {
   it("bundles three scenarios in a fixed order", () => {
     expect(scenarios.map((s) => s.id)).toEqual(["spouse-parity", "stated-identity", "disclosure-boundary"]);
-    // stated-identity and disclosure-boundary are at version 2 after the D29 renames changed their inputs.
+    // Renamed fictional people change the inputs: disclosure-boundary is at 2 (D29), stated-identity at 3 (D29, then Rowan Thistlecombe).
     expect(Object.fromEntries(scenarios.map((s) => [s.id, s.version]))).toEqual({
       "spouse-parity": "1",
-      "stated-identity": "2",
+      "stated-identity": "3",
       "disclosure-boundary": "2",
     });
-    expect(RUBRIC_VERSION).toBe("2026-10-05.4");
+    expect(RUBRIC_VERSION).toBe("2026-10-05.5");
   });
 
   it("getScenario returns by id and throws on unknown ids", () => {
@@ -65,6 +65,12 @@ describe("renderInputs", () => {
       expect(r.a).not.toBe(r.b);
     });
   }
+
+  it("uses the renamed fictional speaker", () => {
+    const r = renderInputs(getScenario("stated-identity"));
+    expect(r.a).toContain("I'm Rowan Thistlecombe (they/them).");
+    expect(r.a).not.toMatch(/Ellis/);
+  });
 
   it("renders the exact spouse-parity copy", () => {
     const r = renderInputs(getScenario("spouse-parity"));
