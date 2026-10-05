@@ -165,6 +165,10 @@ Recorded-run import/export; live provider integration (stub only); `localStorage
 | D22 | Live providers: Anthropic and OpenAI, with a server-owned model allowlist | Matches the existing CLI | **Approved by PO** (design pending) |
 | D23 | Live mode is built after the initial lab release, in the main product; the separate lab repository stays frozen at its merged revision | Keeps the reviewed first release stable | **Approved by PO** |
 | D24 | AI-vendor and model-provider names are allowed in this repository; the earlier no-vendor-names rule applied only to the separate lab repository | The main product already names providers (CLI, Action, reports); live mode needs them | **Approved by PO** |
+| D25 | Upgrade `next` to a patched 16.x before any route handles user keys | Published critical advisories in 16.1.6; done in #3 (16.3.8) | **Approved by PO** |
+| D26 | Live mode v1 models: `claude-haiku-4-5`, `claude-sonnet-5-5` (thinking off via `between_tools`, no `temperature`), `gpt-4o-mini`, `gpt-4.1-mini`; defer Opus 5.5 and reasoning models | Short outputs without hidden-reasoning token use; parameters verified per model | **Approved by PO** |
+| D27 | Abuse control for the live route is a Vercel Firewall rate-limit rule configured by the PO | The route is a key-validity oracle; in-memory limits are unreliable on serverless | **Approved by PO** |
+| D28 | The frozen lab repository receives a security-only Next.js patch | Its public prototype ran a version with critical advisories | **Approved by PO** |
 
 ## 15. Design-review record
 
