@@ -56,8 +56,10 @@ const BANNER_TAIL = "One sample per run; differences between runs can be nondete
 const ALL_PASS = "All displayed checks passed";
 const MSG = {
   noKey: "Enter your API key to run live",
-  badFormat: "The API key format is not valid",
-  badProvider: "This key does not match the selected provider",
+  // Exact strings from site/lib/lab/live-key.ts and live-messages.ts (WCAG 3.3.3 correction hints).
+  badFormat: "The API key format is not valid — keys contain only letters, numbers, hyphens and underscores, with no spaces",
+  badProvider: "This key does not match the selected provider — check the provider or paste that provider's key",
+  routeKey: "Missing or malformed API key — keys contain only letters, numbers, hyphens and underscores, with no spaces",
   keyInInstruction: "Your instruction contains your API key — remove it before running",
   tokenLimit: "Response cut off at the token limit — not evaluated",
   refused: "The provider declined to answer (safety system) — not evaluated",
@@ -414,7 +416,7 @@ await step("C. L5 error matrix in the UI", async () => {
   await page.locator("#lab-live-key").fill(ANT_KEY);
   const rows = [
     // The route's own fixed request-check messages are shown as they are (each check has its own).
-    ["route 400 (key)", () => ({ status: 400, body: { status: "model_error", message: "Missing or malformed API key" } }), "Live request failed — not evaluated (Missing or malformed API key)"],
+    ["route 400 (key)", () => ({ status: 400, body: { status: "model_error", message: MSG.routeKey } }), `Live request failed — not evaluated (${MSG.routeKey})`],
     ["route 400 (scenario)", () => ({ status: 400, body: { status: "model_error", message: "Unknown scenario" } }), "Live request failed — not evaluated (Unknown scenario)"],
     ["route 405", () => ({ status: 405, body: { status: "model_error", message: "Method not allowed" } }), "Live request failed — not evaluated (Method not allowed)"],
     ["route 409", () => ({ status: 409, body: { status: "model_error", message: "Scenario version mismatch — reload the page" } }), "Live request failed — not evaluated (Scenario version mismatch — reload the page)"],
@@ -496,11 +498,21 @@ await step("D. D34 one-sided refusal note", async () => {
   await waitRun(page, ++n);
   t = await pageText();
   check("D34 only A refused → note names Version A", t.includes(ASYM("A")) && !t.includes(ASYM("B")));
+  const cmpA = await compareText(page);
+  check("D34 A refused + B ok → compare: 'Version A was declined … — not comparable (see the note …)', no rerun hint", cmpA.includes("Not comparable: Version A was declined by the provider's safety system — not comparable (see the note under “3. Review findings”)") && !/rerun to compare/.test(cmpA), cmpA.slice(0, 220));
+  main.cap.handler = (e) => (e.body?.variant === "a" ? refuse(["a"])(e) : { body: { status: "timeout", durationMs: 30000 } });
+  await rerun(page);
+  await waitRun(page, ++n);
+  t = await pageText();
+  const cmpAT = await compareText(page);
+  check("D34 A refused + B timed out → no asymmetry note", !/Only Version [AB] was declined/.test(t));
+  check("D34 A refused + B timed out → compare names both, with a rerun hint", cmpAT.includes("Versions A and B did not complete (A: declined by the provider; B: timed out) — rerun to compare"), cmpAT.slice(0, 220));
   main.cap.handler = refuse(["a", "b"]);
   await rerun(page);
   await waitRun(page, ++n);
   t = await pageText();
   check("D34 both refused → no asymmetry note", !/Only Version [AB] was declined/.test(t));
+  check("D34 both refused → compare names both, with a rerun hint", (await compareText(page)).includes("Versions A and B did not complete (A: declined by the provider; B: declined by the provider) — rerun to compare"));
   main.cap.handler = okHandler();
   await rerun(page);
   await waitRun(page, ++n);
@@ -798,11 +810,15 @@ await step("J. real route: request checks, headers, and no key in replies", asyn
     ["PATCH → 405", { method: "PATCH", headers: { ...json, ...auth }, body: JSON.stringify(valid) }, 405, "Method not allowed"],
     ["DELETE → 405", { method: "DELETE", headers: auth }, 405, "Method not allowed"],
     ["text/plain → 415", { method: "POST", headers: { "content-type": "text/plain", ...auth }, body: JSON.stringify(valid) }, 415, "Content type must be application/json"],
-    ["oversized body → 413", { method: "POST", headers: { ...json, ...auth }, body: JSON.stringify({ ...valid, pad: "p".repeat(17000) }) }, 413, "Request body too large"],
+    ["oversized body (over 32 KiB) → 413", { method: "POST", headers: { ...json, ...auth }, body: JSON.stringify({ ...valid, pad: "p".repeat(33000) }) }, 413, "Request body too large"],
+    // D39: the worst-case valid instruction (4000 × U+0001, ~24 KB of JSON) passes the size and schema checks and is
+    // stopped only by the later key/provider check (so nothing is sent anywhere); 4001 of them fail the schema check.
+    ["4000 × U+0001 passes the size check (then key/provider mismatch → 400)", { method: "POST", headers: { ...json, authorization: `Bearer ${OAI_KEY}` }, body: JSON.stringify({ ...valid, instruction: "\u0001".repeat(4000) }) }, 400, MSG.badProvider],
+    ["4001 × U+0001 → schema 400", { method: "POST", headers: { ...json, ...auth }, body: JSON.stringify({ ...valid, instruction: "\u0001".repeat(4001) }) }, 400, "Instruction must be text of at most 4000 characters"],
     ["bad JSON → 400", { method: "POST", headers: { ...json, ...auth }, body: "{" }, 400, "Request body is not valid JSON"],
     ["stale scenario version → 409", { method: "POST", headers: { ...json, ...auth }, body: JSON.stringify({ ...valid, scenarioId: "stated-identity", scenarioVersion: "1" }) }, 409, "Scenario version mismatch — reload the page"],
     ["deferred model → 400", { method: "POST", headers: { ...json, ...auth }, body: JSON.stringify({ ...valid, model: "claude-opus-5-5" }) }, 400, "Unknown provider or model"],
-    ["malformed key → 400", { method: "POST", headers: { ...json, authorization: `Bearer ${ANT_KEY} x` }, body: JSON.stringify(valid) }, 400, "Missing or malformed API key"],
+    ["malformed key → 400", { method: "POST", headers: { ...json, authorization: `Bearer ${ANT_KEY} x` }, body: JSON.stringify(valid) }, 400, MSG.routeKey],
     ["key/provider mismatch → 400", { method: "POST", headers: { ...json, authorization: `Bearer ${OAI_KEY}` }, body: JSON.stringify(valid) }, 400, MSG.badProvider],
     ["key in instruction → 400", { method: "POST", headers: { ...json, ...auth }, body: JSON.stringify({ ...valid, instruction: `x ${ANT_KEY}` }) }, 400, MSG.keyInInstruction],
   ];
@@ -814,10 +830,39 @@ await step("J. real route: request checks, headers, and no key in replies", asyn
       body = JSON.parse(text);
     } catch {}
     check(`ROUTE ${name}: fixed JSON reply`, res.status === code && body?.message === message && body?.status === "model_error" && Object.keys(body).length === 2, `${res.status} ${text.slice(0, 120)}`);
+    if (code === 405) check(`ROUTE ${name}: Allow: POST, OPTIONS`, res.headers.get("allow") === "POST, OPTIONS", res.headers.get("allow"));
     check(`ROUTE ${name}: no-store, no CORS, no X-Powered-By, no key`, res.headers.get("cache-control") === "no-store" && res.headers.get("access-control-allow-origin") === null && res.headers.get("x-powered-by") === null && !leaksKey(text) && !leaksKey([...res.headers].join("\n")), [...res.headers].map((h) => h.join(": ")).join("; ").slice(0, 300));
   }
   const opt = await fetch(url, { method: "OPTIONS", headers: { origin: "https://evil.example", "access-control-request-method": "POST", "access-control-request-headers": "authorization,content-type" } });
-  check("ROUTE OPTIONS preflight from another origin gets no CORS grant", opt.headers.get("access-control-allow-origin") === null && opt.headers.get("access-control-allow-headers") === null, `${opt.status}`);
+  const acHeaders = [...opt.headers.keys()].filter((k) => k.startsWith("access-control-"));
+  check("ROUTE OPTIONS preflight from another origin: 204, Allow: POST, OPTIONS, no-store, no Access-Control-* headers", opt.status === 204 && opt.headers.get("allow") === "POST, OPTIONS" && opt.headers.get("cache-control") === "no-store" && acHeaders.length === 0 && (await opt.text()) === "", JSON.stringify({ status: opt.status, allow: opt.headers.get("allow"), cc: opt.headers.get("cache-control"), acHeaders }));
+  // A page on another (loopback) origin cannot call the route with a key: the browser's preflight gets no CORS grant.
+  const xoCtx = await browser.newContext();
+  const xoPage = await xoCtx.newPage();
+  const xoConsole = [];
+  xoPage.on("console", (m) => xoConsole.push(m.text()));
+  // A real loopback server for the other origin (an intercepted page has an unknown address space,
+  // which Chromium's local-network check would block for a different reason).
+  const http = await import("node:http");
+  const other = http.createServer((_req, res) => {
+    res.writeHead(200, { "content-type": "text/html" });
+    res.end("<!doctype html><title>other origin</title>");
+  });
+  await new Promise((r) => other.listen(39998, "127.0.0.1", r));
+  await xoPage.goto("http://127.0.0.1:39998/");
+  const xoResult = await xoPage.evaluate(async (u) => {
+    try {
+      const r = await fetch(u, { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer sk-ant-test-VerifierFakeKeyNotRealAbcdefghij" }, body: "{}" });
+      return `status ${r.status}`;
+    } catch (e) {
+      return `blocked: ${String(e)}`;
+    }
+  }, url);
+  await sleep(300);
+  const corsMsg = xoConsole.find((m) => /blocked by CORS policy/.test(m)) ?? "";
+  check("ROUTE a page on another origin cannot call the route with a key (blocked by CORS: no grant on the preflight)", xoResult.startsWith("blocked") && /preflight|Access-Control-Allow-Origin/.test(corsMsg), `${xoResult} | ${corsMsg.slice(0, 200)}`);
+  await xoCtx.close();
+  other.close();
   const lab = await fetch(LAB);
   const csp = lab.headers.get("content-security-policy") ?? "";
   check("HEADERS /lab: exactly one CSP with connect-src 'self', frame-ancestors 'none'; nosniff; no X-Powered-By", /connect-src 'self'/.test(csp) && /frame-ancestors 'none'/.test(csp) && !csp.includes(",") && lab.headers.get("x-content-type-options") === "nosniff" && lab.headers.get("x-powered-by") === null, csp);
@@ -988,14 +1033,126 @@ await step("K. D30 reflow: no horizontal page scroll at 320 px and 375 px", asyn
     await waitRun(t.page, 2);
     m = await measure();
     check(`D30 ${width}px live run with long returned model ids and the compare view: no horizontal scroll`, ok(m), JSON.stringify(m));
-    t.cap.handler = () => ({ body: { status: "model_error", error: MSG.tokenLimit, durationMs: 1 } });
+    // Worst case for the banner: a 100-character returned model id with no break opportunities (the client keeps ids up to 100).
+    const ID100 = "claudehaiku45" + "x".repeat(87);
+    t.cap.handler = okHandler({ returned: { a: ID100, b: ID100 } });
     await t.page.getByRole("button", { name: "Rerun", exact: true }).click();
     await waitRun(t.page, 3);
+    const bannerBox = await t.page.locator("[role=note] p").first().evaluate((el) => ({
+      text: el.textContent ?? "",
+      wrap: getComputedStyle(el).overflowWrap,
+      fits: el.scrollWidth <= el.clientWidth && el.getBoundingClientRect().right <= window.innerWidth,
+    }));
+    m = await measure();
+    check(`ITEM7 ${width}px banner with a 100-character returned model id: id shown, wraps (overflow-wrap:anywhere), no horizontal scroll`, bannerBox.text.includes(ID100) && bannerBox.wrap === "anywhere" && bannerBox.fits && ok(m), JSON.stringify({ wrap: bannerBox.wrap, fits: bannerBox.fits, ...m }));
+    t.cap.handler = () => ({ body: { status: "model_error", error: MSG.tokenLimit, durationMs: 1 } });
+    await t.page.getByRole("button", { name: "Rerun", exact: true }).click();
+    await waitRun(t.page, 4);
     m = await measure();
     check(`D30 ${width}px live error alert: no horizontal scroll`, ok(m), JSON.stringify(m));
     await t.page.screenshot({ path: join(EVIDENCE, `verifier-live-reflow-${width}.png`), fullPage: true });
     await t.cap.context.close();
   }
+});
+
+await step("K. ITEM8 /lab form-field borders reach 3:1 against what surrounds them (WCAG 1.4.11)", async () => {
+  const t = await newLabPage();
+  await t.page.goto(LAB, { waitUntil: "networkidle" });
+  // Open an override form so its reason textarea is measured too.
+  await t.page.locator("section[aria-labelledby=findings] button:not([disabled])", { hasText: "Disagree with this result" }).first().click();
+  const measureFields = () => t.page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const paint = (layers) => {
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, 1, 1);
+      for (const c of layers) {
+        ctx.fillStyle = "#000000";
+        ctx.fillStyle = c;
+        ctx.fillRect(0, 0, 1, 1);
+      }
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      return [r, g, b];
+    };
+    const lum = ([r, g, b]) => {
+      const f = (v) => {
+        v /= 255;
+        return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    };
+    const ratio = (x, y) => {
+      const [a, b] = [lum(x), lum(y)].sort((p, q) => q - p);
+      return (a + 0.05) / (b + 0.05);
+    };
+    const out = [];
+    const main = document.querySelector("main");
+    for (const el of main.querySelectorAll("input:not([type=radio]):not([type=checkbox]), select, textarea")) {
+      if (el.disabled) continue;
+      const chain = [];
+      for (let n = el.parentElement; n; n = n.parentElement) chain.unshift(getComputedStyle(n).backgroundColor);
+      const around = paint(chain.filter((c) => c && c !== "rgba(0, 0, 0, 0)" && c !== "transparent"));
+      const cs = getComputedStyle(el);
+      const border = paint([...chain.filter((c) => c && c !== "rgba(0, 0, 0, 0)" && c !== "transparent"), cs.borderTopColor]);
+      out.push({ id: el.id || el.tagName.toLowerCase(), width: cs.borderTopWidth, border: cs.borderTopColor, ratio: Math.round(ratio(border, around) * 100) / 100 });
+    }
+    // Sanity: the converter must see the real colors (Tailwind 4 uses oklch), not a fallback.
+    const probe = paint(["oklch(0.552 0.016 285.938)"]);
+    return { out, probe };
+  });
+  const sim = await measureFields();
+  await t.page.locator("input[name=response-source][value=live]").check();
+  const live = await measureFields();
+  const byId = new Map([...sim.out, ...live.out].map((f) => [f.id, f]));
+  const fields = [...byId.values()];
+  check("ITEM8 color conversion sanity (zinc-500 oklch → about rgb(113,113,123))", Math.abs(sim.probe[0] - 113) <= 3 && Math.abs(sim.probe[2] - 123) <= 3, JSON.stringify(sim.probe));
+  const low = fields.filter((f) => f.ratio < 3 || f.width === "0px");
+  check(`ITEM8 every enabled /lab text field, select, and textarea has a visible border at ≥ 3:1 (${fields.length} measured)`, fields.length >= 6 && low.length === 0, JSON.stringify(fields));
+  await t.cap.context.close();
+});
+
+await step("K. ITEM9 leaving /lab by client-side navigation aborts both in-flight live calls", async () => {
+  const t = await newLabPage();
+  await t.page.goto(LAB, { waitUntil: "networkidle" });
+  await t.page.locator("input[name=response-source][value=live]").check();
+  await t.page.locator("#lab-live-key").fill(ANT_KEY);
+  t.cap.handler = () => ({ hang: true });
+  await t.page.getByRole("button", { name: "Run baseline live" }).click();
+  for (let i = 0; i < 100 && t.cap.api.length < 2; i++) await sleep(50);
+  const docsBefore = t.cap.requests.filter((r) => r.url === `${ORIGIN}/tools` && r.method === "GET").length;
+  await t.page.locator('nav a[href="/tools"]').first().click();
+  await t.page.waitForURL("**/tools");
+  await sleep(500);
+  const aborted = t.cap.failed.filter((f) => f.url.includes("/api/lab/run"));
+  const navEntries = await t.page.evaluate(() => performance.getEntriesByType("navigation").length);
+  check("ITEM9 both calls were in flight", t.cap.api.length === 2, String(t.cap.api.length));
+  check("ITEM9 client-side navigation away from /lab aborts both requests", aborted.length === 2 && aborted.every((f) => /ABORTED/.test(f.error)), JSON.stringify(aborted));
+  const docsAfter = t.cap.requests.filter((r) => r.url === `${ORIGIN}/tools` && r.method === "GET").length;
+  check("ITEM9 the navigation was client-side (no new document load), so the abort comes from the lab unmounting", navEntries === 1 && docsAfter === docsBefore, JSON.stringify({ navEntries, docsBefore, docsAfter }));
+  await t.cap.context.close();
+});
+
+await step("K. ITEM10 a run that finishes while another scenario is displayed names its scenario", async () => {
+  const t = await newLabPage();
+  await t.page.goto(LAB, { waitUntil: "networkidle" });
+  await t.page.locator("input[name=response-source][value=live]").check();
+  await t.page.locator("#lab-live-key").fill(ANT_KEY);
+  t.cap.handler = okHandler({ delay: 1500 });
+  await t.page.getByRole("button", { name: "Run baseline live" }).click();
+  await sleep(300);
+  await t.page.locator("input[name=scenario][value=stated-identity]").check();
+  await t.page.waitForFunction(() => [...document.querySelectorAll("[role=status]")].some((s) => /Run 1 complete/.test(s.textContent ?? "")), null, { timeout: 15000 });
+  const st = (await statusTexts(t.page)).join(" | ");
+  check("ITEM10 announcement: 'Run 1 complete for Equal help for a same-sex spouse: …'", /Run 1 complete for Equal help for a same-sex spouse: /.test(st), st);
+  // Same scenario on screen → no scenario name.
+  await t.page.locator("input[name=scenario][value=spouse-parity]").check();
+  await t.page.getByRole("button", { name: "Run baseline live" }).click();
+  await t.page.waitForFunction(() => [...document.querySelectorAll("[role=status]")].some((s) => /Run 2 complete/.test(s.textContent ?? "")), null, { timeout: 15000 });
+  const st2 = (await statusTexts(t.page)).join(" | ");
+  check("ITEM10 a run that finishes on its own scenario: 'Run 2 complete: …' (no scenario name)", /Run 2 complete: /.test(st2) && !/complete for/.test(st2), st2);
+  await t.cap.context.close();
 });
 
 await step("K. L7 accessibility parity: live mode adds no axe violation types", async () => {

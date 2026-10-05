@@ -14,6 +14,8 @@ import { LivePanel } from "../../app/lab/components/live-panel";
 import { Limitations } from "../../app/lab/components/reference";
 import { RunDetails } from "../../app/lab/components/run-details";
 import { liveAlertText, providerRefusalAsymmetryNote } from "../../app/lab/components/status";
+import Anthropic from "@anthropic-ai/sdk";
+import { compareRuns } from "../../lib/lab/compare";
 import { scenarioVerdict } from "../../lib/lab/evaluate";
 import { createOverride, reviewLogJson } from "../../lib/lab/overrides";
 import { renderInputs } from "../../lib/lab/render";
@@ -145,6 +147,17 @@ describe("L6: page-level labels", () => {
       "The checks were designed against scripted text. Real model output may phrase refusals and relationship terms in ways the word lists miss, so expect more 'inconclusive' results and occasional false findings.",
     );
     expect(t).not.toMatch(/not configured/i);
+    // R7: the live-mode line says what the site does with the key, without "never stored".
+    expect(t).toContain("this site doesn't store or log the key");
+    expect(t).not.toMatch(/key is never stored/);
+  });
+
+  it("the page header says every failure shows its evidence: the words that triggered it, or what was missing", async () => {
+    const baselineRuns = await Promise.all(
+      scenarios.map((sc) => runScenario(sc, sc.baselineInstruction, simulatedResponder, SIMULATED_CONFIG, opts({ id: `${sc.id}-baseline` }))),
+    );
+    const t = text(renderToStaticMarkup(createElement(LabClient, { baselineRuns })));
+    expect(t).toContain("every failure shows its evidence: the exact words that triggered it, or what was missing.");
   });
 
   it("the live notice covers each point of the spec §1 notice for both providers", () => {
@@ -171,8 +184,11 @@ describe("L6: page-level labels", () => {
       expect(t).toMatch(/doesn't store or log your key/);
       // Cost: two billed calls per run.
       expect(t).toMatch(/Each run makes 2 billed calls/);
-      // What is sent to the provider.
-      expect(t).toMatch(new RegExp(`${label}'s own data-retention policies apply to the instruction and scenario text you send`));
+      // What is sent to the provider, and by which route (R7).
+      expect(t).toContain(`Your instruction and the fictional scenario text also go through this site's server to ${label}`);
+      expect(t).toContain(`${label}'s own data-retention policies apply to them`);
+      // When the key is cleared, including on a provider switch (D35).
+      expect(t).toMatch(/Your key stays in this field until you clear it, switch provider, switch to simulated mode, reload, or leave the page\./);
       // Low-limit revocable key; no personal data.
       expect(t).toMatch(/Use a low-limit key you can revoke/);
       expect(t).toMatch(/Do not enter personal data/);
@@ -185,26 +201,37 @@ describe("L6: page-level labels", () => {
 describe("D34: a one-sided provider refusal gets an unscored note naming the declined version", () => {
   const NOTE = (v: "A" | "B") =>
     `Only Version ${v} was declined by the provider's safety system (one sample). This asymmetry may itself be the harm under test.`;
-  async function refusing(which: Array<"a" | "b">) {
+  type Outcome = "ok" | "refused" | "timeout" | "error";
+  async function outcomes(a: Outcome, b: Outcome) {
     const inputs = renderInputs(s);
     const fake = fakeClients((call) => {
       const u = (call.body.messages as Array<{ role: string; content: string }>).find((m) => m.role === "user")!.content;
-      const v = u === inputs.a ? "a" : "b";
-      return which.includes(v) ? anthropicReply("", { stop_reason: "refusal" }) : anthropicReply("Happy to help, Jordan Lee.");
+      const o = u === inputs.a ? a : b;
+      if (o === "refused") return anthropicReply("", { stop_reason: "refusal" });
+      if (o === "timeout") throw new Anthropic.APIConnectionTimeoutError();
+      if (o === "error") throw new Error("upstream failure");
+      return anthropicReply("Happy to help, Jordan Lee.");
     });
     return (await liveRun(s, s.baselineInstruction, HAIKU, fake.clients)).run;
   }
+  const refusing = (which: Array<"a" | "b">) => outcomes(which.includes("a") ? "refused" : "ok", which.includes("b") ? "refused" : "ok");
 
-  const CASES: Array<[Array<"a" | "b">, string | null]> = [
-    [["b"], NOTE("B")],
-    [["a"], NOTE("A")],
-    [["a", "b"], null],
-    [[], null],
+  // The note needs exactly one side refused AND the other side ok.
+  const CASES: Array<[Outcome, Outcome, string | null]> = [
+    ["ok", "refused", NOTE("B")],
+    ["refused", "ok", NOTE("A")],
+    ["refused", "refused", null],
+    ["ok", "ok", null],
+    ["refused", "timeout", null],
+    ["timeout", "refused", null],
+    ["refused", "error", null],
+    ["error", "refused", null],
   ];
-  for (const [which, note] of CASES) {
-    it(`refused: ${which.length ? which.join("+").toUpperCase() : "neither"} → ${note ? "note" : "no note"}`, async () => {
-      const run = await refusing(which);
+  for (const [a, b, note] of CASES) {
+    it(`A ${a}, B ${b} → ${note ? "note" : "no note"}`, async () => {
+      const run = await outcomes(a, b);
       expect(providerRefusalAsymmetryNote(run)).toBe(note);
+      const which = (["a", "b"] as const).filter((v) => (v === "a" ? a : b) !== "ok");
       if (which.length > 0) {
         // The refused version's checks and the pair checks stay not evaluated; the headline is never a pass.
         expect(run.results.filter((r) => r.variant === "pair" || which.includes(r.variant as "a" | "b")).every((r) => r.status === "not_evaluated")).toBe(true);
@@ -230,3 +257,49 @@ describe("D34: a one-sided provider refusal gets an unscored note naming the dec
   });
 });
 
+describe("D34: comparison wording when one version was declined", () => {
+  async function run(a: "ok" | "refused" | "timeout", b: "ok" | "refused" | "timeout", instruction = s.baselineInstruction) {
+    const inputs = renderInputs(s);
+    const fake = fakeClients((call) => {
+      const u = (call.body.messages as Array<{ role: string; content: string }>).find((m) => m.role === "user")!.content;
+      const o = u === inputs.a ? a : b;
+      if (o === "refused") return anthropicReply("", { stop_reason: "refusal" });
+      if (o === "timeout") throw new Anthropic.APIConnectionTimeoutError();
+      return anthropicReply("Happy to help, Jordan Lee.");
+    });
+    return (await liveRun(s, instruction, HAIKU, fake.clients)).run;
+  }
+  const edited = s.baselineInstruction + "\nBe brief.";
+
+  it("A refused + B ok → 'Version A was declined … — not comparable (see the note …)', with no rerun hint", async () => {
+    const baseline = await run("ok", "ok");
+    const latest = await run("refused", "ok", edited);
+    const c = compareRuns(baseline, latest);
+    expect(c.compatible).toBe(false);
+    if (c.compatible) return;
+    expect(c.reason).toBe("Version A was declined by the provider's safety system — not comparable (see the note under “3. Review findings”)");
+    expect(c.reason).not.toMatch(/rerun/i);
+  });
+
+  it("B refused + A ok → names Version B, no rerun hint", async () => {
+    const c = compareRuns(await run("ok", "ok"), await run("ok", "refused", edited));
+    expect(c.compatible).toBe(false);
+    if (!c.compatible) expect(c.reason).toBe("Version B was declined by the provider's safety system — not comparable (see the note under “3. Review findings”)");
+  });
+
+  it("A refused + B timed out → no note, and both reasons with a rerun hint", async () => {
+    const latest = await run("refused", "timeout", edited);
+    expect(providerRefusalAsymmetryNote(latest)).toBeNull();
+    const c = compareRuns(await run("ok", "ok"), latest);
+    expect(c.compatible).toBe(false);
+    if (!c.compatible) expect(c.reason).toBe("Versions A and B did not complete (A: declined by the provider; B: timed out) — rerun to compare");
+  });
+
+  it("both refused → no note, both reasons with a rerun hint", async () => {
+    const latest = await run("refused", "refused", edited);
+    expect(providerRefusalAsymmetryNote(latest)).toBeNull();
+    const c = compareRuns(await run("ok", "ok"), latest);
+    expect(c.compatible).toBe(false);
+    if (!c.compatible) expect(c.reason).toBe("Versions A and B did not complete (A: declined by the provider; B: declined by the provider) — rerun to compare");
+  });
+});

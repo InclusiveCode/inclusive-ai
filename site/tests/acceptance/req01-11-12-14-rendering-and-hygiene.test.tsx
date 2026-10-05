@@ -276,7 +276,9 @@ describe("REQ 12: secrets and sensitive content (source and route)", () => {
       return statSync(p).isDirectory() ? allFiles(p) : [p];
     });
   }
-  it.skipIf(!existsSync(STATIC))("the built client bundle contains no env-var key names, key-like tokens, or env reads", () => {
+  // CI runs this file after the build with LAB_BUNDLE_CHECK=1: then a missing build is a failure, not a skip.
+  it.skipIf(process.env.LAB_BUNDLE_CHECK !== "1" && !existsSync(STATIC))("the built client bundle contains no env-var key names, key-like tokens, or env reads", () => {
+    expect(existsSync(STATIC), "LAB_BUNDLE_CHECK=1 but .next/static is missing; run `npm run build` first").toBe(true);
     const js = allFiles(STATIC).filter((f) => /\.(js|mjs|css|json|txt|map)$/.test(f));
     expect(js.length).toBeGreaterThan(0);
     for (const f of js) {

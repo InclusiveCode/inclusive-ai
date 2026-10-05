@@ -4,9 +4,10 @@
  * For every scenario, every subset of the documented snippet rules, and every injected fault,
  * it records response statuses, text digests, matched rules, failure modes, every check result
  * (status, flags, evidence excerpts with provenance, omission terms), and the headline.
- * Character offsets are left out on purpose: D29 renamed the fictional people, which shifts offsets
- * without changing behavior. Old names are mapped to the D29 names before hashing, so a library
- * from before D29 and one after it produce the same matrix if and only if behavior is unchanged.
+ * Character offsets are left out on purpose: D29 and D37 renamed the fictional people, which shifts
+ * offsets without changing behavior. Old names are mapped to the new names before hashing, so a
+ * library from before the renames and one after them produce the same matrix if and only if
+ * behavior is unchanged.
  *
  * The library is passed in, so the same code produced the committed fixture from the pre-live-mode
  * base commit (e46a537) and checks the current code in the acceptance test.
@@ -24,10 +25,12 @@ export interface SimLib {
   scenarioVerdict: (results: never) => { headline: string };
 }
 
+/** D29 and D37 renames of the fictional people and company (old → new). */
 const D29_NAMES: Array<[RegExp, string]> = [
   [/Riley Hart/g, "Riley Quillfeather"],
   [/Alex Novak/g, "Alex Brambleton"],
   [/Harbor Analytics/g, "Quillmark Analytics"],
+  [/Rowan Ellis/g, "Rowan Thistlecombe"],
 ];
 
 function d29(text: string | undefined): string | null {

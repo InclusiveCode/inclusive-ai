@@ -11,7 +11,7 @@ import OpenAI from "openai";
 import { afterEach, describe, expect, it } from "vitest";
 import { scenarioVerdict } from "../../lib/lab/evaluate";
 import { KEY_PROBLEM_MESSAGE } from "../../lib/lab/live-key";
-import { ALLOWED_LIVE_MESSAGES, CLIENT_MESSAGES, HTTP_MESSAGES, PROVIDER_MESSAGES } from "../../lib/lab/live-messages";
+import { ALLOWED_LIVE_MESSAGES, CLIENT_MESSAGES, HTTP_MESSAGES, PROVIDER_MESSAGES, ROUTE_MESSAGES } from "../../lib/lab/live-messages";
 import { renderInputs } from "../../lib/lab/render";
 import { liveConfig, makeLiveResponder } from "../../lib/lab/run";
 import { getScenario, scenarios } from "../../lib/lab/scenarios";
@@ -43,7 +43,9 @@ import {
 // Request checks
 // ---------------------------------------------------------------------------
 
-const BIG = "x".repeat(16_385);
+/** D39: the body cap is 32 KiB, sized so 4000 characters that JSON escapes as \uXXXX (6 bytes each) still fit. */
+const CAP = 32 * 1024;
+const BIG = "x".repeat(CAP + 1);
 const longKey = "k".repeat(257);
 
 interface CheckCase {
@@ -75,9 +77,10 @@ const CATEGORIES: Record<string, Category> = {
     code: 413,
     message: "Request body too large",
     cases: [
-      { name: "declared content-length over 16 384", req: () => routeRequest(validBody(), { headers: { "content-length": "16385" } }) },
-      { name: "measured body over 16 384 (streamed, no length)", req: () => routeRequest(null, { raw: new Blob([JSON.stringify(validBody({ pad: BIG }))]).stream() }) },
-      { name: "measured body over 16 384 (declared length lies)", req: () => routeRequest(null, { headers: { "content-length": "100" }, raw: new Blob([JSON.stringify(validBody({ pad: BIG }))]).stream() }) },
+      { name: "declared content-length over 32 768", req: () => routeRequest(validBody(), { headers: { "content-length": String(CAP + 1) } }) },
+      { name: "measured body over 32 768 (streamed, no length)", req: () => routeRequest(null, { raw: new Blob([JSON.stringify(validBody({ pad: BIG }))]).stream() }) },
+      { name: "measured body over 32 768 (declared length lies)", req: () => routeRequest(null, { headers: { "content-length": "100" }, raw: new Blob([JSON.stringify(validBody({ pad: BIG }))]).stream() }) },
+      { name: "measured body over 32 768 (string body, no declared length)", req: () => routeRequest(null, { headers: { "content-length": null }, raw: JSON.stringify(validBody({ pad: BIG })) }) },
     ],
   },
   json: {
@@ -114,6 +117,8 @@ const CATEGORIES: Record<string, Category> = {
     message: "Instruction must be text of at most 4000 characters",
     cases: [
       { name: "4001 characters", req: () => routeRequest(validBody({ instruction: "i".repeat(4001) })) },
+      // 4001 escaped control characters (24 006 bytes of JSON) pass the size check and fail the schema check.
+      { name: "4001 × U+0001", req: () => routeRequest(validBody({ instruction: "\u0001".repeat(4001) })) },
       { name: "number", req: () => routeRequest(validBody({ instruction: 7 })) },
       { name: "missing", req: () => routeRequest(validBody({ instruction: undefined })) },
       { name: "array", req: () => routeRequest(validBody({ instruction: ["x"] })) },
@@ -133,7 +138,7 @@ const CATEGORIES: Record<string, Category> = {
   },
   key: {
     code: 400,
-    message: "Missing or malformed API key",
+    message: ROUTE_MESSAGES.key,
     cases: [
       { name: "no header", req: () => routeRequest(validBody(), { headers: { authorization: null } }) },
       { name: "19 characters", req: () => routeRequest(validBody(), { headers: { authorization: `Bearer ${"a".repeat(19)}` } }) },
@@ -179,10 +184,54 @@ describe("L5: every request-check failure returns its fixed status and message b
     }
   }
 
+  it("key errors carry a correction hint (WCAG 3.3.3), and no message quotes a key", () => {
+    expect(ROUTE_MESSAGES.key).toMatch(/^Missing or malformed API key — .*letters, numbers, hyphens and underscores.*no spaces/);
+    expect(KEY_PROBLEM_MESSAGE.format).toMatch(/^The API key format is not valid — .*letters, numbers, hyphens and underscores.*no spaces/);
+    expect(KEY_PROBLEM_MESSAGE.provider).toMatch(/^This key does not match the selected provider — .*provider/);
+    for (const msg of [ROUTE_MESSAGES.key, KEY_PROBLEM_MESSAGE.format, KEY_PROBLEM_MESSAGE.provider]) {
+      expect(ALLOWED_LIVE_MESSAGES.has(msg)).toBe(true);
+      expect(msg).not.toMatch(/sk-/);
+    }
+  });
+
   it("each check category has its own (status, message) pair, and only the five allowed status codes occur", () => {
     const pairs = Object.values(CATEGORIES).map((d) => `${d.code}|${d.message}`);
     expect(new Set(pairs).size).toBe(pairs.length);
     expect(new Set(Object.values(CATEGORIES).map((d) => d.code))).toEqual(new Set([405, 415, 413, 400, 409]));
+  });
+
+  it("405 replies list the supported methods (Allow: POST, OPTIONS)", async () => {
+    for (const c of CATEGORIES.method.cases) {
+      const r = await callRoute(c.req(), fakeClients().clients);
+      expect(r.headers.get("allow"), c.name).toBe("POST, OPTIONS");
+    }
+  });
+
+  it("the route module: OPTIONS → 204, Allow: POST, OPTIONS, no-store, no Access-Control-* headers; other methods → the fixed 405", async () => {
+    const route = await import("../../app/api/lab/run/route");
+    const opt = await (route.OPTIONS as unknown as (r: Request) => Promise<Response>)(
+      new Request("http://lab.test/api/lab/run", {
+        method: "OPTIONS",
+        headers: { origin: "https://evil.example", "access-control-request-method": "POST", "access-control-request-headers": "authorization" },
+      }),
+    );
+    expect(opt.status).toBe(204);
+    expect(opt.headers.get("allow")).toBe("POST, OPTIONS");
+    expect(opt.headers.get("cache-control")).toBe("no-store");
+    const acHeaders: string[] = [];
+    opt.headers.forEach((_v, k) => {
+      if (k.startsWith("access-control-")) acHeaders.push(k);
+    });
+    expect(acHeaders).toEqual([]);
+    expect(await opt.text()).toBe("");
+    for (const m of ["GET", "HEAD", "PUT", "PATCH", "DELETE"] as const) {
+      const handler = route[m] as unknown as (r: Request) => Promise<Response>;
+      const res = await handler(new Request("http://lab.test/api/lab/run", { method: m, headers: { authorization: `Bearer ${FAKE_KEY}` } }));
+      expect(res.status, m).toBe(405);
+      expect(res.headers.get("allow"), m).toBe("POST, OPTIONS");
+      expect(res.headers.get("cache-control"), m).toBe("no-store");
+      expect(JSON.parse(await res.text()), m).toEqual({ status: "model_error", message: CATEGORIES.method.message });
+    }
   });
 
   it("a JSON content type with a charset parameter is accepted (control)", async () => {
@@ -192,13 +241,36 @@ describe("L5: every request-check failure returns its fixed status and message b
     expect(fake.seen).toHaveLength(1);
   });
 
-  it("a body of exactly 16 384 bytes passes the size check (control)", async () => {
+  it("a body of exactly 32 768 bytes passes the size check (control)", async () => {
     const base = JSON.stringify(validBody({ pad: "" }));
-    const raw = JSON.stringify(validBody({ pad: "p".repeat(16_384 - base.length) }));
-    expect(new TextEncoder().encode(raw).length).toBe(16_384);
+    const raw = JSON.stringify(validBody({ pad: "p".repeat(CAP - base.length) }));
+    expect(new TextEncoder().encode(raw).length).toBe(CAP);
+    for (const req of [routeRequest(null, { raw }), routeRequest(null, { raw: new Blob([raw]).stream() })]) {
+      const fake = fakeClients();
+      const r = await callRoute(req, fake.clients);
+      expect(r.status).toBe(200);
+    }
+  });
+
+  it("D39: the worst-case valid instruction (4000 × U+0001, escaped to 6 bytes each) passes and reaches the provider unchanged", async () => {
+    const instruction = "\u0001".repeat(4000);
+    const raw = JSON.stringify(validBody({ instruction }));
+    expect(new TextEncoder().encode(raw).length).toBeGreaterThan(24_000);
     const fake = fakeClients();
     const r = await callRoute(routeRequest(null, { raw }), fake.clients);
     expect(r.status).toBe(200);
+    expect(fake.seen).toHaveLength(1);
+    expect(fake.seen[0].body.system).toBe(instruction);
+  });
+
+  it("D39: the same through the client responder (the page's own request) for every scenario and variant", async () => {
+    for (const sc of scenarios) {
+      const fake = fakeClients();
+      const { run, responses } = await liveRun(sc, "\u0001".repeat(4000), HAIKU, fake.clients);
+      expect(responses.map((x) => x.status), sc.id).toEqual([200, 200]);
+      expect(run.responses.a.status).toBe("ok");
+      expect(run.responses.b.status).toBe("ok");
+    }
   });
 
   it("keys of 20 and 256 allowed characters pass the key check (control)", async () => {
@@ -506,8 +578,8 @@ describe("L5: the client turns every non-200 reply into a non-pass state with a 
     const out409 = await liveRun(stale, s.baselineInstruction, HAIKU, fake.clients);
     // 400: a request the route rejects that the page cannot catch first (here: a scenario the server does not know).
     const out400 = await liveRun({ ...s, id: "retired-scenario" }, s.baselineInstruction, HAIKU, fake.clients);
-    // 413: an instruction far beyond the page's own limit.
-    const out413 = await liveRun(s, "q".repeat(17_000), HAIKU, fake.clients);
+    // 413: an instruction far beyond the page's own limit, over the 32 KiB body cap.
+    const out413 = await liveRun(s, "q".repeat(CAP + 100), HAIKU, fake.clients);
     for (const [code, out, message] of [
       [409, out409, CATEGORIES.version.message],
       [400, out400, CATEGORIES.scenario.message],

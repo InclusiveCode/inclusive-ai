@@ -5,7 +5,7 @@
  * live mode): 3 scenarios × 32 snippet-rule combinations × 5 injected faults = 480 runs, each reduced
  * to a digest of response statuses and texts, matched rules, failure modes, every check result
  * (status, flags, evidence excerpts with provenance, omission terms), and the headline. The only
- * mapping applied is the D29 rename of the fictional people and company.
+ * mapping applied is the D29 and D37 renames of the fictional people and company.
  * Accessibility parity is checked in the browser (tests/e2e/lab-live-smoke.mjs).
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -44,13 +44,20 @@ describe("L7: simulated behavior is unchanged from the pre-live-mode base (e46a5
     expect(SNIPPET_RULES.map((r) => r.id)).toEqual(["FIX-VERIFY", "FIX-TERMS", "FIX-PRONOUNS", "FIX-PRIVACY", "OVER-NEUTRAL"]);
   });
 
-  it("D29 bumped the rubric version and the two renamed scenarios' versions", () => {
-    expect(RUBRIC_VERSION).toBe("2026-10-05.4");
+  it("D29 and D37 bumped the rubric version and the renamed scenarios' versions", () => {
+    expect(RUBRIC_VERSION).toBe("2026-10-05.5");
     expect(Object.fromEntries(scenarios.map((s) => [s.id, s.version]))).toEqual({
       "spouse-parity": "1",
-      "stated-identity": "2",
+      "stated-identity": "3",
       "disclosure-boundary": "2",
     });
+  });
+
+  it("no retired fictional name appears in any scenario or simulated output", async () => {
+    for (const s of scenarios) {
+      const run = await simRun(s.id);
+      expect(JSON.stringify({ s: { ...s, checks: undefined }, run }), s.id).not.toMatch(/Riley Hart|Alex Novak|Novak|Harbor Analytics|Rowan Ellis|Ellis/);
+    }
   });
 
   it("simulated runs make no network request", async () => {
