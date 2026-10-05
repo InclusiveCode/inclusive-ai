@@ -69,7 +69,7 @@ describe("compareRuns: live runs", () => {
       [failed("timeout"), "Version B did not complete (timed out) — rerun to compare"],
       [failed("model_error"), "Version B did not complete (model error) — rerun to compare"],
       [{ status: "not_run", error: "Cancelled" }, "Version B did not complete (cancelled) — rerun to compare"],
-      [{ status: "provider_refused", returnedModel: HAIKU_V }, "Version B did not complete (declined by the provider) — rerun to compare"],
+
       [failed("credentials_unavailable"), "Version B did not complete (credentials unavailable) — rerun to compare"],
     ];
     for (const [b, reason] of cases) {
@@ -82,6 +82,21 @@ describe("compareRuns: live runs", () => {
       compatible: false,
       reason: "Versions A and B did not complete (A: timed out; B: cancelled) — rerun to compare",
     });
+  });
+
+  it("a one-sided provider refusal is not comparable and points at the Findings note instead of inviting a rerun", async () => {
+    const before = await liveRun(BASE, ok(), ok());
+    const refused: Side = { status: "provider_refused", returnedModel: HAIKU_V };
+    const NOTE_B = "Version B was declined by the provider's safety system — not comparable (see the note under “3. Review findings”)";
+    const NOTE_A = "Version A was declined by the provider's safety system — not comparable (see the note under “3. Review findings”)";
+    expect(compareRuns(before, await liveRun(EDITED, ok(), refused))).toEqual({ compatible: false, reason: NOTE_B });
+    expect(compareRuns(before, await liveRun(EDITED, refused, ok()))).toEqual({ compatible: false, reason: NOTE_A });
+    // Still the refusal wording when the other version also failed for another reason.
+    expect(compareRuns(before, await liveRun(EDITED, failed("timeout"), refused))).toEqual({ compatible: false, reason: NOTE_B });
+    for (const r of [NOTE_A, NOTE_B]) expect(r).not.toMatch(/rerun/i);
+    // Timeouts and errors keep the rerun hint.
+    const timedOut = compareRuns(before, await liveRun(EDITED, ok(), failed("timeout")));
+    expect(timedOut.compatible === false && timedOut.reason).toBe("Version B did not complete (timed out) — rerun to compare");
   });
 
   it("refuses an ok version that reported no model id", async () => {
