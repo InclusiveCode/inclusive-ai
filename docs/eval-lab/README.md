@@ -181,10 +181,10 @@ The server renders the scenario input itself; the client never sends input text.
 | `max_tokens` / `length` | `model_error` | Response cut off at the token limit — not evaluated |
 | Anthropic `refusal`, OpenAI `refusal` or `content_filter` | `provider_refused` | The provider declined to answer (safety system) — not evaluated |
 | 401 | `credentials_unavailable` | The provider rejected the API key |
-| 403 | `credentials_unavailable` | The provider denied this key access (check the account's permissions or region) |
+| 403 | `credentials_unavailable` | The provider denied this key access — check the account's permissions or region |
 | 404 | `model_error` | This model isn't available to the account behind this key |
-| 402 (Anthropic `billing_error`; neither SDK has a class for it) | `model_error` | The provider reports a billing problem on this account (check credits or payment) |
-| 400 | `model_error` | The provider rejected the request — followed by the error's `type` in parentheses only when it is `invalid_request_error`, `billing_error`, `not_found_error`, or `permission_error`, e.g. "The provider rejected the request (invalid_request_error)". The provider's message text is never shown. |
+| 402 (Anthropic `billing_error`; neither SDK has a class for it) | `model_error` | The provider reports a billing problem on this account — check credits or payment |
+| 400 | `model_error` | The provider rejected the request |
 | 429 `insufficient_quota` | `model_error` | The provider account has no remaining quota |
 | Other 429 | `model_error` | Rate limited by the provider |
 | Timeout or abort | `timeout` | — |

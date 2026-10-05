@@ -9,7 +9,7 @@ import "server-only";
  */
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
-import { PROVIDER_MESSAGES as MSG, providerRejectedMessage } from "../live-messages";
+import { PROVIDER_MESSAGES as MSG } from "../live-messages";
 import { customHeadersConfigured } from "./env-guard";
 import type { LiveModel, Provider } from "../models";
 import type { ResponseStatus } from "../types";
@@ -157,8 +157,8 @@ function mapError(err: unknown, sdk: SdkErrors, signal: AbortSignal, durationMs:
     return { status: "model_error", error: MSG.modelUnavailable, durationMs };
   }
   if (err instanceof sdk.BadRequestError) {
-    // Only an allowlisted `.type` identifier may be named; `.message` is never read.
-    return { status: "model_error", error: providerRejectedMessage((err as { type?: unknown }).type), durationMs };
+    // Always the same fixed text: neither `.type` nor `.message` is read.
+    return { status: "model_error", error: MSG.rejected, durationMs };
   }
   // Neither SDK has a class for 402 (Anthropic's billing_error); it arrives as a plain APIError.
   if (err instanceof sdk.APIError && (err as { status?: unknown }).status === 402) {

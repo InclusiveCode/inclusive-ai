@@ -406,22 +406,21 @@ describe("makeLiveResponder (live client)", () => {
 
   it("D40: shows each provider-status message from a 200 result, and the page alert names it", async () => {
     const shown: Array<[string, string]> = [
-      ["credentials_unavailable", "The provider denied this key access (check the account's permissions or region)"],
+      ["credentials_unavailable", "The provider denied this key access — check the account's permissions or region"],
       ["model_error", "This model isn't available to the account behind this key"],
-      ["model_error", "The provider reports a billing problem on this account (check credits or payment)"],
+      ["model_error", "The provider reports a billing problem on this account — check credits or payment"],
       ["model_error", "The provider rejected the request"],
-      ["model_error", "The provider rejected the request (invalid_request_error)"],
-      ["model_error", "The provider rejected the request (billing_error)"],
-      ["model_error", "The provider rejected the request (not_found_error)"],
-      ["model_error", "The provider rejected the request (permission_error)"],
     ];
     for (const [status, error] of shown) {
       const r = await responder(fetchReturning(() => Response.json({ status, error, durationMs: 1 })).fetchImpl)(req());
       expect(r).toMatchObject({ status, error });
-      expect(liveAlertText({ responses: { a: r, b: r } })).toContain(`(${error})`);
+      const alert = liveAlertText({ responses: { a: r, b: r } })!;
+      expect(alert).toContain(`(${error})`);
+      // The alert wraps the message in parentheses, so the message itself has none.
+      expect(error).not.toMatch(/[()]/);
     }
-    // A type outside the allowlist, or extra provider text, is replaced by the status fallback.
-    for (const error of ["The provider rejected the request (overloaded_error)", "The provider rejected the request (invalid_request_error) model: x", "The provider rejected the model or request"]) {
+    // A suffixed type, extra provider text, or the pre-D40 text is replaced by the status fallback.
+    for (const error of ["The provider rejected the request (invalid_request_error)", "The provider rejected the request (overloaded_error)", "The provider rejected the request — model: x", "The provider rejected the model or request"]) {
       const r = await responder(fetchReturning(() => Response.json({ status: "model_error", error, durationMs: 1 })).fetchImpl)(req());
       expect(r, error).toMatchObject({ status: "model_error", error: "Provider unavailable" });
     }

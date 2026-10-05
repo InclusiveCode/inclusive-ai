@@ -8,31 +8,16 @@ export const PROVIDER_MESSAGES = {
   tokenLimit: "Response cut off at the token limit — not evaluated",
   refused: "The provider declined to answer (safety system) — not evaluated",
   badKey: "The provider rejected the API key",
-  keyDenied: "The provider denied this key access (check the account's permissions or region)",
+  keyDenied: "The provider denied this key access — check the account's permissions or region",
   modelUnavailable: "This model isn't available to the account behind this key",
-  billing: "The provider reports a billing problem on this account (check credits or payment)",
+  billing: "The provider reports a billing problem on this account — check credits or payment",
   rateLimited: "Rate limited by the provider",
   noQuota: "The provider account has no remaining quota",
   rejected: "The provider rejected the request",
   unavailable: "Provider unavailable",
 } as const;
 
-/**
- * Provider error types that may be named after the 400 message (decision D40). Only these
- * fixed identifiers are ever appended; the provider's own message text never is.
- */
-export const NAMEABLE_ERROR_TYPES = ["invalid_request_error", "billing_error", "not_found_error", "permission_error"] as const;
-
-/** The 400 message, naming the error type only when it is one of NAMEABLE_ERROR_TYPES. */
-export function providerRejectedMessage(type: unknown): string {
-  const named = NAMEABLE_ERROR_TYPES.find((t) => t === type);
-  return named ? `${PROVIDER_MESSAGES.rejected} (${named})` : PROVIDER_MESSAGES.rejected;
-}
-
-export const ALLOWED_PROVIDER_MESSAGES: ReadonlySet<string> = new Set([
-  ...Object.values(PROVIDER_MESSAGES),
-  ...NAMEABLE_ERROR_TYPES.map(providerRejectedMessage),
-]);
+export const ALLOWED_PROVIDER_MESSAGES: ReadonlySet<string> = new Set(Object.values(PROVIDER_MESSAGES));
 
 /** Fixed messages the client responder produces itself. */
 export const CLIENT_MESSAGES = {
