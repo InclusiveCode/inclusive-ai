@@ -5,11 +5,12 @@
 import { describe, expect, it } from "vitest";
 import { fingerprint } from "../../lib/lab/fingerprint";
 import { renderInputs } from "../../lib/lab/render";
-import { makeLiveResponder, runScenario, LIVE_CONFIG, type Responder } from "../../lib/lab/run";
+import { runScenario, type Responder } from "../../lib/lab/run";
 import { getScenario, scenarios, type Scenario } from "../../lib/lab/scenarios";
 import { SIMULATED_CONFIG, simulatedResponder } from "../../lib/lab/simulator";
 import type { RunConfig } from "../../lib/lab/types";
 import { capturing, opts, SCENARIO_IDS, simRun, SNIP, withSnippets } from "./helpers";
+import { FAKE_KEY, fakeClients, HAIKU, liveRun, systemText, userText } from "./live-helpers";
 
 function commonPrefix(x: string, y: string): number {
   let i = 0;
@@ -161,17 +162,40 @@ describe("REQ 5: the edited instruction reaches the runner exactly", () => {
     const s = getScenario("disclosure-boundary");
     const base = await simRun(s.id);
     const edited = await simRun(s.id, withSnippets(s.baselineInstruction, SNIP.privacy));
-    expect(base.responses.b.text).toMatch(/Alex Novak/);
-    expect(edited.responses.b.text).not.toMatch(/Alex Novak|transgender/i);
+    // D29: the fictional previous name is Alex Brambleton; the retired names must not come back.
+    expect(base.responses.b.text).toMatch(/Alex Brambleton/);
+    expect(base.responses.b.text).toMatch(/Riley Quillfeather/);
+    expect(edited.responses.b.text).not.toMatch(/Alex|Brambleton|transgender/i);
+    expect(edited.responses.b.text).toMatch(/Riley Quillfeather/);
+    expect(edited.responses.b.rulesMatched).toContain("FIX-PRIVACY");
+    for (const r of [base, edited]) expect(JSON.stringify(r)).not.toMatch(/Riley Hart|Alex Novak|Novak|Harbor Analytics/);
+    const boundary = (r: typeof base) => r.results.find((x) => x.checkId === "s3-boundary-respected" && x.variant === "b")!.status;
+    expect(boundary(base)).toBe("fail");
+    expect(boundary(edited)).toBe("pass");
   });
 
-  it("the live responder posts the exact edited instruction to the route", async () => {
-    let body: unknown = null;
-    const f = (async (_u: RequestInfo | URL, init?: RequestInit) => {
-      body = JSON.parse(String(init?.body));
-      return Response.json({ status: "credentials_unavailable" }, { status: 503 });
-    }) as typeof fetch;
-    await makeLiveResponder("spouse-parity", f)({ instruction: exotic, input: "ignored", config: LIVE_CONFIG });
-    expect(body).toEqual({ scenarioId: "spouse-parity", instruction: exotic });
+  // Replaces the stub-era test "the live responder posts the exact edited instruction to the route"
+  // (live-mode spec v0.2 §6). The live responder now posts the instruction with the scenario id and version,
+  // the variant, and the allowlisted provider and model; the route renders the input and hands the instruction
+  // to the provider unchanged as the system prompt.
+  it("the live responder posts the exact edited instruction, and the route hands it unchanged to the provider as the system prompt", async () => {
+    const s = getScenario("spouse-parity");
+    const fake = fakeClients();
+    const { run, sent } = await liveRun(s, exotic, HAIKU, fake.clients);
+    expect(sent).toHaveLength(2);
+    const bodies = sent.map((r) => JSON.parse(r.body) as Record<string, unknown>).sort((x, y) => String(x.variant).localeCompare(String(y.variant)));
+    expect(bodies).toEqual([
+      { scenarioId: "spouse-parity", scenarioVersion: s.version, variant: "a", instruction: exotic, provider: "anthropic", model: HAIKU },
+      { scenarioId: "spouse-parity", scenarioVersion: s.version, variant: "b", instruction: exotic, provider: "anthropic", model: HAIKU },
+    ]);
+    for (const r of sent) {
+      expect(r.headers.authorization).toBe(`Bearer ${FAKE_KEY}`);
+      expect(r.body).not.toContain(FAKE_KEY);
+    }
+    expect(fake.seen.map(systemText)).toEqual([exotic, exotic]);
+    const { a, b } = renderInputs(s);
+    expect(new Set(fake.seen.map(userText))).toEqual(new Set([a, b]));
+    expect(run.instruction).toBe(exotic);
+    expect(run.instructionFingerprint).toBe(fingerprint(exotic));
   });
 });
