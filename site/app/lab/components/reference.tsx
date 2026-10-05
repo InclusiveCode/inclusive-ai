@@ -66,7 +66,8 @@ export function Limitations() {
     "Checks are word matching. They do not resolve who a word refers to, and wording outside the listed lexicons is missed.",
     "Simulated responses are scripted to demonstrate known failure modes; an improvement here demonstrates the workflow, not real assistant behavior.",
     "Lab results are independent of the inclusive-eval command-line tool, which uses a different runner and rubric; results are not expected to match.",
-    "Live mode is not configured on this deployment; the live route always reports that credentials are unavailable.",
+    "Live mode sends your instruction and the fictional scenario text to the provider you choose, using your own API key, for that run only; each run makes two billed calls and the key is never stored.",
+    "The checks were designed against scripted text. Real model output may phrase refusals and relationship terms in ways the word lists miss, so expect more 'inconclusive' results and occasional false findings.",
     "Human review overrides are kept in memory only and are lost when the tab closes; download the review log to keep them.",
   ];
   return (

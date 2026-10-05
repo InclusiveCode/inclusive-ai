@@ -1,10 +1,18 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { createRef } from "react";
+import { RunBanner } from "../../../app/lab/components/banner";
+import { CompareView } from "../../../app/lab/components/compare-view";
 import { findingKey } from "../../../app/lab/components/findings";
-import { RunDetails } from "../../../app/lab/components/run-details";
-import { liveAlertText, RESPONSE_STATUS_TEXT, StatusBadge, statusLabel } from "../../../app/lab/components/status";
+import { LIVE_NOTICE, LivePanel } from "../../../app/lab/components/live-panel";
+import { Limitations } from "../../../app/lab/components/reference";
+import { RunDetails, RunMeta } from "../../../app/lab/components/run-details";
+import { liveAlertText, ModeBadge, RESPONSE_STATUS_TEXT, StatusBadge, statusLabel } from "../../../app/lab/components/status";
+import { findModel, LIVE_RESPONDER_VERSION } from "../models";
+import { renderInputs } from "../render";
+import { liveConfig } from "../run";
 import { HighlightedText } from "../../../app/lab/highlight";
 import { LabClient } from "../../../app/lab/lab-client";
 import { runScenario, type Responder } from "../run";
@@ -107,21 +115,146 @@ describe("response status text", () => {
   });
 });
 
-describe("liveAlertText", () => {
-  const rec = (status: ResponseRecord["status"]): ResponseRecord => ({ status, durationMs: 0 });
-  const runWith = (a: ResponseRecord["status"], b: ResponseRecord["status"]) => ({ responses: { a: rec(a), b: rec(b) } });
+const HAIKU = findModel("anthropic", "claude-haiku-4-5")!;
 
-  it("derives the alert from the actual response statuses", () => {
-    expect(liveAlertText(runWith("credentials_unavailable", "credentials_unavailable"))).toBe(
-      "Live mode unavailable on this deployment — this is not an evaluation result.",
+/** A live run built from fixed response records (no network). */
+async function liveRun(a: Partial<ResponseRecord>, b: Partial<ResponseRecord>, instruction = getScenario("spouse-parity").baselineInstruction, id = "spouse-parity-run-1"): Promise<Run> {
+  const s = getScenario("spouse-parity");
+  const inputs = renderInputs(s);
+  const responder: Responder = async ({ input }) => ({ status: "ok", durationMs: 640, ...(input === inputs.a ? a : b) }) as ResponseRecord;
+  return runScenario(s, instruction, responder, liveConfig(HAIKU), {
+    id,
+    createdAt: "2026-10-05T12:00:00.000Z",
+    mode: "live",
+    responderVersion: LIVE_RESPONDER_VERSION,
+  });
+}
+
+describe("liveAlertText (derived from response statuses)", () => {
+  const rec = (status: ResponseRecord["status"], error?: string): ResponseRecord => ({ status, durationMs: 0, error });
+  const runWith = (a: ResponseRecord, b: ResponseRecord) => ({ responses: { a, b } });
+
+  it("gives one fixed alert per failure status, adding the provider refusal", () => {
+    expect(liveAlertText(runWith(rec("credentials_unavailable", "The provider rejected the API key"), rec("credentials_unavailable", "The provider rejected the API key")))).toBe(
+      "Credentials unavailable — not evaluated (The provider rejected the API key)",
     );
-    expect(liveAlertText(runWith("timeout", "timeout"))).toBe("Live request timed out — not evaluated");
-    expect(liveAlertText(runWith("model_error", "model_error"))).toBe("Live request failed — not evaluated");
-    expect(liveAlertText(runWith("ok", "ok"))).toBeNull();
+    expect(liveAlertText(runWith(rec("timeout"), rec("timeout")))).toBe("Live request timed out — not evaluated");
+    expect(liveAlertText(runWith(rec("model_error", "Rate limited by the provider"), rec("model_error", "Rate limited by the provider")))).toBe(
+      "Live request failed — not evaluated (Rate limited by the provider)",
+    );
+    expect(liveAlertText(runWith(rec("provider_refused"), rec("ok")))).toBe("Provider declined (safety system) — not evaluated");
+    expect(liveAlertText(runWith(rec("not_run", "Cancelled"), rec("not_run", "Cancelled")))).toBe("Live request cancelled — not evaluated");
+    expect(liveAlertText(runWith(rec("ok"), rec("ok")))).toBeNull();
   });
 
   it("lists each distinct failure once when the versions differ", () => {
-    expect(liveAlertText(runWith("timeout", "model_error"))).toBe("Live request timed out — not evaluated. Live request failed — not evaluated");
+    expect(liveAlertText(runWith(rec("timeout"), rec("model_error", "Provider unavailable")))).toBe(
+      "Live request timed out — not evaluated. Live request failed — not evaluated (Provider unavailable)",
+    );
+  });
+
+  it("never shows a message outside the fixed allowlist", () => {
+    expect(liveAlertText(runWith(rec("model_error", "raw upstream text"), rec("ok")))).toBe("Live request failed — not evaluated");
+  });
+});
+
+describe("LivePanel", () => {
+  const render = (provider: "anthropic" | "openai" = "anthropic", keyError = false) =>
+    renderToStaticMarkup(
+      <LivePanel
+        provider={provider}
+        modelId={provider === "anthropic" ? "claude-haiku-4-5" : "gpt-4o-mini"}
+        onProviderChange={() => {}}
+        onModelChange={() => {}}
+        keyInputRef={createRef<HTMLInputElement>()}
+        keyError={keyError}
+        onKeyErrorClear={() => {}}
+      />,
+    );
+
+  it("renders the provider and model selects from the allowlist, filtered by provider", () => {
+    const html = render("openai");
+    expect(html).toContain('value="anthropic"');
+    expect(html).toContain('value="openai"');
+    expect(html).toContain("gpt-4o-mini");
+    expect(html).toContain("gpt-4.1-mini");
+    expect(html).not.toContain('value="claude-haiku-4-5"');
+  });
+
+  it("renders an uncontrolled password key field outside any form, with the exact notice", () => {
+    const html = render("anthropic");
+    const text = textContent(html);
+    expect(text).toContain("Your Anthropic API key");
+    expect(html).toMatch(/<input(?=[^>]*type="password")(?=[^>]*autoComplete="off"|[^>]*autocomplete="off")(?=[^>]*spellCheck="false"|[^>]*spellcheck="false")[^>]*>/);
+    expect(html).not.toContain("<form");
+    expect(html).not.toMatch(/<input[^>]*type="password"[^>]*value=/);
+    expect(text).toContain(LIVE_NOTICE("Anthropic"));
+    expect(LIVE_NOTICE("OpenAI")).toBe(
+      "Your key goes from this page to this site's server (hosted on Vercel) and on to OpenAI, for this run only. It is never stored, logged, or shown again. Use a low-limit key you can revoke. Each run makes 2 billed calls (Version A and B). Your instruction and the fictional scenario text are sent to OpenAI; do not enter personal data.",
+    );
+    expect(text).toContain("Clear key");
+    expect(text).toContain("Show key");
+    expect(html).not.toMatch(/sk-|PLACEHOLDER/);
+  });
+
+  it("shows the missing-key error as an alert", () => {
+    const html = render("anthropic", true);
+    expect(html).toContain('role="alert"');
+    expect(textContent(html)).toContain("Enter your API key to run live.");
+  });
+});
+
+describe("labels follow the displayed run", () => {
+  it("the banner is the simulated banner for a simulated run", async () => {
+    const [sim] = await baselines();
+    const text = textContent(renderToStaticMarkup(<RunBanner run={sim} />));
+    expect(text).toContain("Simulated demo — no AI model is called.");
+  });
+
+  it("the banner names the provider and the returned model for a live run", async () => {
+    const run = await liveRun({ text: "Happy to help, Jordan.", returnedModel: "claude-haiku-4-5-20251001" }, { text: "Happy to help, Jordan.", returnedModel: "claude-haiku-4-5-20251001" });
+    const text = textContent(renderToStaticMarkup(<RunBanner run={run} />));
+    expect(text).toBe(
+      "Live run: responses from Anthropic claude-haiku-4-5-20251001. One sample per run; differences between runs can be nondeterministic. A pass means only that the displayed checks passed.",
+    );
+    expect(text).not.toContain("Simulated demo");
+  });
+
+  it("the live banner shows both returned models when they differ", async () => {
+    const run = await liveRun({ returnedModel: "claude-haiku-4-5-a" }, { returnedModel: "claude-haiku-4-5-b" });
+    expect(textContent(renderToStaticMarkup(<RunBanner run={run} />))).toContain("claude-haiku-4-5-a (Version A) / claude-haiku-4-5-b (Version B)");
+  });
+
+  it("the mode badge reads Live or Simulated, never 'Live (unavailable)'", () => {
+    expect(textContent(renderToStaticMarkup(<ModeBadge mode="live" />))).toBe("Live");
+    expect(textContent(renderToStaticMarkup(<ModeBadge mode="simulated" />))).toBe("Simulated");
+  });
+
+  it("live run metadata shows provider, requested and returned models, settings, timestamp, and duration", async () => {
+    const run = await liveRun({ returnedModel: "claude-haiku-4-5-20251001", durationMs: 640 }, { returnedModel: "claude-haiku-4-5-20251001", durationMs: 702 });
+    const text = textContent(renderToStaticMarkup(<RunMeta run={run} />));
+    for (const s of ["Live", "Anthropic", "claude-haiku-4-5", "claude-haiku-4-5-20251001", "Temperature", "0", "1024", "2026-10-05T12:00:00.000Z", "640 ms", "702 ms"]) {
+      expect(text).toContain(s);
+    }
+    expect(text).not.toContain("Simulator rules matched");
+  });
+
+  it("labels live comparison rows from the same instruction as run-to-run variation", async () => {
+    const s = getScenario("spouse-parity");
+    const okA = { text: "Happy to help! Add your wife, Jordan Lee, as an authorized user.", returnedModel: "claude-haiku-4-5-20251001" };
+    const okB = { text: "Happy to help! Add your husband, Jordan Lee, as an authorized user.", returnedModel: "claude-haiku-4-5-20251001" };
+    const first = await liveRun(okA, okB, s.baselineInstruction, "spouse-parity-run-1");
+    const second = await liveRun(okA, okB, s.baselineInstruction, "spouse-parity-run-2");
+    const text = textContent(renderToStaticMarkup(<CompareView scenario={s} baseline={first} latest={second} overrides={[]} />));
+    expect(text).toContain("run-to-run variation (same instruction)");
+  });
+
+  it("limitations describe real output and live mode", () => {
+    const text = textContent(renderToStaticMarkup(<Limitations />));
+    expect(text).toContain(
+      "The checks were designed against scripted text. Real model output may phrase refusals and relationship terms in ways the word lists miss, so expect more 'inconclusive' results and occasional false findings.",
+    );
+    expect(text).not.toContain("Live mode is not configured");
   });
 });
 
@@ -229,6 +362,89 @@ describe("lab source hygiene", () => {
       const src = readFileSync(f, "utf8");
       expect(src, f).not.toMatch(/Date\.now\(|Math\.random\(/);
       if (!f.endsWith("lab-client.tsx")) expect(src, f).not.toMatch(/new Date\(/);
+    }
+  });
+});
+
+describe("key clearing", () => {
+  it("pagehide clears the key input, and the cleanup (unmount) clears it too", async () => {
+    const { installKeyClearing } = await import("../../../app/lab/components/live-panel");
+    const target = new EventTarget();
+    const input = { value: "sk-test-PLACEHOLDER-0000000000" };
+    const cleanup = installKeyClearing(target, input);
+    target.dispatchEvent(new Event("pagehide"));
+    expect(input.value).toBe("");
+    input.value = "sk-test-PLACEHOLDER-0000000000";
+    cleanup();
+    expect(input.value).toBe("");
+    input.value = "sk-test-PLACEHOLDER-0000000000";
+    target.dispatchEvent(new Event("pagehide"));
+    expect(input.value).toBe("sk-test-PLACEHOLDER-0000000000"); // listener removed after unmount
+  });
+});
+
+describe("security headers (next.config.ts)", () => {
+  type HeaderRule = { source: string; headers: Array<{ key: string; value: string }> };
+  async function rules(): Promise<HeaderRule[]> {
+    const cfg = (await import("../../../next.config")).default as { headers?: () => Promise<HeaderRule[]> };
+    expect(typeof cfg.headers).toBe("function");
+    return cfg.headers!();
+  }
+  const SITE_CSP = "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'";
+
+  it("sets the baseline headers site-wide", async () => {
+    const site = (await rules()).find((r) => r.source === "/:path*");
+    expect(site).toBeDefined();
+    expect(Object.fromEntries(site!.headers.map((h) => [h.key, h.value]))).toEqual({
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "strict-origin-when-cross-origin",
+      "X-Frame-Options": "DENY",
+      "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+      "Content-Security-Policy": SITE_CSP,
+    });
+  });
+
+  it("gives /lab one combined CSP that adds connect-src 'self', listed after the site-wide rule", async () => {
+    const all = await rules();
+    const labIndex = all.findIndex((r) => r.source === "/lab");
+    expect(labIndex).toBeGreaterThan(all.findIndex((r) => r.source === "/:path*"));
+    const csp = all[labIndex].headers.filter((h) => h.key === "Content-Security-Policy");
+    expect(csp).toEqual([{ key: "Content-Security-Policy", value: `${SITE_CSP}; connect-src 'self'` }]);
+  });
+
+  it("marks every live-route response no-store, including Next's own 405", async () => {
+    const api = (await rules()).find((r) => r.source === "/api/lab/run");
+    expect(api?.headers).toEqual([{ key: "Cache-Control", value: "no-store" }]);
+  });
+
+  it("never restricts scripts (Next's inline hydration scripts must keep working)", async () => {
+    for (const r of await rules()) for (const h of r.headers) expect(h.value).not.toMatch(/script-src|default-src/);
+  });
+});
+
+describe("A11Y: focus not obscured", () => {
+  it("globals.css offsets scrolling by the sticky nav height", () => {
+    const css = readFileSync(join(SITE, "app/globals.css"), "utf8");
+    expect(css).toMatch(/html\s*\{[^}]*scroll-padding-top:\s*5rem;?[^}]*\}/);
+  });
+});
+
+describe("built client bundle (runs only after `npm run build`)", () => {
+  const STATIC = join(SITE, ".next", "static");
+  function all(dir: string): string[] {
+    return readdirSync(dir).flatMap((n) => {
+      const p = join(dir, n);
+      return statSync(p).isDirectory() ? all(p) : [p];
+    });
+  }
+  it.skipIf(!existsSync(STATIC))("contains no provider API hosts, placeholder keys, or bearer tokens", () => {
+    const files = all(STATIC).filter((f) => /\.(js|mjs|css|json|txt|map|html)$/.test(f));
+    expect(files.length).toBeGreaterThan(0);
+    for (const f of files) {
+      const src = readFileSync(f, "utf8");
+      expect(src, f).not.toContain("api.anthropic.com");
+      expect(src, f).not.toContain("api.openai.com");
+      expect(src, f).not.toMatch(/sk-test-PLACEHOLDER|Bearer [A-Za-z0-9]/);
     }
   });
 });

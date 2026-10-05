@@ -98,6 +98,7 @@ export function CompareView({
                   <td className={`px-4 py-2 font-medium ${cls.color}`}>
                     <span aria-hidden="true">{cls.icon} </span>
                     {cls.label}
+                    {r.variation && <span className="block font-normal text-zinc-400">run-to-run variation (same instruction)</span>}
                   </td>
                   <td className="px-4 py-2 text-zinc-300">{notes.length > 0 ? notes.join("; ") : "—"}</td>
                 </tr>

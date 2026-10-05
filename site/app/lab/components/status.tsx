@@ -1,4 +1,5 @@
 import type { CheckStatus, Provenance, ResponseStatus, ResultFlag, ResultVariant, RunMode } from "../../../lib/lab/types";
+import { ALLOWED_LIVE_MESSAGES } from "../../../lib/lab/live-messages";
 import type { Scenario } from "../../../lib/lab/scenarios";
 
 /** Visible keyboard focus for every control. */
@@ -69,17 +70,29 @@ export const RESPONSE_STATUS_TEXT: Record<ResponseStatus, string> = {
 };
 
 const LIVE_ALERT: Partial<Record<ResponseStatus, string>> = {
-  credentials_unavailable: "Live mode unavailable on this deployment — this is not an evaluation result.",
+  credentials_unavailable: "Credentials unavailable — not evaluated",
   timeout: "Live request timed out — not evaluated",
   model_error: "Live request failed — not evaluated",
+  provider_refused: "Provider declined (safety system) — not evaluated",
   not_run: "Live request not run — not evaluated",
 };
 
+/** Detail is appended only for these statuses, and only when it is an allowlisted fixed message. */
+const WITH_DETAIL: ReadonlySet<ResponseStatus> = new Set(["credentials_unavailable", "model_error"]);
+
+function alertFor(r: { status: ResponseStatus; error?: string }): string | null {
+  if (r.status === "ok") return null;
+  if (r.status === "not_run" && r.error === "Cancelled") return "Live request cancelled — not evaluated";
+  const base = LIVE_ALERT[r.status];
+  if (!base) return null;
+  return WITH_DETAIL.has(r.status) && r.error && ALLOWED_LIVE_MESSAGES.has(r.error) ? `${base} (${r.error})` : base;
+}
+
 /** Alert text for a live run, derived from the actual response statuses (null when both are ok). */
-export function liveAlertText(run: { responses: { a: { status: ResponseStatus }; b: { status: ResponseStatus } } }): string | null {
+export function liveAlertText(run: { responses: { a: { status: ResponseStatus; error?: string }; b: { status: ResponseStatus; error?: string } } }): string | null {
   const texts: string[] = [];
   for (const v of ["a", "b"] as const) {
-    const t = LIVE_ALERT[run.responses[v].status];
+    const t = alertFor(run.responses[v]);
     if (t && !texts.includes(t)) texts.push(t);
   }
   return texts.length > 0 ? texts.join(". ") : null;
@@ -95,6 +108,6 @@ export function ModeBadge({ mode }: { mode: RunMode }) {
   return mode === "simulated" ? (
     <span className="inline-block rounded-full border border-sky-400/60 px-2 py-0.5 text-xs font-medium text-sky-300">Simulated</span>
   ) : (
-    <span className="inline-block rounded-full border border-zinc-500 px-2 py-0.5 text-xs font-medium text-zinc-300">Live (unavailable)</span>
+    <span className="inline-block rounded-full border border-emerald-400/60 px-2 py-0.5 text-xs font-medium text-emerald-300">Live</span>
   );
 }

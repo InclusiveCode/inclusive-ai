@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Keep focused and anchored elements clear of the sticky top nav (WCAG 2.2 SC 2.4.11). */
+html {
+  scroll-padding-top: 5rem;
+}
+
 :root {
   --pride-rose: #FF6B9D;
   --pride-orange: #FF9B71;

@@ -2,6 +2,7 @@ import { renderInputs } from "../../../lib/lab/render";
 import type { Scenario } from "../../../lib/lab/scenarios";
 import type { Run, Variant } from "../../../lib/lab/types";
 import { HighlightedText } from "../highlight";
+import { providerLabel, returnedModelText } from "./banner";
 import { ModeBadge, RESPONSE_STATUS_TEXT } from "./status";
 
 function na(v: number | null): string {
@@ -26,9 +27,15 @@ export function RunMeta({ run, title }: { run: Run; title?: string }) {
         <dt className="text-zinc-400">Run ID</dt>
         <dd className="font-mono text-zinc-300">{run.id}</dd>
         <dt className="text-zinc-400">Provider</dt>
-        <dd className="text-zinc-300">{run.config.provider}</dd>
-        <dt className="text-zinc-400">Model</dt>
+        <dd className="text-zinc-300">{run.mode === "live" ? providerLabel(run.config.provider) : run.config.provider}</dd>
+        <dt className="text-zinc-400">{run.mode === "live" ? "Requested model" : "Model"}</dt>
         <dd className="font-mono text-zinc-300">{run.config.model}</dd>
+        {run.mode === "live" && (
+          <>
+            <dt className="text-zinc-400">Returned model</dt>
+            <dd className="font-mono text-zinc-300">{returnedModelText(run)}</dd>
+          </>
+        )}
         <dt className="text-zinc-400">Temperature</dt>
         <dd className="text-zinc-300">{na(run.config.temperature)}</dd>
         <dt className="text-zinc-400">Max tokens</dt>
@@ -37,6 +44,14 @@ export function RunMeta({ run, title }: { run: Run; title?: string }) {
         <dd className="font-mono text-zinc-300">{run.instructionFingerprint}</dd>
         <dt className="text-zinc-400">Created at</dt>
         <dd className="font-mono text-zinc-300">{run.createdAt}</dd>
+        {run.mode === "live" && (
+          <>
+            <dt className="text-zinc-400">Duration</dt>
+            <dd className="text-zinc-300">
+              A: {run.responses.a.durationMs} ms; B: {run.responses.b.durationMs} ms
+            </dd>
+          </>
+        )}
         {run.mode === "simulated" && (
           <>
             <dt className="text-zinc-400">Simulator rules matched</dt>

@@ -2,14 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { scenarioVerdict } from "../../lib/lab/evaluate";
+import { emptyCompareState, latestOkBaseline, selectBaseline } from "../../lib/lab/history";
+import { CLIENT_MESSAGES } from "../../lib/lab/live-messages";
+import { findModel, LIVE_MODELS, type Provider } from "../../lib/lab/models";
 import { createOverride, reviewLogJson } from "../../lib/lab/overrides";
-import { LIVE_MODELS } from "../../lib/lab/models";
 import { LIVE_RESPONDER_VERSION, liveConfig, makeLiveResponder, runScenario } from "../../lib/lab/run";
 import { scenarios } from "../../lib/lab/scenarios";
 import { matchSnippets, SIMULATED_CONFIG, SIMULATOR_VERSION, simulatedResponder, SNIPPET_RULES } from "../../lib/lab/simulator";
 import type { CheckResult, FaultKind, Override, Run } from "../../lib/lab/types";
+import { RunBanner } from "./components/banner";
 import { CompareView } from "./components/compare-view";
 import { Findings } from "./components/findings";
+import { LivePanel } from "./components/live-panel";
 import { Limitations, SimulatorRules } from "./components/reference";
 import { RunDetails } from "./components/run-details";
 import { BUTTON, FOCUS, liveAlertText, statusLabel } from "./components/status";
@@ -37,43 +41,80 @@ const SECTIONS: Array<[string, string]> = [
 
 const H2 = "scroll-mt-24 text-2xl font-bold tracking-tight text-zinc-100";
 
+const EMPTY_LIVE_COMPARE = {
+  no_live_run: "No live run yet",
+  no_live_baseline: "No live baseline run yet — select “Run baseline live”.",
+  baseline_only: "Live baseline only — edit and rerun",
+  baseline_errors: "Live baseline had errors — run it again",
+} as const;
+
 export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
   const [scenarioId, setScenarioId] = useState(scenarios[0].id);
   const [instructions, setInstructions] = useState<Record<string, string>>(() =>
     Object.fromEntries(scenarios.map((s) => [s.id, s.baselineInstruction])),
   );
-  const [latest, setLatest] = useState<Record<string, Run | undefined>>({});
+  // Run history per scenario, oldest first (simulated and live runs).
+  const [runs, setRuns] = useState<Record<string, Run[]>>({});
   const [runCount, setRunCount] = useState<Record<string, number>>({});
-  const [view, setView] = useState<"baseline" | "latest">("latest");
+  // "latest", "baseline" (the precomputed simulated run), or a run id from the history.
+  const [view, setView] = useState<string>("latest");
   const [source, setSource] = useState<"simulated" | "live">("simulated");
   const [fault, setFault] = useState<FaultKind>("none");
+  const [liveProvider, setLiveProvider] = useState<Provider>(LIVE_MODELS[0].provider);
+  const [liveModelId, setLiveModelId] = useState(LIVE_MODELS[0].id);
+  const [keyError, setKeyError] = useState(false);
   const [overrides, setOverrides] = useState<Override[]>([]);
   const [announcement, setAnnouncement] = useState("");
-  const [alert, setAlert] = useState<{ key: string; text: string } | null>(null);
+  const [runError, setRunError] = useState<{ key: string; text: string } | null>(null);
   const [noMatch, setNoMatch] = useState(false);
   const [running, setRunning] = useState(false);
+  const [cancellable, setCancellable] = useState(false);
   const runningRef = useRef(false);
   const rerunRef = useRef<HTMLButtonElement>(null);
-  const restoreFocusRef = useRef(false);
+  const restoreFocusRef = useRef<HTMLButtonElement | null>(null);
+  const cancelRef = useRef<AbortController | null>(null);
+  const errorSeq = useRef(0);
+  // The API key lives only in this uncontrolled input element; it is read at call time.
+  const keyInputRef = useRef<HTMLInputElement>(null);
 
-  // Rerun is disabled while a run is in flight, which can drop keyboard focus; put it back afterwards.
+  // Run buttons are disabled while a run is in flight, which can drop keyboard focus; put it back afterwards.
   useEffect(() => {
     if (running || !restoreFocusRef.current) return;
-    restoreFocusRef.current = false;
+    const target = restoreFocusRef.current;
+    restoreFocusRef.current = null;
     const active = document.activeElement;
-    if (!active || active === document.body) rerunRef.current?.focus();
+    if (!active || active === document.body) target.focus();
   }, [running]);
 
   const scenario = scenarios.find((s) => s.id === scenarioId) ?? scenarios[0];
   const baseline = baselineRuns.find((r) => r.scenarioId === scenario.id);
-  const latestRun = latest[scenario.id];
-  const shown = view === "latest" && latestRun ? latestRun : baseline;
+  const history = runs[scenario.id] ?? [];
+  const latestRun = history.length > 0 ? history[history.length - 1] : undefined;
+  const shown =
+    view === "baseline"
+      ? baseline
+      : view === "latest"
+        ? (latestRun ?? baseline)
+        : (history.find((r) => r.id === view) ?? latestRun ?? baseline);
   const instruction = instructions[scenario.id] ?? "";
+  const liveModel = findModel(liveProvider, liveModelId) ?? LIVE_MODELS.find((m) => m.provider === liveProvider) ?? LIVE_MODELS[0];
+  const statusAlert = !running && shown?.mode === "live" ? liveAlertText(shown) : null;
+
+  function readKey(): string | null {
+    const value = keyInputRef.current?.value.trim();
+    return value ? value : null;
+  }
 
   function chooseScenario(id: string) {
     setScenarioId(id);
+    setView("latest");
     setNoMatch(false);
-    setAlert(null);
+    setRunError(null);
+  }
+
+  function chooseProvider(p: Provider) {
+    setLiveProvider(p);
+    setLiveModelId((LIVE_MODELS.find((m) => m.provider === p) ?? LIVE_MODELS[0]).id);
   }
 
   function setInstruction(text: string) {
@@ -84,44 +125,80 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
     setInstruction(instruction + "\n" + snippet);
   }
 
-  async function rerun() {
+  async function startRun(kind: "edited" | "baseline", trigger: HTMLButtonElement | null) {
     if (runningRef.current) return;
-    runningRef.current = true;
-    restoreFocusRef.current = document.activeElement === rerunRef.current;
     const s = scenario;
-    const n = (runCount[s.id] ?? 0) + 1;
     const live = source === "live";
+    const runInstruction = kind === "baseline" ? s.baselineInstruction : instruction;
+    setRunError(null);
+    if (live) {
+      const key = readKey();
+      if (!key) {
+        // No request is sent; the button stays enabled and focus moves to the key field.
+        setKeyError(true);
+        keyInputRef.current?.focus();
+        return;
+      }
+      setKeyError(false);
+      if (runInstruction.includes(key)) {
+        errorSeq.current += 1;
+        setRunError({ key: `blocked-${errorSeq.current}`, text: `${CLIENT_MESSAGES.keyInInstruction}.` });
+        return;
+      }
+    }
+    runningRef.current = true;
+    restoreFocusRef.current = trigger && document.activeElement === trigger ? trigger : null;
+    const n = (runCount[s.id] ?? 0) + 1;
+    const controller = live ? new AbortController() : null;
+    cancelRef.current = controller;
     setRunning(true);
-    setAlert(null);
+    setCancellable(live);
     setAnnouncement("Running…");
     try {
-      const run = await runScenario(
-        s,
-        instruction,
-        live ? makeLiveResponder({ scenario: s, provider: LIVE_MODELS[0].provider, model: LIVE_MODELS[0], key: { get: () => null } }) : simulatedResponder,
-        live ? liveConfig(LIVE_MODELS[0]) : SIMULATED_CONFIG,
-        {
-          id: `${s.id}-run-${n}`,
-          createdAt: new Date().toISOString(),
-          mode: live ? "live" : "simulated",
-          responderVersion: live ? LIVE_RESPONDER_VERSION : SIMULATOR_VERSION,
-          fault: live ? "none" : fault,
-        },
-      );
-      setLatest((prev) => ({ ...prev, [s.id]: run }));
+      const responder =
+        live && controller
+          ? makeLiveResponder({ scenario: s, provider: liveModel.provider, model: liveModel, key: { get: readKey }, signal: controller.signal })
+          : simulatedResponder;
+      const run = await runScenario(s, runInstruction, responder, live ? liveConfig(liveModel) : SIMULATED_CONFIG, {
+        id: `${s.id}-run-${n}`,
+        createdAt: new Date().toISOString(),
+        mode: live ? "live" : "simulated",
+        responderVersion: live ? LIVE_RESPONDER_VERSION : SIMULATOR_VERSION,
+        fault: live ? "none" : fault,
+      });
+      setRuns((prev) => ({ ...prev, [s.id]: [...(prev[s.id] ?? []), run] }));
       setRunCount((prev) => ({ ...prev, [s.id]: n }));
       setView("latest");
       setAnnouncement(`Run ${n} complete: ${scenarioVerdict(run.results).headline}`);
-      setNoMatch(!live && instruction !== s.baselineInstruction && matchSnippets(instruction).length === 0);
-      const alertText = live ? liveAlertText(run) : null;
-      setAlert(alertText ? { key: run.id, text: alertText } : null);
+      setNoMatch(!live && runInstruction !== s.baselineInstruction && matchSnippets(runInstruction).length === 0);
     } catch {
       setAnnouncement(`Run ${n} could not be completed.`);
-      setAlert({ key: `${s.id}-run-${n}-failed`, text: "The run could not be completed. This is not an evaluation result." });
+      setRunError({ key: `${s.id}-run-${n}-failed`, text: "The run could not be completed. This is not an evaluation result." });
     } finally {
+      cancelRef.current = null;
       runningRef.current = false;
       setRunning(false);
+      setCancellable(false);
     }
+  }
+
+  function compareContent() {
+    if (!baseline) return <p>Not run</p>;
+    if (!latestRun) {
+      return source === "live" ? <p className="text-zinc-300">{EMPTY_LIVE_COMPARE.no_live_run}</p> : <CompareView scenario={scenario} baseline={baseline} latest={undefined} overrides={overrides} />;
+    }
+    if (latestRun.mode === "simulated") {
+      return <CompareView scenario={scenario} baseline={baseline} latest={latestRun} overrides={overrides} />;
+    }
+    const liveRuns = history.filter((r) => r.mode === "live");
+    const empty = emptyCompareState(liveRuns, latestRun, scenario.baselineInstruction);
+    if (empty) {
+      return <p className="text-zinc-300">{EMPTY_LIVE_COMPARE[empty === "no_live_run" ? "no_live_baseline" : empty]}</p>;
+    }
+    const liveBaseline =
+      selectBaseline(liveRuns, latestRun, scenario.baselineInstruction) ?? latestOkBaseline(liveRuns, latestRun, scenario.baselineInstruction);
+    if (!liveBaseline) return <p className="text-zinc-300">{EMPTY_LIVE_COMPARE.no_live_baseline}</p>;
+    return <CompareView scenario={scenario} baseline={liveBaseline} latest={latestRun} overrides={overrides} />;
   }
 
   function saveOverride(run: Run, result: CheckResult, humanStatus: string, reason: string): string | null {
@@ -154,13 +231,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
         </p>
       </header>
 
-      <div role="note" className="mb-8 rounded-xl border-2 border-amber-300/70 bg-amber-950/40 p-4 text-amber-100">
-        <p>
-          <strong>Simulated demo — no AI model is called.</strong> Responses come from a scripted simulator (lab-simulator-rules-v1) built
-          to show known failure modes. An improvement here demonstrates the workflow, not real model behavior. All people, organizations,
-          and data are fictional.
-        </p>
-      </div>
+      {shown && <RunBanner run={shown} />}
 
       <nav aria-label="Lab steps" className="mb-12">
         <ol className="flex flex-wrap gap-2 text-sm">
@@ -217,11 +288,25 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
           {latestRun && (
             <fieldset className="mt-4">
               <legend className="text-sm text-zinc-400">Show run</legend>
-              <div className="mt-1 flex gap-4 text-sm">
-                {(["baseline", "latest"] as const).map((v) => (
-                  <label key={v} className="inline-flex items-center gap-2">
-                    <input type="radio" name="view-run" value={v} checked={view === v} onChange={() => setView(v)} className={FOCUS} />
-                    {v === "baseline" ? "Baseline run" : `Latest run (${latestRun.id})`}
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                {[
+                  { value: "baseline", label: "Baseline run" },
+                  { value: "latest", label: `Latest run (${latestRun.id}, ${latestRun.mode})` },
+                  ...history
+                    .slice(0, -1)
+                    .reverse()
+                    .map((r) => ({ value: r.id, label: `${r.id} (${r.mode})` })),
+                ].map((o) => (
+                  <label key={o.value} className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="view-run"
+                      value={o.value}
+                      checked={view === o.value || (o.value === "latest" && !history.some((r) => r.id === view) && view !== "baseline")}
+                      onChange={() => setView(o.value)}
+                      className={FOCUS}
+                    />
+                    {o.label}
                   </label>
                 ))}
               </div>
@@ -296,7 +381,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                       onChange={() => setSource("simulated")}
                       className={FOCUS}
                     />
-                    Simulated
+                    Simulated (scripted demo)
                   </label>
                   <label className="flex items-center gap-2">
                     <input
@@ -307,7 +392,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                       onChange={() => setSource("live")}
                       className={FOCUS}
                     />
-                    Live model (not configured on this deployment)
+                    Live model (your API key)
                   </label>
                 </div>
               </fieldset>
@@ -330,17 +415,49 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                 </select>
               </div>
             </div>
+            {source === "live" && (
+              <LivePanel
+                provider={liveProvider}
+                modelId={liveModel.id}
+                onProviderChange={chooseProvider}
+                onModelChange={setLiveModelId}
+                keyInputRef={keyInputRef}
+                keyError={keyError}
+                onKeyErrorClear={() => setKeyError(false)}
+              />
+            )}
             <div className="flex flex-wrap items-center gap-4">
-              <button ref={rerunRef} type="button" onClick={rerun} disabled={running} className={`${BUTTON} px-5 py-2 font-semibold`}>
+              <button
+                ref={rerunRef}
+                type="button"
+                onClick={(e) => startRun("edited", e.currentTarget)}
+                disabled={running}
+                className={`${BUTTON} px-5 py-2 font-semibold`}
+              >
                 Rerun
               </button>
+              {source === "live" && (
+                <button type="button" onClick={(e) => startRun("baseline", e.currentTarget)} disabled={running} className={`${BUTTON} px-5 py-2`}>
+                  Run baseline live
+                </button>
+              )}
+              {running && cancellable && (
+                <button type="button" onClick={() => cancelRef.current?.abort()} className={`${BUTTON} px-5 py-2`}>
+                  Cancel
+                </button>
+              )}
               <p role="status" aria-live="polite" className="text-sm text-zinc-300">
                 {announcement}
               </p>
             </div>
-            {alert && (
-              <p key={alert.key} role="alert" className="rounded-md border border-rose-400/60 p-3 text-sm text-rose-200">
-                {alert.text}
+            {statusAlert && shown && (
+              <p key={shown.id} role="alert" className="rounded-md border border-rose-400/60 p-3 text-sm text-rose-200">
+                {statusAlert}
+              </p>
+            )}
+            {runError && (
+              <p key={runError.key} role="alert" className="rounded-md border border-rose-400/60 p-3 text-sm text-rose-200">
+                {runError.text}
               </p>
             )}
             {noMatch && <p className="rounded-md border border-zinc-600 p-3 text-sm text-zinc-300">{NO_MATCH}</p>}
@@ -351,10 +468,11 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
           <h2 id="compare" className={H2}>
             5. Compare runs
           </h2>
-          <p className="mt-2 text-sm text-zinc-400">Baseline vs latest run for the selected scenario.</p>
-          <div className="mt-4">
-            {baseline ? <CompareView scenario={scenario} baseline={baseline} latest={latestRun} overrides={overrides} /> : <p>Not run</p>}
-          </div>
+          <p className="mt-2 text-sm text-zinc-400">
+            Baseline vs latest run for the selected scenario. For live runs, the baseline is the most recent fully successful run of the
+            unedited baseline instruction with the same provider, model, and returned model version.
+          </p>
+          <div className="mt-4">{compareContent()}</div>
         </section>
 
         <section aria-labelledby="review-log">

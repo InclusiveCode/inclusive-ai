@@ -8,8 +8,35 @@ const withMDX = createMDX({
   },
 });
 
+// No script-src or default-src: Next's inline hydration scripts must keep working.
+const SITE_CSP = "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'";
+
 const nextConfig: NextConfig = {
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Content-Security-Policy", value: SITE_CSP },
+        ],
+      },
+      {
+        // Listed after the site-wide rule so this single combined value replaces it on /lab.
+        source: "/lab",
+        headers: [{ key: "Content-Security-Policy", value: `${SITE_CSP}; connect-src 'self'` }],
+      },
+      {
+        // The handler sets this on its own responses; this also covers Next's automatic 405.
+        source: "/api/lab/run",
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
+    ];
+  },
 };
 
 export default withMDX(nextConfig);
