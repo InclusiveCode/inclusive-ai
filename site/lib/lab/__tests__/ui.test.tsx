@@ -249,8 +249,8 @@ describe("labels follow the displayed run", () => {
     const long = `${"m".repeat(60)}.${"x".repeat(39)}`; // 100 characters, all allowed by the server's id pattern
     const run = await liveRun({ returnedModel: long }, { returnedModel: long });
     const html = renderToStaticMarkup(<RunBanner run={run} />);
-    expect(html).toMatch(new RegExp(`<span class="[^"]*break-all[^"]*">${long.replace(".", "\\.")}</span>`));
-    expect(html).toMatch(/<p class="[^"]*min-w-0[^"]*"/);
+    // The paragraph holding the id may shrink and breaks a word only when it cannot fit, with no inline wrapper.
+    expect(html).toMatch(new RegExp(`<p class="(?=[^"]*\\bmin-w-0\\b)(?=[^"]*\\bwrap-anywhere\\b)[^"]*">[^<]*${long.replace(".", "\\.")}\\. One sample`));
   });
 
   it("the live banner shows both returned models when they differ", async () => {
