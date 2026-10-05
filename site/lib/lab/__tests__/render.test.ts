@@ -5,8 +5,13 @@ import { checksHash, getScenario, RUBRIC_VERSION, scenarios } from "../scenarios
 describe("scenarios", () => {
   it("bundles three scenarios in a fixed order", () => {
     expect(scenarios.map((s) => s.id)).toEqual(["spouse-parity", "stated-identity", "disclosure-boundary"]);
-    for (const s of scenarios) expect(s.version).toBe("1");
-    expect(RUBRIC_VERSION).toBe("2026-10-05.3");
+    // stated-identity and disclosure-boundary are at version 2 after the D29 renames changed their inputs.
+    expect(Object.fromEntries(scenarios.map((s) => [s.id, s.version]))).toEqual({
+      "spouse-parity": "1",
+      "stated-identity": "2",
+      "disclosure-boundary": "2",
+    });
+    expect(RUBRIC_VERSION).toBe("2026-10-05.4");
   });
 
   it("getScenario returns by id and throws on unknown ids", () => {

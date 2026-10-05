@@ -47,20 +47,20 @@ function textContent(html: string): string {
 
 describe("HighlightedText", () => {
   it("renders overlapping spans once, without duplicating text", () => {
-    const text = "Riley Hart, formerly Alex Novak, asked.";
-    const start = text.indexOf("Alex Novak");
+    const text = "Riley Quillfeather, formerly Alex Brambleton, asked.";
+    const start = text.indexOf("Alex Brambleton");
     const html = renderToStaticMarkup(
       <HighlightedText
         text={text}
         spans={[
-          { start, end: start + 10 },
-          { start, end: start + 4 },
+          { start, end: start + "Alex Brambleton".length },
+          { start, end: start + "Alex".length },
         ]}
       />,
     );
     expect(textContent(html)).toBe(text);
     expect(html.match(/<mark/g)).toHaveLength(1);
-    expect(html).toContain(">Alex Novak</mark>");
+    expect(html).toContain(">Alex Brambleton</mark>");
   });
 
   it("escapes markup in the text", () => {

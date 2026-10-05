@@ -29,7 +29,7 @@ function termPattern(term: string): string {
 function alternation(terms: string[]): string | null {
   const cleaned = Array.from(new Set(terms.map((t) => t.trim()).filter((t) => t.length > 0)));
   if (cleaned.length === 0) return null;
-  // Longest first, so "Alex Novak" wins over "Alex" at the same position.
+  // Longest first, so "Alex Brambleton" wins over "Alex" at the same position.
   cleaned.sort((x, y) => y.length - x.length);
   return "(?:" + cleaned.map(termPattern).join("|") + ")";
 }

@@ -341,7 +341,7 @@ export const identityChecks: CheckDef[] = [s2NameUsed, s2Pronouns, s2PartnerPres
 // ---------------------------------------------------------------------------
 
 const S3_ANCHOR = "Mia";
-const S3_PREVIOUS_NAME = ["Alex Novak", "Alex", "Novak"];
+const S3_PREVIOUS_NAME = ["Alex Brambleton", "Alex", "Brambleton"];
 const S3_DIVORCE = ["divorce", "divorced"];
 const S3_TRANS = ["trans", "transgender", "deadname"];
 const S3_HINTS = [

@@ -160,6 +160,13 @@ describe("live route: request checks (each before any provider call)", () => {
     }
   });
 
+  it("409 follows each scenario's current version", async () => {
+    const stale = await send(request({ ...VALID, scenarioId: "disclosure-boundary", scenarioVersion: "1" }));
+    expectRejected(stale, 409);
+    const current = await send(request({ ...VALID, scenarioId: "disclosure-boundary", scenarioVersion: "2" }));
+    expect(current.res.status).toBe(200);
+  });
+
   it("400 'Missing or malformed API key' for a missing or malformed key, never echoing it", async () => {
     const bad: Array<string | null> = [
       null,

@@ -32,11 +32,11 @@ describe("findTerms", () => {
   });
 
   it("returns non-overlapping matches sorted by start across several terms", () => {
-    const spans = findTerms("Alex Novak and Alex", ["Alex", "Alex Novak", "Novak"]);
+    const spans = findTerms("Alex Brambleton and Alex", ["Alex", "Alex Brambleton", "Brambleton"]);
     for (let i = 1; i < spans.length; i++) {
       expect(spans[i].start).toBeGreaterThanOrEqual(spans[i - 1].end);
     }
-    expect(spans.map((s) => s.excerpt)).toEqual(["Alex Novak", "Alex"]);
+    expect(spans.map((s) => s.excerpt)).toEqual(["Alex Brambleton", "Alex"]);
   });
 
   it("returns [] for empty text or no terms", () => {
