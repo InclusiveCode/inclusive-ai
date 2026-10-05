@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderInputs } from "../render";
 import { getScenario } from "../scenarios";
-import { createHandler } from "../server/handler";
+import { createHandler, MAX_BODY_BYTES, MAX_INSTRUCTION_CHARS } from "../server/handler";
 import type { AnthropicLike, OpenAILike, ProviderClients } from "../server/providers";
 
 const SITE = resolve(__dirname, "../../..");
@@ -109,15 +109,37 @@ describe("live route: request checks (each before any provider call)", () => {
     expect(ok.res.status).toBe(200);
   });
 
-  it("413 when content-length is over 16 384", async () => {
+  it("the body cap fits the worst-case valid instruction: 4000 characters escaped as \\uXXXX (6 bytes each) plus the other fields", () => {
+    expect(MAX_INSTRUCTION_CHARS).toBe(4000);
+    expect(MAX_BODY_BYTES).toBe(32 * 1024);
+    const worst = JSON.stringify({ ...VALID, instruction: "\u0001".repeat(MAX_INSTRUCTION_CHARS) });
+    expect(new TextEncoder().encode(worst).length).toBeLessThan(MAX_BODY_BYTES);
+  });
+
+  it("accepts a valid 4000-character instruction of control characters (24 KB of JSON)", async () => {
     const { clients, seen } = fakeClients();
-    expectRejected(await send(request(VALID, { headers: { "content-length": "16385" } }), clients), 413);
+    const r = await send(request({ ...VALID, instruction: "\u0001".repeat(4000) }), clients);
+    expect(r.res.status).toBe(200);
+    expect(seen).toHaveLength(1);
+  });
+
+  it("4001 control characters is a schema 400, not a 413", async () => {
+    const { clients, seen } = fakeClients();
+    const r = await send(request({ ...VALID, instruction: "\u0001".repeat(4001) }), clients);
+    expectRejected(r, 400);
+    expect(r.json.message).toBe("Instruction must be text of at most 4000 characters");
     expect(seen).toEqual([]);
   });
 
-  it("413 when the measured body is over 16 384 bytes", async () => {
+  it("413 when content-length is over the cap", async () => {
     const { clients, seen } = fakeClients();
-    const big = JSON.stringify({ ...VALID, padding: "x".repeat(17_000) });
+    expectRejected(await send(request(VALID, { headers: { "content-length": String(MAX_BODY_BYTES + 1) } }), clients), 413);
+    expect(seen).toEqual([]);
+  });
+
+  it("413 when the measured body is over the cap", async () => {
+    const { clients, seen } = fakeClients();
+    const big = JSON.stringify({ ...VALID, padding: "x".repeat(MAX_BODY_BYTES) });
     expectRejected(await send(request(null, { raw: big }), clients), 413);
     expect(seen).toEqual([]);
   });

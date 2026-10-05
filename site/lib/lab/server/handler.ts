@@ -12,8 +12,13 @@ import { renderInputs } from "../render";
 import { scenarios } from "../scenarios";
 import { callProvider, type ProviderClients } from "./providers";
 
-export const MAX_BODY_BYTES = 16_384;
 export const MAX_INSTRUCTION_CHARS = 4000;
+/**
+ * Sized from the instruction limit, so every valid instruction fits: JSON escapes a control
+ * character as \uXXXX, so 4000 characters can take 4000 × 6 = 24 000 bytes, plus the other
+ * fields (well under 1 KB). 32 KiB leaves margin without accepting arbitrarily large bodies.
+ */
+export const MAX_BODY_BYTES = 32 * 1024;
 const BEARER = "Bearer ";
 
 const HEADERS = { "content-type": "application/json", "cache-control": "no-store" } as const;

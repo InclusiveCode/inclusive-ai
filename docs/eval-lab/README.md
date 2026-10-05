@@ -165,7 +165,7 @@ What the page tells users: this site doesn't store or log the key; it is sent ov
 | OPTIONS | 204 with `Allow: POST, OPTIONS`, `no-store`, and no `Access-Control-*` headers (no CORS grant) |
 | GET, HEAD, PUT, PATCH, or DELETE | 405 fixed JSON with `Allow: POST, OPTIONS` (`no-store` is also set in `next.config.ts`) |
 | Content type is not `application/json` | 415 |
-| Body over 16 384 bytes (declared or measured) | 413 |
+| Body over 32 768 bytes (declared or measured; sized so a valid 4000-character instruction always fits, even when every character is a control character that JSON escapes as `\uXXXX`, 6 bytes each) | 413 |
 | Body is not JSON | 400 |
 | Unknown scenario, bad variant, instruction over 4000 characters, or model not allowlisted | 400 |
 | `scenarioVersion` does not match the server | 409 |
