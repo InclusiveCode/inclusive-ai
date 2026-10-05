@@ -63,9 +63,30 @@ describe("compareRuns: live runs", () => {
     expect(compareRuns(before, after)).toEqual({ compatible: false, reason: "Different model versions answered the two runs" });
   });
 
-  it("refuses a live run where a version returned no model (the call did not complete)", async () => {
+  it("names a version that did not complete, before the model-id check", async () => {
     const before = await liveRun(BASE, ok(), ok());
-    const after = await liveRun(EDITED, ok(), failed("timeout"));
+    const cases: Array<[Side, string]> = [
+      [failed("timeout"), "Version B did not complete (timed out) — rerun to compare"],
+      [failed("model_error"), "Version B did not complete (model error) — rerun to compare"],
+      [{ status: "not_run", error: "Cancelled" }, "Version B did not complete (cancelled) — rerun to compare"],
+      [{ status: "provider_refused", returnedModel: HAIKU_V }, "Version B did not complete (declined by the provider) — rerun to compare"],
+      [failed("credentials_unavailable"), "Version B did not complete (credentials unavailable) — rerun to compare"],
+    ];
+    for (const [b, reason] of cases) {
+      const after = await liveRun(EDITED, ok(), b);
+      expect(compareRuns(before, after)).toEqual({ compatible: false, reason });
+      expect(compareRuns(after, before)).toEqual({ compatible: false, reason });
+    }
+    const both = await liveRun(EDITED, failed("timeout"), { status: "not_run", error: "Cancelled" });
+    expect(compareRuns(before, both)).toEqual({
+      compatible: false,
+      reason: "Versions A and B did not complete (A: timed out; B: cancelled) — rerun to compare",
+    });
+  });
+
+  it("refuses an ok version that reported no model id", async () => {
+    const before = await liveRun(BASE, ok(), ok());
+    const after = await liveRun(EDITED, ok(), { status: "ok", text: "Happy to help, Jordan." });
     const c = compareRuns(before, after);
     expect(c.compatible).toBe(false);
     if (!c.compatible) expect(c.reason).toMatch(/Version B did not return a model id/);

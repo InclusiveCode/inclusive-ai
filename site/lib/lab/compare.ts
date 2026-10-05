@@ -3,7 +3,7 @@
  * scenario, rubric, checks, mode, responder, and config. Human overrides are
  * never an input here, so they cannot change a classification.
  */
-import type { CheckStatus, ResultVariant, Run, RunConfig } from "./types";
+import type { CheckStatus, ResponseRecord, ResponseStatus, ResultVariant, Run, RunConfig } from "./types";
 
 export type RowClass = "improved" | "regressed" | "unchanged" | "inconclusive";
 
@@ -35,8 +35,27 @@ export function returnedModels(run: Run): { a?: string; b?: string; consistent: 
   };
 }
 
-/** Live runs: why a run's model identity is unusable for comparison, or null. */
+const INCOMPLETE: Record<Exclude<ResponseStatus, "ok">, string> = {
+  timeout: "timed out",
+  model_error: "model error",
+  credentials_unavailable: "credentials unavailable",
+  provider_refused: "declined by the provider",
+  not_run: "not run",
+};
+
+function incompleteReason(r: ResponseRecord): string | null {
+  if (r.status === "ok") return null;
+  if (r.status === "not_run" && r.error === "Cancelled") return "cancelled";
+  return INCOMPLETE[r.status];
+}
+
+/** Live runs: why a run is unusable for comparison (incomplete versions first, then model identity), or null. */
 function modelIdentityProblem(run: Run): string | null {
+  const ra = incompleteReason(run.responses.a);
+  const rb = incompleteReason(run.responses.b);
+  if (ra && rb) return `Versions A and B did not complete (A: ${ra}; B: ${rb}) — rerun to compare`;
+  if (ra) return `Version A did not complete (${ra}) — rerun to compare`;
+  if (rb) return `Version B did not complete (${rb}) — rerun to compare`;
   const m = returnedModels(run);
   if (m.a !== undefined && m.b !== undefined && m.a !== m.b) return "Versions A and B were answered by different model versions";
   const missing = (["a", "b"] as const).filter((v) => m[v] === undefined).map((v) => v.toUpperCase());
