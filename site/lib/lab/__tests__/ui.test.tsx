@@ -658,3 +658,43 @@ describe("COMPLIANCE: non-text contrast of lab form fields (WCAG 1.4.11)", () =>
     expect(textarea).not.toContain("border-zinc-700");
   });
 });
+
+describe("abort in-flight live requests on unmount", () => {
+  it("abortInFlight aborts both concurrent calls through the shared Cancel controller", async () => {
+    const { abortInFlight } = await import("../../../app/lab/inflight");
+    const s = getScenario("spouse-parity");
+    const inputs = renderInputs(s);
+    const signals: AbortSignal[] = [];
+    const fetchImpl = ((_url: string, init: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        signals.push(init.signal!);
+        init.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+      })) as unknown as typeof fetch;
+    const controller = new AbortController();
+    const ref = { current: controller as AbortController | null };
+    const { makeLiveResponder } = await import("../run");
+    const responder = makeLiveResponder({
+      scenario: s,
+      provider: "anthropic",
+      model: HAIKU,
+      key: { get: () => "sk-ant-test-PLACEHOLDER-0000000000" },
+      fetchImpl,
+      signal: controller.signal,
+    });
+    const pending = Promise.all([inputs.a, inputs.b].map((input) => responder({ instruction: "x", input, config: liveConfig(HAIKU) })));
+    await new Promise((r) => setTimeout(r, 5));
+    expect(signals).toHaveLength(2);
+    abortInFlight(ref);
+    const results = await pending;
+    expect(signals.every((sig) => sig.aborted)).toBe(true);
+    expect(results.map((r) => r.status)).toEqual(["not_run", "not_run"]);
+    expect(ref.current).toBeNull();
+    abortInFlight(ref); // nothing in flight: a no-op
+  });
+
+  it("the lab client aborts through that controller in its unmount cleanup", () => {
+    const src = readFileSync(join(SITE, "app/lab/lab-client.tsx"), "utf8");
+    expect(src).toMatch(/useEffect\(\(\) => \(\) => abortInFlight\(cancelRef\), \[\]\)/);
+    expect(src).toMatch(/onClick=\{\(\) => abortInFlight\(cancelRef\)\}/);
+  });
+});

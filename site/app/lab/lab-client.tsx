@@ -16,6 +16,7 @@ import { CompareView } from "./components/compare-view";
 import { Findings } from "./components/findings";
 import { clearKeyForProviderSwitch, LivePanel } from "./components/live-panel";
 import { pickFocusAfterRun } from "./focus";
+import { abortInFlight } from "./inflight";
 import { Limitations, SimulatorRules } from "./components/reference";
 import { RunDetails } from "./components/run-details";
 import { BUTTON, FOCUS, liveAlertText, providerRefusalAsymmetryNote, statusLabel } from "./components/status";
@@ -82,6 +83,9 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
   const errorSeq = useRef(0);
   // The API key lives only in this uncontrolled input element; it is read at call time.
   const keyInputRef = useRef<HTMLInputElement>(null);
+
+  // Leaving /lab (including client-side navigation) aborts any in-flight live calls.
+  useEffect(() => () => abortInFlight(cancelRef), []);
 
   // While a live run is in flight the run buttons are disabled, so focus moves to Cancel.
   useEffect(() => {
@@ -472,7 +476,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                 </button>
               )}
               {running && cancellable && (
-                <button ref={cancelButtonRef} type="button" onClick={() => cancelRef.current?.abort()} className={`${BUTTON} px-5 py-2`}>
+                <button ref={cancelButtonRef} type="button" onClick={() => abortInFlight(cancelRef)} className={`${BUTTON} px-5 py-2`}>
                   Cancel
                 </button>
               )}
