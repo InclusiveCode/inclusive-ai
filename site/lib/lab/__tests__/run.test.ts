@@ -14,6 +14,8 @@ import {
   type Responder,
   type RunOptions,
 } from "../run";
+import { liveAlertText } from "../../../app/lab/components/status";
+import { createHandler } from "../server/handler";
 import { SERVER_TIMEOUT_MS } from "../server/providers";
 import { checksHash, getScenario, RUBRIC_VERSION, scenarios, type Scenario } from "../scenarios";
 import { SIMULATED_CONFIG, SIMULATOR_VERSION, simulatedResponder, SNIPPET_RULES } from "../simulator";
@@ -402,21 +404,61 @@ describe("makeLiveResponder (live client)", () => {
     expect(bad.status).toBe("model_error");
   });
 
-  it("maps 4xx responses to fixed messages chosen by status code, never the server's text", async () => {
+  it("without a usable server message, maps each 4xx to its own fixed message by status code", async () => {
     const cases: Array<[number, string]> = [
-      [400, "The lab server rejected the request (check the API key format)"],
-      [405, "The lab server rejected the request"],
+      [400, "The lab server rejected the request"],
+      [405, "The lab server only accepts POST requests"],
       [409, "This page is out of date — reload it and try again"],
       [413, "The request was too large"],
-      [415, "The lab server rejected the request"],
+      [415, "The lab server only accepts JSON requests"],
       [429, "Too many live requests — wait a minute and try again"],
     ];
     for (const [code, message] of cases) {
-      const r = await responder(fetchReturning(() => Response.json({ status: "model_error", message: "SERVER SAYS SOMETHING" }, { status: code })).fetchImpl)(req());
-      expect(r, String(code)).toMatchObject({ status: "model_error", error: message });
+      for (const body of [{ status: "model_error", message: "SERVER SAYS SOMETHING" }, { status: "model_error" }, "not json"]) {
+        const make = () => (typeof body === "string" ? new Response(body, { status: code }) : Response.json(body, { status: code }));
+        const r = await responder(fetchReturning(make).fetchImpl)(req());
+        expect(r, `${code} ${JSON.stringify(body)}`).toMatchObject({ status: "model_error", error: message });
+        expect(JSON.stringify(r)).not.toContain("SERVER SAYS");
+      }
     }
+    expect(new Set(cases.map(([, m]) => m)).size).toBe(cases.length);
     const plain = await responder(fetchReturning(() => new Response("Too Many Requests", { status: 429 })).fetchImpl)(req());
     expect(plain).toMatchObject({ status: "model_error", error: "Too many live requests — wait a minute and try again" });
+  });
+
+  it("shows the route's own fixed message for each request-check failure, distinctly on the page", async () => {
+    const { clients } = (() => {
+      const reply = { content: [{ type: "text", text: "ok" }], model: "claude-haiku-4-5-20251001", stop_reason: "end_turn" };
+      return {
+        clients: {
+          anthropic: () => ({ messages: { create: async () => reply as never } }),
+          openai: () => ({ chat: { completions: { create: async () => ({ model: "m", choices: [] }) as never } } }),
+        },
+      };
+    })();
+    const handler = createHandler({ clients });
+    /** Sends the client's request to the real handler after one tweak. */
+    const via = (tweak: (init: RequestInit) => RequestInit): typeof fetch =>
+      (async (url: string, init: RequestInit) => handler(new Request(`http://localhost${url}`, tweak({ ...init, signal: undefined })))) as unknown as typeof fetch;
+    const withBody = (init: RequestInit, patch: Record<string, unknown>) => ({ ...init, body: JSON.stringify({ ...JSON.parse(String(init.body)), ...patch }) });
+    const withAuth = (init: RequestInit, value: string) => ({ ...init, headers: { ...(init.headers as Record<string, string>), authorization: value } });
+    const cases: Array<[string, (init: RequestInit) => RequestInit, string]> = [
+      ["405", (i) => ({ ...i, method: "GET", body: undefined }), "Method not allowed"],
+      ["415", (i) => ({ ...i, headers: { ...(i.headers as Record<string, string>), "content-type": "text/plain" } }), "Content type must be application/json"],
+      ["400 unknown scenario", (i) => withBody(i, { scenarioId: "nope" }), "Unknown scenario"],
+      ["400 key format", (i) => withAuth(i, "Bearer short"), "Missing or malformed API key"],
+      ["400 key/provider mismatch", (i) => withAuth(i, `Bearer ${OPENAI_KEY}`), "This key does not match the selected provider"],
+      ["409", (i) => withBody(i, { scenarioVersion: "0" }), "Scenario version mismatch — reload the page"],
+    ];
+    const onPage: string[] = [];
+    for (const [name, tweak, message] of cases) {
+      const r = await responder(via(tweak))(req());
+      expect(r, name).toMatchObject({ status: "model_error", error: message });
+      const alert = liveAlertText({ responses: { a: r, b: r } });
+      expect(alert, name).toBe(`Live request failed — not evaluated (${message})`);
+      onPage.push(alert!);
+    }
+    expect(new Set(onPage).size).toBe(cases.length);
   });
 
   it("maps 5xx and non-JSON bodies to a lab-server failure", async () => {
@@ -460,6 +502,21 @@ describe("makeLiveResponder (live client)", () => {
   it("Cancel while the response body is still being read reports 'Cancelled'", async () => {
     const ac = new AbortController();
     const pending = responder(hangingBody(), { signal: ac.signal })(req());
+    await new Promise((r) => setTimeout(r, 5));
+    ac.abort();
+    expect(await pending).toMatchObject({ status: "not_run", error: "Cancelled" });
+  });
+
+  it("Cancel while a 4xx body is still being read reports 'Cancelled', not a rejection", async () => {
+    const ac = new AbortController();
+    const fetchImpl = (async (_url: string, init: RequestInit) => ({
+      status: 400,
+      json: () =>
+        new Promise((_resolve, reject) => {
+          init.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    })) as unknown as typeof fetch;
+    const pending = responder(fetchImpl, { signal: ac.signal })(req());
     await new Promise((r) => setTimeout(r, 5));
     ac.abort();
     expect(await pending).toMatchObject({ status: "not_run", error: "Cancelled" });

@@ -182,7 +182,7 @@ The server renders the scenario input itself; the client never sends input text.
 | Timeout or abort | `timeout` | — |
 | Anything else | `model_error` | Provider unavailable |
 
-The client waits 45 s per call (longer than the server's 30 s), runs both versions concurrently, and has a **Cancel** button. Non-200 replies map to fixed messages by status code; the client never shows server or provider text outside the allowlist in `live-messages.ts`.
+The client waits 45 s per call (longer than the server's 30 s), runs both versions concurrently, and has a **Cancel** button. A 4xx reply shows the route's own fixed request-check message when it carries one (for example "Unknown scenario" or "Missing or malformed API key"); otherwise each status code has its own fixed fallback (405 and 415 included). The client never shows server or provider text outside the allowlist in `live-messages.ts`.
 
 When exactly one version of a live run is `provider_refused`, the page shows an unscored, pair-level note near the findings headline (decision D34): "Only Version {X} was declined by the provider's safety system (one sample). This asymmetry may itself be the harm under test." The affected checks stay `not_evaluated`, the headline stays "Incomplete — not a pass", and the note is not added to the review-log export.
 

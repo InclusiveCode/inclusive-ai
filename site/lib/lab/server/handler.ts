@@ -5,8 +5,8 @@ import "server-only";
  * The user's key is read from the Authorization header into a local variable,
  * validated, passed to the provider adapter, and never echoed, logged, or stored.
  */
-import { API_KEY_PATTERN, checkKey, KEY_PROBLEM_MESSAGE } from "../live-key";
-import { CLIENT_MESSAGES } from "../live-messages";
+import { API_KEY_PATTERN, checkKey } from "../live-key";
+import { ROUTE_MESSAGES as M } from "../live-messages";
 import { findModel } from "../models";
 import { renderInputs } from "../render";
 import { scenarios } from "../scenarios";
@@ -24,7 +24,7 @@ function reply(httpStatus: number, body: unknown, extra: Record<string, string> 
 
 /** Fixed 405 for any method other than POST. */
 export async function methodNotAllowed(): Promise<Response> {
-  return reply(405, { status: "model_error", message: "Method not allowed" }, { allow: "POST" });
+  return REJECT.method();
 }
 
 /** Fixed request-check failure: `{ status, message }`, never echoing input. */
@@ -33,18 +33,18 @@ function reject(httpStatus: number, message: string): Response {
 }
 
 const REJECT = {
-  method: () => reply(405, { status: "model_error", message: "Method not allowed" }, { allow: "POST" }),
-  contentType: () => reject(415, "Content type must be application/json"),
-  tooLarge: () => reject(413, "Request body too large"),
-  badJson: () => reject(400, "Request body is not valid JSON"),
-  scenario: () => reject(400, "Unknown scenario"),
-  version: () => reject(409, "Scenario version mismatch — reload the page"),
-  variant: () => reject(400, "Variant must be a or b"),
-  instruction: () => reject(400, `Instruction must be text of at most ${MAX_INSTRUCTION_CHARS} characters`),
-  model: () => reject(400, "Unknown provider or model"),
-  key: () => reject(400, "Missing or malformed API key"),
-  keyProvider: () => reject(400, KEY_PROBLEM_MESSAGE.provider),
-  keyInInstruction: () => reject(400, CLIENT_MESSAGES.keyInInstruction),
+  method: () => reply(405, { status: "model_error", message: M.method }, { allow: "POST" }),
+  contentType: () => reject(415, M.contentType),
+  tooLarge: () => reject(413, M.tooLarge),
+  badJson: () => reject(400, M.badJson),
+  scenario: () => reject(400, M.scenario),
+  version: () => reject(409, M.version),
+  variant: () => reject(400, M.variant),
+  instruction: () => reject(400, M.instruction),
+  model: () => reject(400, M.model),
+  key: () => reject(400, M.key),
+  keyProvider: () => reject(400, M.keyProvider),
+  keyInInstruction: () => reject(400, M.keyInInstruction),
   internal: () => reply(500, { status: "model_error", message: "Internal error" }),
 };
 

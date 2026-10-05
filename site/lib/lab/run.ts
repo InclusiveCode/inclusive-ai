@@ -6,7 +6,7 @@
 import { evaluate, validateResults } from "./evaluate";
 import { fingerprint } from "./fingerprint";
 import { checkKey, KEY_PROBLEM_MESSAGE } from "./live-key";
-import { ALLOWED_PROVIDER_MESSAGES, CLIENT_MESSAGES, HTTP_MESSAGES, PROVIDER_MESSAGES } from "./live-messages";
+import { ALLOWED_PROVIDER_MESSAGES, ALLOWED_ROUTE_MESSAGES, CLIENT_MESSAGES, HTTP_MESSAGES, PROVIDER_MESSAGES } from "./live-messages";
 import type { LiveModel, Provider } from "./models";
 import { renderInputs } from "./render";
 import { checksHash, RUBRIC_VERSION, type Scenario } from "./scenarios";
@@ -221,7 +221,21 @@ export function makeLiveResponder(opts: {
         signal: controller.signal,
       });
       if (res.status !== 200) {
-        const error = res.status >= 400 && res.status < 500 ? (HTTP_MSG[res.status] ?? LIVE_MSG.rejected) : LIVE_MSG.serverFailed;
+        if (res.status < 400 || res.status >= 500) return { status: "model_error", error: LIVE_MSG.serverFailed, durationMs: elapsed() };
+        // A 4xx shows the route's own message only when it is one of its fixed request-check messages.
+        let routeMessage: unknown;
+        try {
+          const errBody: unknown = await res.json();
+          routeMessage = typeof errBody === "object" && errBody !== null ? (errBody as Record<string, unknown>).message : undefined;
+        } catch {
+          if (reason === "cancel") return { status: "not_run", error: LIVE_MSG.cancelled, durationMs: elapsed() };
+          if (reason === "timeout") return { status: "timeout", error: LIVE_MSG.timedOut, durationMs: elapsed() };
+          routeMessage = undefined;
+        }
+        const error =
+          typeof routeMessage === "string" && ALLOWED_ROUTE_MESSAGES.has(routeMessage)
+            ? routeMessage
+            : (HTTP_MSG[res.status] ?? LIVE_MSG.rejected);
         return { status: "model_error", error, durationMs: elapsed() };
       }
       let body: unknown;
