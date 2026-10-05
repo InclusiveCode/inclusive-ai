@@ -8,7 +8,9 @@ import type { AnthropicLike, OpenAILike, ProviderClients } from "../server/provi
 
 const SITE = resolve(__dirname, "../../..");
 const ROUTE_FILE = join(SITE, "app/api/lab/run/route.ts");
-const KEY = "sk-test-PLACEHOLDER-0000000000";
+// Placeholder keys only. Anthropic keys start with sk-ant-; the route checks the prefix against the provider.
+const KEY = "sk-ant-test-PLACEHOLDER-0000000000";
+const OPENAI_KEY = "sk-test-PLACEHOLDER-0000000000";
 
 interface Seen {
   key: string;
@@ -175,9 +177,9 @@ describe("live route: request checks (each before any provider call)", () => {
       `bearer ${KEY}`,
       `Bearer  ${KEY}`,
       "Bearer short",
-      `Bearer sk-test\tPLACEHOLDER-0000000000`, // internal whitespace (trailing ASCII spaces are stripped by Headers itself)
+      `Bearer sk-ant-test\tPLACEHOLDER-0000000000`, // internal whitespace (trailing ASCII spaces are stripped by Headers itself)
       `Bearer sk-test PLACEHOLDER-0000000000`,
-      `Bearer sk-tést-PLACEHOLDER-000000000`,
+      `Bearer sk-ant-tést-PLACEHOLDER-000000000`,
       `Bearer ${"a".repeat(257)}`,
       `Bearer ${KEY} `,
     ];
@@ -192,6 +194,21 @@ describe("live route: request checks (each before any provider call)", () => {
       expectRejected(r, 400);
       expect(r.json.message).toBe("Missing or malformed API key");
       if (auth) expect(r.text).not.toContain(auth.slice(7, 20));
+      expect(seen).toEqual([]);
+    }
+  });
+
+  it("400 when the key does not match the selected provider, in both directions, without calling the provider", async () => {
+    const cases: Array<[Record<string, unknown>, string]> = [
+      [VALID, OPENAI_KEY], // Anthropic selected, OpenAI-style key
+      [{ ...VALID, provider: "openai", model: "gpt-4o-mini" }, KEY], // OpenAI selected, Anthropic key
+    ];
+    for (const [body, key] of cases) {
+      const { clients, seen } = fakeClients();
+      const r = await send(request(body, { headers: { authorization: `Bearer ${key}` } }), clients);
+      expectRejected(r, 400);
+      expect(r.json.message).toBe("This key does not match the selected provider");
+      expect(r.text).not.toContain("PLACEHOLDER");
       expect(seen).toEqual([]);
     }
   });
@@ -233,7 +250,10 @@ describe("live route: forwarding", () => {
 
   it("routes OpenAI requests to the OpenAI client", async () => {
     const { clients, seen } = fakeClients();
-    const r = await send(request({ ...VALID, provider: "openai", model: "gpt-4.1-mini" }), clients);
+    const r = await send(
+      request({ ...VALID, provider: "openai", model: "gpt-4.1-mini" }, { headers: { authorization: `Bearer ${OPENAI_KEY}` } }),
+      clients,
+    );
     expect(r.json.status).toBe("ok");
     expect(seen[0].body.model).toBe("gpt-4.1-mini");
   });

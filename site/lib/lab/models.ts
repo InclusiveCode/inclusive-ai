@@ -36,6 +36,15 @@ export const LIVE_MODELS: LiveModel[] = [
   { id: "gpt-4.1-mini", provider: "openai", label: "GPT-4.1 mini", sampling: true, maxTokens: 1024 },
 ];
 
+/** Anthropic keys start with this prefix; OpenAI keys never do. */
+const ANTHROPIC_KEY_PREFIX = "sk-ant-";
+
+/** Whether a key has the shape of the given provider's keys (a guard, not a validity check). */
+export function keyMatchesProvider(key: string, provider: Provider): boolean {
+  const anthropicShaped = key.startsWith(ANTHROPIC_KEY_PREFIX);
+  return provider === "anthropic" ? anthropicShaped : !anthropicShaped;
+}
+
 /** The allowlisted model for this exact provider and id, or undefined. */
 export function findModel(provider: string, id: string): LiveModel | undefined {
   return LIVE_MODELS.find((m) => m.provider === provider && m.id === id);

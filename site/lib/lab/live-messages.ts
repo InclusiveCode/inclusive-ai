@@ -1,3 +1,5 @@
+import { KEY_PROBLEM_MESSAGE } from "./live-key";
+
 /**
  * Fixed, provider-neutral messages for live results. The server sends only these
  * strings; the client shows only these strings (anything else is replaced).
@@ -36,6 +38,7 @@ export const HTTP_MESSAGES: Readonly<Record<number, string>> = {
 
 /** Every message a live result may carry; the UI shows nothing else. */
 export const ALLOWED_LIVE_MESSAGES: ReadonlySet<string> = new Set([
+  ...Object.values(KEY_PROBLEM_MESSAGE),
   ...Object.values(PROVIDER_MESSAGES),
   ...Object.values(CLIENT_MESSAGES),
   ...Object.values(HTTP_MESSAGES),
