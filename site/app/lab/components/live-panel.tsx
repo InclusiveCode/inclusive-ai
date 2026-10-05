@@ -6,7 +6,7 @@ import { BUTTON, FOCUS } from "./status";
 /** Notice copy: every sentence describes what the site actually does. */
 export function LIVE_NOTICE(provider: string): string[] {
   return [
-    `This site doesn't store or log your key. It's sent over HTTPS to this site's server and to ${provider} for each run, and isn't kept after the request.`,
+    `This site doesn't store or log your key. It's sent over HTTPS to this site's server (hosted on Vercel) and on to ${provider} for each run, and isn't kept after the request.`,
     `${provider}'s own data-retention policies apply to the instruction and scenario text you send.`,
     "Your key stays in this field until you clear it, switch to simulated mode, reload, or leave the page.",
     "Each run makes 2 billed calls. Cancelling stops waiting but may not stop calls already sent.",

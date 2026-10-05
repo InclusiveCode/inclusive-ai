@@ -190,7 +190,7 @@ describe("LivePanel", () => {
     expect(html).not.toMatch(/<input[^>]*type="password"[^>]*value=/);
     for (const sentence of LIVE_NOTICE("Anthropic")) expect(text).toContain(sentence);
     expect(LIVE_NOTICE("OpenAI")).toEqual([
-      "This site doesn't store or log your key. It's sent over HTTPS to this site's server and to OpenAI for each run, and isn't kept after the request.",
+      "This site doesn't store or log your key. It's sent over HTTPS to this site's server (hosted on Vercel) and on to OpenAI for each run, and isn't kept after the request.",
       "OpenAI's own data-retention policies apply to the instruction and scenario text you send.",
       "Your key stays in this field until you clear it, switch to simulated mode, reload, or leave the page.",
       "Each run makes 2 billed calls. Cancelling stops waiting but may not stop calls already sent.",

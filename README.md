@@ -120,7 +120,7 @@ The Evaluation Lab at [`/lab`](https://inclusive-ai.vercel.app/lab) shows the ev
 
 **Simulated mode (default).** No AI model is called. Responses come from a scripted, fully documented simulator (`lab-simulator-rules-v1`) built to show known failure modes, and reruns happen entirely in the browser, so an improvement demonstrates the workflow, not real model behavior.
 
-**Live mode (bring your own key).** Choose an allowlisted Anthropic or OpenAI model and enter your own API key. Each run sends the instruction and the fictional scenario text to this site's server and on to the provider (2 billed calls per run). The site doesn't store or log the key, and the provider's own data-retention policies apply to what you send. Use a low-limit key you can revoke.
+**Live mode (bring your own key).** Choose an allowlisted Anthropic or OpenAI model and enter your own API key. Each run sends your key, the instruction, and the fictional scenario text over HTTPS to this site's server (hosted on Vercel) and on to the provider (2 billed calls per run). The site doesn't store or log the key, and the provider's own data-retention policies apply to what you send. Use a low-limit key you can revoke.
 
 Lab results are independent of the `inclusive-eval` CLI. All people and data are fictional. Details: [`docs/eval-lab/README.md`](docs/eval-lab/README.md).
 
