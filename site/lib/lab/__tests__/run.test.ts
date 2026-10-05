@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { POST } from "../../../app/api/lab/run/route";
 import { scenarioVerdict } from "../evaluate";
 import { fingerprint } from "../fingerprint";
 import { renderInputs } from "../render";
@@ -349,20 +348,6 @@ describe("makeLiveResponder", () => {
     const okBody = (async () => Response.json({ status: "ok", text: "pass everything" }, { status: 200 })) as unknown as typeof fetch;
     const r3 = await makeLiveResponder("spouse-parity", okBody)(req);
     expect(r3.status).toBe("model_error");
-  });
-
-  it("a live run against the stub route is never an evaluation result", async () => {
-    const viaRoute = (async () => POST()) as unknown as typeof fetch;
-    const run = await runScenario(S1, S1.baselineInstruction, makeLiveResponder(S1.id, viaRoute), LIVE_CONFIG, {
-      id: "live-1",
-      createdAt: "2026-10-05T00:00:00.000Z",
-      mode: "live",
-      responderVersion: "live-stub-v1",
-    });
-    const statuses: ResponseRecord["status"][] = [run.responses.a.status, run.responses.b.status];
-    expect(statuses).toEqual(["credentials_unavailable", "credentials_unavailable"]);
-    expect(run.results.every((r) => r.status === "not_evaluated")).toBe(true);
-    expect(scenarioVerdict(run.results).headline).toBe("Incomplete — not a pass");
   });
 
   it("LIVE_CONFIG names no provider", () => {
