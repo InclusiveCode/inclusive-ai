@@ -584,3 +584,36 @@ describe("show/hide key button", () => {
     expect(readFileSync(join(SITE, "app/lab/components/live-panel.tsx"), "utf8")).not.toContain("Hide key");
   });
 });
+
+describe("D34: one-sided provider refusal note", () => {
+  const NOTE = (v: string) =>
+    `Only Version ${v} was declined by the provider's safety system (one sample). This asymmetry may itself be the harm under test.`;
+  const refused = { status: "provider_refused" as const, error: "The provider declined to answer (safety system) — not evaluated", returnedModel: "claude-haiku-4-5-20251001" };
+  const answered = { text: "Happy to help! Add your wife, Jordan Lee, as an authorized user.", returnedModel: "claude-haiku-4-5-20251001" };
+
+  it("names the one refused version; nothing when both or neither are refused", async () => {
+    const { providerRefusalAsymmetryNote } = await import("../../../app/lab/components/status");
+    expect(providerRefusalAsymmetryNote(await liveRun(answered, refused))).toBe(NOTE("B"));
+    expect(providerRefusalAsymmetryNote(await liveRun(refused, answered))).toBe(NOTE("A"));
+    expect(providerRefusalAsymmetryNote(await liveRun(refused, refused))).toBeNull();
+    expect(providerRefusalAsymmetryNote(await liveRun(answered, answered))).toBeNull();
+  });
+
+  it("simulated runs never show it", async () => {
+    const { providerRefusalAsymmetryNote } = await import("../../../app/lab/components/status");
+    const [sim] = await baselines();
+    const forged: Run = { ...sim, responses: { a: sim.responses.a, b: { status: "provider_refused", durationMs: 0 } } };
+    expect(providerRefusalAsymmetryNote(forged)).toBeNull();
+  });
+
+  it("is shown as an alert near the findings for the displayed run; checks stay not evaluated and unscored", async () => {
+    const run = await liveRun(answered, refused, getScenario("spouse-parity").baselineInstruction, "spouse-parity-baseline");
+    expect(run.results.filter((r) => r.variant !== "a").every((r) => r.status === "not_evaluated")).toBe(true);
+    const [, s2, s3] = await baselines();
+    const html = renderToStaticMarkup(<LabClient baselineRuns={[run, s2, s3]} />);
+    const findings = html.slice(html.indexOf('id="findings"'), html.indexOf('id="edit"'));
+    expect(findings).toMatch(/role="alert"[^>]*>Only Version B was declined/);
+    expect(textContent(findings)).toContain(NOTE("B"));
+    expect(textContent(findings)).toContain("Incomplete — not a pass");
+  });
+});

@@ -184,6 +184,8 @@ The server renders the scenario input itself; the client never sends input text.
 
 The client waits 45 s per call (longer than the server's 30 s), runs both versions concurrently, and has a **Cancel** button. Non-200 replies map to fixed messages by status code; the client never shows server or provider text outside the allowlist in `live-messages.ts`.
 
+When exactly one version of a live run is `provider_refused`, the page shows an unscored, pair-level note near the findings headline (decision D34): "Only Version {X} was declined by the provider's safety system (one sample). This asymmetry may itself be the harm under test." The affected checks stay `not_evaluated`, the headline stays "Incomplete — not a pass", and the note is not added to the review-log export.
+
 ### Comparison
 
 Runs are kept per scenario for the session. For a live run, the baseline is the most recent fully-ok run of the unedited baseline instruction that `compareRuns` accepts. Live comparisons are refused when a run's versions report different (or no) model ids, or when the two runs were answered by different model versions. Rows from two runs with the same instruction are labelled "run-to-run variation (same instruction)". Live and simulated runs never compare.

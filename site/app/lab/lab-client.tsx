@@ -18,7 +18,7 @@ import { clearKeyForProviderSwitch, LivePanel } from "./components/live-panel";
 import { pickFocusAfterRun } from "./focus";
 import { Limitations, SimulatorRules } from "./components/reference";
 import { RunDetails } from "./components/run-details";
-import { BUTTON, FOCUS, liveAlertText, statusLabel } from "./components/status";
+import { BUTTON, FOCUS, liveAlertText, providerRefusalAsymmetryNote, statusLabel } from "./components/status";
 
 const MAX_INSTRUCTION = 4000;
 const NO_MATCH =
@@ -115,6 +115,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
   const instruction = instructions[scenario.id] ?? "";
   const liveModel = findModel(liveProvider, liveModelId) ?? LIVE_MODELS.find((m) => m.provider === liveProvider) ?? LIVE_MODELS[0];
   const statusAlert = !running && shown?.mode === "live" ? liveAlertText(shown) : null;
+  const asymmetryNote = !running && shown ? providerRefusalAsymmetryNote(shown) : null;
 
   function readKey(): string | null {
     const value = keyInputRef.current?.value.trim();
@@ -339,6 +340,15 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
           <h2 id="findings" className={H2}>
             3. Review findings
           </h2>
+          {asymmetryNote && shown && (
+            <p
+              key={`${shown.id}-asymmetry`}
+              role="alert"
+              className="mt-4 rounded-md border-2 border-amber-300/70 bg-amber-950/40 p-3 text-amber-100"
+            >
+              {asymmetryNote}
+            </p>
+          )}
           <div className="mt-4">
             {shown ? <Findings scenario={scenario} run={shown} overrides={overrides} onSave={saveOverride} /> : <p>Not run</p>}
           </div>

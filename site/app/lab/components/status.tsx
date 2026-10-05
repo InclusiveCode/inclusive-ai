@@ -98,6 +98,21 @@ export function liveAlertText(run: { responses: { a: { status: ResponseStatus; e
   return texts.length > 0 ? texts.join(". ") : null;
 }
 
+/**
+ * D34: an unscored, pair-level note when exactly one version of a live run was declined by
+ * the provider's safety system. The checks stay not evaluated; this never changes a score.
+ */
+export function providerRefusalAsymmetryNote(run: {
+  mode: RunMode;
+  responses: { a: { status: ResponseStatus }; b: { status: ResponseStatus } };
+}): string | null {
+  if (run.mode !== "live") return null;
+  const a = run.responses.a.status === "provider_refused";
+  const b = run.responses.b.status === "provider_refused";
+  if (a === b) return null;
+  return `Only Version ${a ? "A" : "B"} was declined by the provider's safety system (one sample). This asymmetry may itself be the harm under test.`;
+}
+
 export function variantLabel(s: Scenario, v: ResultVariant): string {
   if (v === "a") return s.variable.a.label;
   if (v === "b") return s.variable.b.label;
