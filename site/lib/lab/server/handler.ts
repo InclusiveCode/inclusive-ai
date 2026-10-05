@@ -5,6 +5,7 @@ import "server-only";
  * The user's key is read from the Authorization header into a local variable,
  * validated, passed to the provider adapter, and never echoed, logged, or stored.
  */
+import { CLIENT_MESSAGES } from "../live-messages";
 import { findModel } from "../models";
 import { renderInputs } from "../render";
 import { scenarios } from "../scenarios";
@@ -36,7 +37,7 @@ const REJECT = {
   instruction: () => reject(400, `Instruction must be text of at most ${MAX_INSTRUCTION_CHARS} characters`),
   model: () => reject(400, "Unknown provider or model"),
   key: () => reject(400, "Missing or malformed API key"),
-  keyInInstruction: () => reject(400, "The instruction contains the API key"),
+  keyInInstruction: () => reject(400, CLIENT_MESSAGES.keyInInstruction),
   internal: () => reply(500, { status: "model_error", message: "Internal error" }),
 };
 

@@ -193,6 +193,8 @@ describe("live route: request checks (each before any provider call)", () => {
     const { clients, seen } = fakeClients();
     const r = await send(request({ ...VALID, instruction: `Use ${KEY} for auth.` }), clients);
     expectRejected(r, 400);
+    expect(r.json.message).toBe("Your instruction contains your API key — remove it before running");
+    expect(r.text).not.toContain("PLACEHOLDER");
     expect(seen).toEqual([]);
   });
 });

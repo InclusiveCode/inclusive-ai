@@ -385,6 +385,12 @@ describe("makeLiveResponder (live client)", () => {
     expect(r).toEqual({ status: "ok", text: "Happy to help.", returnedModel: "claude-haiku-4-5-20251001", stopReason: "end_turn", durationMs: 812 });
   });
 
+  it("keeps a provider refusal as provider_refused (not collapsed to model_error)", async () => {
+    const refused = { status: "provider_refused", error: "The provider declined to answer (safety system) — not evaluated", returnedModel: "claude-sonnet-5-5", stopReason: "refusal", durationMs: 5 };
+    const r = await responder(fetchReturning(() => Response.json(refused)).fetchImpl)(req());
+    expect(r).toEqual(refused);
+  });
+
   it("keeps only allowlisted fixed messages from a 200 result", async () => {
     const known = await responder(fetchReturning(() => Response.json({ status: "credentials_unavailable", error: "The provider rejected the API key", durationMs: 1 })).fetchImpl)(req());
     expect(known).toMatchObject({ status: "credentials_unavailable", error: "The provider rejected the API key" });
