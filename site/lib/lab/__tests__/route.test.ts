@@ -346,8 +346,19 @@ describe("source hygiene for the lab library, server modules, and route", () => 
       expect(src, f).not.toMatch(/console\./);
       expect(src, f).not.toMatch(/localStorage|sessionStorage/);
       expect(src, f).not.toMatch(/dangerouslySetInnerHTML/);
-      expect(src, f).not.toMatch(/process\.env/);
+      // env-guard.ts is the one lab module allowed to read the environment (it only checks *_CUSTOM_HEADERS).
+      if (!f.endsWith("/lib/lab/server/env-guard.ts")) expect(src, f).not.toMatch(/process\.env/);
     }
+  });
+
+  it("env-guard.ts reads only the two custom-header variables", () => {
+    const src = readFileSync(join(SITE, "lib/lab/server/env-guard.ts"), "utf8");
+    const reads = src.match(/process\.env(?:\.[A-Z_]+|\[[^\]]+\])?/g) ?? [];
+    expect(reads.length).toBeGreaterThan(0);
+    for (const r of reads) expect(r).toBe("process.env");
+    expect(src).toMatch(/ANTHROPIC_CUSTOM_HEADERS/);
+    expect(src).toMatch(/OPENAI_CUSTOM_HEADERS/);
+    expect(src.match(/[A-Z][A-Z0-9]*_[A-Z0-9_]+/g)?.filter((n) => !/_CUSTOM_HEADERS$/.test(n)) ?? []).toEqual([]);
   });
 
   it("server modules are marked server-only", () => {

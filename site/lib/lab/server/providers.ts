@@ -10,6 +10,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { PROVIDER_MESSAGES as MSG } from "../live-messages";
+import { customHeadersConfigured } from "./env-guard";
 import type { LiveModel, Provider } from "../models";
 import type { ResponseStatus } from "../types";
 
@@ -56,8 +57,10 @@ export interface ProviderClients {
 export const SERVER_TIMEOUT_MS = 30_000;
 
 /**
- * Every option is explicit so nothing comes from the server environment:
- * no env base URL, auth token, organization, project, admin key, or log level.
+ * Every option the SDKs accept for these settings is passed explicitly, so the base URL,
+ * auth token, organization, project, admin key, and log level never come from the server
+ * environment. The SDKs still merge *_CUSTOM_HEADERS env vars into every request; that is
+ * handled by `guardedClients`, which refuses to build any client while either is set.
  */
 export function makeAnthropicClient(apiKey: string): Anthropic {
   return new Anthropic({
@@ -84,7 +87,30 @@ export function makeOpenAIClient(apiKey: string): OpenAI {
   });
 }
 
-export const realClients: ProviderClients = {
+/** Thrown (and mapped to "Provider unavailable") when the server environment is unsafe for live calls. */
+class ProviderEnvironmentError extends Error {}
+
+/**
+ * Fails closed: while ANTHROPIC_CUSTOM_HEADERS or OPENAI_CUSTOM_HEADERS is set, no client is
+ * built and no request is sent, for either provider.
+ */
+export function guardedClients(inner: ProviderClients): ProviderClients {
+  const check = () => {
+    if (customHeadersConfigured()) throw new ProviderEnvironmentError();
+  };
+  return {
+    anthropic(apiKey) {
+      check();
+      return inner.anthropic(apiKey);
+    },
+    openai(apiKey) {
+      check();
+      return inner.openai(apiKey);
+    },
+  };
+}
+
+export const realClients: ProviderClients = guardedClients({
   anthropic(apiKey) {
     const client = makeAnthropicClient(apiKey);
     return { messages: { create: (body, options) => client.messages.create(body, options) } };
@@ -93,7 +119,7 @@ export const realClients: ProviderClients = {
     const client = makeOpenAIClient(apiKey);
     return { chat: { completions: { create: (body, options) => client.chat.completions.create(body, options) } } };
   },
-};
+});
 
 /** Returned model ids and stop reasons are short identifiers; anything else is dropped. */
 function identifier(x: unknown): string | undefined {

@@ -2,8 +2,10 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { afterEach, describe, expect, it } from "vitest";
 import { findModel, type LiveModel } from "../models";
+import { customHeadersConfigured } from "../server/env-guard";
 import {
   callProvider,
+  guardedClients,
   makeAnthropicClient,
   makeOpenAIClient,
   type AnthropicLike,
@@ -356,5 +358,52 @@ describe("real SDK clients ignore server environment configuration", () => {
     expect(c.maxRetries).toBe(0);
     expect(c.timeout).toBe(30_000);
     expect(c.logLevel).toBe("off");
+  });
+});
+
+describe("custom-header env vars fail closed", () => {
+  const VARS = ["ANTHROPIC_CUSTOM_HEADERS", "OPENAI_CUSTOM_HEADERS"] as const;
+  const saved: Record<string, string | undefined> = {};
+  for (const k of VARS) saved[k] = process.env[k];
+  afterEach(() => {
+    for (const k of VARS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  });
+
+  it("customHeadersConfigured is true only for a non-empty value", () => {
+    for (const k of VARS) delete process.env[k];
+    expect(customHeadersConfigured()).toBe(false);
+    process.env.ANTHROPIC_CUSTOM_HEADERS = "   ";
+    expect(customHeadersConfigured()).toBe(false);
+    process.env.OPENAI_CUSTOM_HEADERS = "X-Debug: 1";
+    expect(customHeadersConfigured()).toBe(true);
+  });
+
+  for (const v of VARS) {
+    it(`with ${v} set, no client is built or called for either provider`, async () => {
+      for (const k of VARS) delete process.env[k];
+      process.env[v] = "X-Forwarded-Key: leak";
+      for (const m of [HAIKU, MINI]) {
+        let built = 0;
+        const { clients, calls } = fakes();
+        const counting: ProviderClients = {
+          anthropic: (k) => (built++, clients.anthropic(k)),
+          openai: (k) => (built++, clients.openai(k)),
+        };
+        const r = await callProvider(call(m), guardedClients(counting));
+        expect(r).toMatchObject({ status: "model_error", error: "Provider unavailable" });
+        expect(built).toBe(0);
+        expect(calls).toEqual([]);
+      }
+    });
+  }
+
+  it("with neither set, guarded clients pass through", async () => {
+    for (const k of VARS) delete process.env[k];
+    const { clients, calls } = fakes();
+    expect((await callProvider(call(HAIKU), guardedClients(clients))).status).toBe("ok");
+    expect(calls).toHaveLength(1);
   });
 });

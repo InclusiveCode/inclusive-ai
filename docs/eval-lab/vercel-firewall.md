@@ -25,7 +25,11 @@ for i in $(seq 1 35); do
 done | sort | uniq -c   # expect mostly 400s, then 429s once the limit is reached
 ```
 
-## 2. Real-provider smoke checklist (after each deployment)
+## 2. Environment variables
+
+Never set `ANTHROPIC_CUSTOM_HEADERS` or `OPENAI_CUSTOM_HEADERS` on the Vercel project. Both SDKs would add those headers to every provider request, so while either is set, live mode refuses every run and shows "Provider unavailable".
+
+## 3. Real-provider smoke checklist (after each deployment)
 
 Use a low-limit key for each provider that you can revoke afterwards. Open the deployed `/lab` in a private window with DevTools open.
 
