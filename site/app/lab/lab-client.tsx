@@ -15,6 +15,7 @@ import { RunBanner } from "./components/banner";
 import { CompareView } from "./components/compare-view";
 import { Findings } from "./components/findings";
 import { clearKeyForProviderSwitch, LivePanel } from "./components/live-panel";
+import { pickFocusAfterRun } from "./focus";
 import { Limitations, SimulatorRules } from "./components/reference";
 import { RunDetails } from "./components/run-details";
 import { BUTTON, FOCUS, liveAlertText, statusLabel } from "./components/status";
@@ -74,17 +75,31 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
   const rerunRef = useRef<HTMLButtonElement>(null);
   const restoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const cancelRef = useRef<AbortController | null>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const statusAlertRef = useRef<HTMLParagraphElement>(null);
+  const runErrorRef = useRef<HTMLParagraphElement>(null);
   const errorSeq = useRef(0);
   // The API key lives only in this uncontrolled input element; it is read at call time.
   const keyInputRef = useRef<HTMLInputElement>(null);
 
-  // Run buttons are disabled while a run is in flight, which can drop keyboard focus; put it back afterwards.
+  // While a live run is in flight the run buttons are disabled, so focus moves to Cancel.
+  useEffect(() => {
+    if (running && cancellable) cancelButtonRef.current?.focus();
+  }, [running, cancellable]);
+
+  // When a run ends, focus that was dropped (Cancel or a disabled button disappearing) returns to the
+  // control that started the run, or to the run's alert if that control is gone.
   useEffect(() => {
     if (running || !restoreFocusRef.current) return;
-    const target = restoreFocusRef.current;
+    const trigger = restoreFocusRef.current;
     restoreFocusRef.current = null;
-    const active = document.activeElement;
-    if (!active || active === document.body) target.focus();
+    pickFocusAfterRun({
+      active: document.activeElement,
+      body: document.body,
+      trigger,
+      fallbacks: [statusAlertRef.current, runErrorRef.current, statusRef.current],
+    })?.focus();
   }, [running]);
 
   const scenario = scenarios.find((s) => s.id === scenarioId) ?? scenarios[0];
@@ -152,7 +167,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
       }
     }
     runningRef.current = true;
-    restoreFocusRef.current = trigger && document.activeElement === trigger ? trigger : null;
+    restoreFocusRef.current = trigger;
     const n = (runCount[s.id] ?? 0) + 1;
     const controller = live ? new AbortController() : null;
     cancelRef.current = controller;
@@ -447,21 +462,21 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                 </button>
               )}
               {running && cancellable && (
-                <button type="button" onClick={() => cancelRef.current?.abort()} className={`${BUTTON} px-5 py-2`}>
+                <button ref={cancelButtonRef} type="button" onClick={() => cancelRef.current?.abort()} className={`${BUTTON} px-5 py-2`}>
                   Cancel
                 </button>
               )}
-              <p role="status" aria-live="polite" className="text-sm text-zinc-300">
+              <p ref={statusRef} tabIndex={-1} role="status" aria-live="polite" className={`text-sm text-zinc-300 ${FOCUS}`}>
                 {announcement}
               </p>
             </div>
             {statusAlert && shown && (
-              <p key={shown.id} role="alert" className="rounded-md border border-rose-400/60 p-3 text-sm text-rose-200">
+              <p key={shown.id} ref={statusAlertRef} tabIndex={-1} role="alert" className={`rounded-md border border-rose-400/60 p-3 text-sm text-rose-200 ${FOCUS}`}>
                 {statusAlert}
               </p>
             )}
             {runError && (
-              <p key={runError.key} role="alert" className="rounded-md border border-rose-400/60 p-3 text-sm text-rose-200">
+              <p key={runError.key} ref={runErrorRef} tabIndex={-1} role="alert" className={`rounded-md border border-rose-400/60 p-3 text-sm text-rose-200 ${FOCUS}`}>
                 {runError.text}
               </p>
             )}

@@ -134,7 +134,7 @@ export function LivePanel({
             className={`min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-900 p-2 font-mono text-sm text-zinc-100 ${FOCUS}`}
           />
           <button type="button" aria-pressed={showKey} className={BUTTON} onClick={() => setShowKey((v) => !v)}>
-            {showKey ? "Hide key" : "Show key"}
+            Show key
           </button>
           <button type="button" className={BUTTON} onClick={clearKey}>
             Clear key

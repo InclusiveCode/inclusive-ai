@@ -532,3 +532,55 @@ describe("COMPLIANCE: keyboard-scrollable regions and reflow", () => {
     expect(html).toMatch(/<fieldset class="[^"]*min-w-0[^"]*"><legend[^>]*>Response source<\/legend>/);
   });
 });
+
+describe("focus after a run", () => {
+  const el = (name: string, opts: { isConnected?: boolean; disabled?: boolean } = {}) => ({
+    name,
+    isConnected: opts.isConnected ?? true,
+    disabled: opts.disabled ?? false,
+    focus() {},
+  });
+
+  it("returns focus to the control that started the run when focus was dropped", async () => {
+    const { pickFocusAfterRun } = await import("../../../app/lab/focus");
+    const body = el("body");
+    const trigger = el("Rerun");
+    const alert = el("alert");
+    expect(pickFocusAfterRun({ active: body, body, trigger, fallbacks: [alert] })).toBe(trigger);
+    expect(pickFocusAfterRun({ active: null, body, trigger, fallbacks: [alert] })).toBe(trigger);
+  });
+
+  it("falls back to the status alert when the starting control is gone or disabled", async () => {
+    const { pickFocusAfterRun } = await import("../../../app/lab/focus");
+    const body = el("body");
+    const alert = el("alert");
+    const status = el("status");
+    expect(pickFocusAfterRun({ active: body, body, trigger: el("Run baseline live", { isConnected: false }), fallbacks: [alert, status] })).toBe(alert);
+    expect(pickFocusAfterRun({ active: body, body, trigger: el("Rerun", { disabled: true }), fallbacks: [null, status] })).toBe(status);
+    expect(pickFocusAfterRun({ active: body, body, trigger: null, fallbacks: [el("gone", { isConnected: false })] })).toBeNull();
+  });
+
+  it("does not steal focus the user moved elsewhere during the run", async () => {
+    const { pickFocusAfterRun } = await import("../../../app/lab/focus");
+    const body = el("body");
+    expect(pickFocusAfterRun({ active: el("instruction textarea"), body, trigger: el("Rerun"), fallbacks: [] })).toBeNull();
+  });
+});
+
+describe("show/hide key button", () => {
+  it("keeps one constant label and lets aria-pressed carry the state", () => {
+    const html = renderToStaticMarkup(
+      <LivePanel
+        provider="anthropic"
+        modelId="claude-haiku-4-5"
+        onProviderChange={() => {}}
+        onModelChange={() => {}}
+        keyInputRef={createRef<HTMLInputElement>()}
+        keyError={null}
+        onKeyErrorClear={() => {}}
+      />,
+    );
+    expect(html).toMatch(/<button[^>]*aria-pressed="false"[^>]*>Show key<\/button>/);
+    expect(readFileSync(join(SITE, "app/lab/components/live-panel.tsx"), "utf8")).not.toContain("Hide key");
+  });
+});
