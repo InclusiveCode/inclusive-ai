@@ -11,10 +11,10 @@ import { LIVE_RESPONDER_VERSION, liveConfig, makeLiveResponder, runScenario } fr
 import { scenarios } from "../../lib/lab/scenarios";
 import { matchSnippets, SIMULATED_CONFIG, SIMULATOR_VERSION, simulatedResponder, SNIPPET_RULES } from "../../lib/lab/simulator";
 import type { CheckResult, FaultKind, Override, Run } from "../../lib/lab/types";
-import { RunBanner } from "./components/banner";
+import { LiveSelectedNote, RunBanner } from "./components/banner";
 import { CompareView } from "./components/compare-view";
 import { Findings } from "./components/findings";
-import { clearKeyForProviderSwitch, LivePanel } from "./components/live-panel";
+import { BASELINE_LIVE_HELP_ID, BaselineLiveHelp, clearKeyForProviderSwitch, LivePanel } from "./components/live-panel";
 import { pickFocusAfterRun } from "./focus";
 import { completionAnnouncement } from "./announce";
 import { abortInFlight } from "./inflight";
@@ -271,6 +271,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
       </header>
 
       {shown && <RunBanner run={shown} />}
+      <LiveSelectedNote source={source} run={shown} />
 
       <nav aria-label="Lab steps" className="mb-12">
         <ol className="flex flex-wrap gap-2 text-sm">
@@ -485,7 +486,13 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                 Rerun
               </button>
               {source === "live" && (
-                <button type="button" onClick={(e) => startRun("baseline", e.currentTarget)} disabled={running} className={`${BUTTON} px-5 py-2`}>
+                <button
+                  type="button"
+                  onClick={(e) => startRun("baseline", e.currentTarget)}
+                  disabled={running}
+                  aria-describedby={BASELINE_LIVE_HELP_ID}
+                  className={`${BUTTON} px-5 py-2`}
+                >
                   Run baseline live
                 </button>
               )}
@@ -498,6 +505,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                 {announcement}
               </p>
             </div>
+            {source === "live" && <BaselineLiveHelp />}
             {statusAlert && shown && (
               <p key={shown.id} ref={statusAlertRef} tabIndex={-1} role="alert" className={`rounded-md border border-rose-400/60 p-3 text-sm text-rose-200 ${FOCUS}`}>
                 {statusAlert}

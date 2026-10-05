@@ -33,12 +33,13 @@ Never set `ANTHROPIC_CUSTOM_HEADERS` or `OPENAI_CUSTOM_HEADERS` on the Vercel pr
 
 Use a low-limit key for each provider that you can revoke afterwards. Open the deployed `/lab` in a private window with DevTools open.
 
-1. **Simulated mode still works.** Load `/lab`. The banner reads "Simulated demo — no AI model is called". Rerun with a preset and check that the comparison table appears.
-2. **No key.** Select **Live model (your API key)** and click **Rerun** without a key. An inline error appears, focus moves to the key field, and the Network tab shows no request to `/api/lab/run`.
+1. **Simulated mode still works.** Load `/lab`. The banner reads "Simulated demo — no AI model is called". Under "2. Inspect paired inputs and responses", the run metadata shows the **Rubric version** (for example `2026-10-05.5`); record it with any results. Rerun with a preset and check that the comparison table appears.
+2. **No key.** Select **Live model (your API key)**. While the simulated run is still displayed, a line under the banner reads "Live mode is selected — the results below are from a simulated run until you run live." Under the buttons, the helper text reads "Runs the scenario's original instruction (not your edits) to set the live baseline. Use Rerun to run your edited instruction." Click **Rerun** without a key. An inline error appears, focus moves to the key field, and the Network tab shows no request to `/api/lab/run`.
 3. **Each model.** For each of `claude-haiku-4-5`, `claude-sonnet-5-5`, `gpt-4o-mini`, and `gpt-4.1-mini`:
    - Enter the key and click **Run baseline live**. Check that two requests go to `/api/lab/run` with the key only in the `Authorization` header, never in the request body or URL.
    - The banner reads "Live run: responses from {provider} {returned model}…", and the run metadata shows the returned model, the settings, and the durations.
    - Edit the instruction (or add a preset), then click **Rerun**. The comparison table appears. Click **Run baseline live** again and check that the rows are labelled "run-to-run variation (same instruction)".
+   - From the second model on, the first **Run baseline live** shows "Live baseline only — edit and rerun" under "5. Compare runs", never "config differs" against the previous model's baseline. Its **Rerun** then compares runs of the same model only.
 4. **Wrong key.** Change one character of the key and rerun. The alert reads "Credentials unavailable — not evaluated (The provider rejected the API key)". Then select OpenAI and paste the Anthropic key: an inline error ("This key does not match the selected provider — check the provider or paste that provider's key") appears, focus moves to the key field, and the Network tab shows no request.
 
    If a run with a valid key fails, the alert names the account-side cause (D40). None of these is a lab fault:

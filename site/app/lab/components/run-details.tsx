@@ -40,6 +40,8 @@ export function RunMeta({ run, title }: { run: Run; title?: string }) {
         <dd className="min-w-0 break-words text-zinc-300">{na(run.config.temperature)}</dd>
         <dt className="text-zinc-400">Max tokens</dt>
         <dd className="min-w-0 break-words text-zinc-300">{na(run.config.maxTokens)}</dd>
+        <dt className="text-zinc-400">Rubric version</dt>
+        <dd className="min-w-0 break-all font-mono text-zinc-300">{run.rubricVersion}</dd>
         <dt className="text-zinc-400">Instruction fingerprint</dt>
         <dd className="min-w-0 break-all font-mono text-zinc-300">{run.instructionFingerprint}</dd>
         <dt className="text-zinc-400">Created at</dt>

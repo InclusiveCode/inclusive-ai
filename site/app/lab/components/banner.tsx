@@ -1,5 +1,5 @@
 import { PROVIDER_LABEL } from "../../../lib/lab/models";
-import type { Run } from "../../../lib/lab/types";
+import type { Run, RunMode } from "../../../lib/lab/types";
 
 /** The model ids the provider reported, as one readable string. */
 export function returnedModelText(run: Run): string {
@@ -37,4 +37,15 @@ export function RunBanner({ run }: { run: Run }) {
       </p>
     </div>
   );
+}
+
+export const LIVE_SELECTED_SIMULATED_NOTE = "Live mode is selected — the results below are from a simulated run until you run live.";
+
+/**
+ * U1: while Live is selected but the displayed run is simulated, a static line under the banner
+ * says so. The banner itself keeps describing the displayed run. Not a live region.
+ */
+export function LiveSelectedNote({ source, run }: { source: RunMode; run: Run | undefined }) {
+  if (source !== "live" || !run || run.mode !== "simulated") return null;
+  return <p className="-mt-6 mb-8 text-sm text-zinc-300">{LIVE_SELECTED_SIMULATED_NOTE}</p>;
 }

@@ -3,6 +3,19 @@ import { CLIENT_MESSAGES } from "../../../lib/lab/live-messages";
 import { LIVE_MODELS, PROVIDER_LABEL, type Provider } from "../../../lib/lab/models";
 import { BUTTON, FOCUS } from "./status";
 
+export const BASELINE_LIVE_HELP_ID = "lab-baseline-live-help";
+export const BASELINE_LIVE_HELP =
+  "Runs the scenario's original instruction (not your edits) to set the live baseline. Use Rerun to run your edited instruction.";
+
+/** U2: describes the "Run baseline live" button, which references it with aria-describedby. */
+export function BaselineLiveHelp() {
+  return (
+    <p id={BASELINE_LIVE_HELP_ID} className="text-sm text-zinc-400">
+      {BASELINE_LIVE_HELP}
+    </p>
+  );
+}
+
 /** Notice copy: every sentence describes what the site actually does. */
 export function LIVE_NOTICE(provider: string): string[] {
   return [

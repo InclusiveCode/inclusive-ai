@@ -3,10 +3,10 @@ import { join, resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { createRef } from "react";
-import { RunBanner } from "../../../app/lab/components/banner";
+import { LiveSelectedNote, RunBanner } from "../../../app/lab/components/banner";
 import { CompareView } from "../../../app/lab/components/compare-view";
 import { findingKey } from "../../../app/lab/components/findings";
-import { LIVE_NOTICE, LivePanel } from "../../../app/lab/components/live-panel";
+import { BASELINE_LIVE_HELP_ID, BaselineLiveHelp, LIVE_NOTICE, LivePanel } from "../../../app/lab/components/live-panel";
 import { Limitations } from "../../../app/lab/components/reference";
 import { RunDetails, RunMeta } from "../../../app/lab/components/run-details";
 import { liveAlertText, ModeBadge, RESPONSE_STATUS_TEXT, StatusBadge, statusLabel } from "../../../app/lab/components/status";
@@ -16,7 +16,7 @@ import { liveConfig } from "../run";
 import { HighlightedText } from "../../../app/lab/highlight";
 import { LabClient } from "../../../app/lab/lab-client";
 import { runScenario, type Responder } from "../run";
-import { getScenario, scenarios, type Scenario } from "../scenarios";
+import { getScenario, RUBRIC_VERSION, scenarios, type Scenario } from "../scenarios";
 import { SIMULATED_CONFIG, SIMULATOR_VERSION, simulatedResponder } from "../simulator";
 import type { CheckStatus, ResponseRecord, Run } from "../types";
 
@@ -713,5 +713,73 @@ describe("run completion announcement after a scenario switch", () => {
     const src = readFileSync(join(SITE, "app/lab/lab-client.tsx"), "utf8");
     expect(src).toMatch(/displayed: displayedScenarioRef\.current === s\.id/);
     expect(src).toMatch(/displayedScenarioRef\.current = scenarioId/);
+  });
+});
+
+describe("U1: a note under the banner when Live is selected but the displayed run is simulated", () => {
+  const NOTE = "Live mode is selected — the results below are from a simulated run until you run live.";
+
+  it("shows the static note only for Live selected + simulated run displayed", async () => {
+    const [sim] = await baselines();
+    const live = await liveRun({ returnedModel: "claude-haiku-4-5-20251001" }, { returnedModel: "claude-haiku-4-5-20251001" });
+    const html = renderToStaticMarkup(<LiveSelectedNote source="live" run={sim} />);
+    expect(textContent(html)).toBe(NOTE);
+    expect(html).toMatch(/^<p class="[^"]*">[^<]*<\/p>$/); // a plain paragraph
+    expect(html).not.toMatch(/role=|aria-live/); // static text, not a live region
+    expect(renderToStaticMarkup(<LiveSelectedNote source="live" run={live} />)).toBe("");
+    expect(renderToStaticMarkup(<LiveSelectedNote source="simulated" run={sim} />)).toBe("");
+    expect(renderToStaticMarkup(<LiveSelectedNote source="simulated" run={live} />)).toBe("");
+    expect(renderToStaticMarkup(<LiveSelectedNote source="live" run={undefined} />)).toBe("");
+  });
+
+  it("the banner text for the displayed simulated run is unchanged", async () => {
+    const [sim] = await baselines();
+    expect(textContent(renderToStaticMarkup(<RunBanner run={sim} />))).not.toContain("Live mode is selected");
+  });
+
+  it("the lab renders the note right after the banner, from the selected source and the displayed run", () => {
+    const src = readFileSync(join(SITE, "app/lab/lab-client.tsx"), "utf8");
+    expect(src).toMatch(/\{shown && <RunBanner run=\{shown\} \/>\}\s*<LiveSelectedNote source=\{source\} run=\{shown\} \/>/);
+    // Simulated mode is the default, so the first render (and the static markup) has no note.
+    expect(textContent(renderToStaticMarkup(<LabClient baselineRuns={[]} />))).not.toContain("Live mode is selected");
+  });
+});
+
+describe("U2: helper text for “Run baseline live”", () => {
+  const HELP = "Runs the scenario's original instruction (not your edits) to set the live baseline. Use Rerun to run your edited instruction.";
+
+  it("renders the fixed helper text under a stable id", () => {
+    const html = renderToStaticMarkup(<BaselineLiveHelp />);
+    expect(BASELINE_LIVE_HELP_ID).toBe("lab-baseline-live-help");
+    expect(html).toContain(`id="${BASELINE_LIVE_HELP_ID}"`);
+    expect(textContent(html)).toBe(HELP);
+  });
+
+  it("the Run baseline live button is described by it, and both appear only in live mode", () => {
+    const src = readFileSync(join(SITE, "app/lab/lab-client.tsx"), "utf8");
+    const button = src.match(/<button\b(?:(?!<\/button>)[\s\S])*?>\s*Run baseline live\s*<\/button>/);
+    expect(button, "Run baseline live button").not.toBeNull();
+    expect(button![0]).toContain("aria-describedby={BASELINE_LIVE_HELP_ID}");
+    expect(src).toMatch(/\{source === "live" && \(\s*<button[\s\S]*?Run baseline live/);
+    expect(src).toContain('{source === "live" && <BaselineLiveHelp />}');
+  });
+});
+
+describe("U3: the rubric version is shown in the run metadata", () => {
+  it("for a simulated run and a live run", async () => {
+    const [sim] = await baselines();
+    const live = await liveRun({ returnedModel: "claude-haiku-4-5-20251001" }, { returnedModel: "claude-haiku-4-5-20251001" });
+    for (const run of [sim, live]) {
+      expect(run.rubricVersion).toBe(RUBRIC_VERSION);
+      const html = renderToStaticMarkup(<RunMeta run={run} />);
+      expect(html, run.mode).toMatch(new RegExp(`<dt[^>]*>Rubric version</dt><dd[^>]*>${RUBRIC_VERSION.replace(/\./g, "\\.")}</dd>`));
+    }
+  });
+
+  it("the displayed run's details and the page show it", async () => {
+    const runs = await baselines();
+    const s = getScenario(runs[0].scenarioId);
+    expect(textContent(renderToStaticMarkup(<RunDetails scenario={s} run={runs[0]} />))).toContain(`Rubric version${RUBRIC_VERSION}`);
+    expect(textContent(renderToStaticMarkup(<LabClient baselineRuns={runs} />))).toContain(`Rubric version${RUBRIC_VERSION}`);
   });
 });
