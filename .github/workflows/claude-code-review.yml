@@ -1,0 +1,84 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+    branches: [main]
+
+# A new push to the PR supersedes a review still in progress.
+concurrency:
+  group: claude-code-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Claude Code Review
+    # Skip drafts, and PRs from forks: pull_request runs from forks get no
+    # secrets and cannot mint the OIDC token the action uses for GitHub access.
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    env:
+      HAS_CLAUDE_AUTH: ${{ secrets.ANTHROPIC_API_KEY != '' || secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+    steps:
+      - name: Skip when no Claude credentials are configured
+        if: env.HAS_CLAUDE_AUTH != 'true'
+        run: echo "::warning::Claude Code Review skipped. Add an ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN repository secret to enable it."
+
+      - uses: actions/checkout@v6
+        if: env.HAS_CLAUDE_AUTH == 'true'
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        if: env.HAS_CLAUDE_AUTH == 'true'
+        with:
+          # Set one of these two repository secrets; the other can stay unset.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            The PR branch is already checked out in the current working directory.
+
+            Review this pull request. The repository is InclusiveCode: LGBTQIA+ safety
+            resources and eval tools for LLM engineers. It is an npm-workspaces TypeScript
+            monorepo (core/*, domains/*, packages/*), plus a Next.js site in site/ with its
+            own lockfile, a GitHub Action in action/, and a Claude Code plugin in plugin/.
+
+            Run `gh pr diff` to see the change, and `gh pr view --comments` to see
+            what has already been said. Read the surrounding code wherever the diff
+            alone is not enough to judge a change.
+
+            Look for, in order of importance:
+            1. Bugs: incorrect logic, broken edge cases, regressions, type errors that
+               the compiler would not catch.
+            2. Security: untrusted input interpolated into GitHub Actions `run:` steps,
+               over-broad workflow permissions, and API keys being logged, persisted or
+               sent anywhere other than the intended provider. The Evaluation Lab in
+               site/ accepts the user's own provider key.
+            3. LGBTQIA+ safety regressions: for changes to prompts, eval scenarios,
+               scoring, identity models, UI copy or crisis resources, check against the
+               anti-patterns in .claude/commands/lgbt-audit.md. Also flag any change
+               that weakens how evals detect harmful output.
+            4. Tests: changed behaviour with no test, or tests weakened, skipped or
+               deleted.
+
+            Rules:
+            - Comment only on problems this PR introduces or makes worse.
+            - Skip style and formatting nits, and anything a linter or the type checker
+              already reports.
+            - Do not repeat a finding that is already posted on the PR.
+            - Post each specific finding as an inline comment with
+              `mcp__github_inline_comment__create_inline_comment` (with `confirmed: true`).
+              Say what is wrong, what it breaks, and how to fix it.
+            - Then post one top-level summary with `gh pr comment`. If you found nothing
+              significant, say so in one or two sentences.
+            - Only post GitHub comments. Do not reply with the review as a message.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
