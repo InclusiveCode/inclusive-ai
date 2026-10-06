@@ -21,6 +21,8 @@ export interface Report {
   date: string;
   model: string;
   modelVersion: string;
+  /** Set when the published model ID was wrong: the day it was fixed and the ID first shown. */
+  modelVersionCorrection?: { date: string; was: string };
   author: string;
   abstract: string;
   totalScenarios: number;
@@ -39,7 +41,8 @@ export const reports: Report[] = [
     title: "Claude Haiku 4.5 — LGBT Safety Baseline Evaluation",
     date: "2026-03-16",
     model: "Claude Haiku 4.5",
-    modelVersion: "claude-haiku-4-5-20250315",
+    modelVersion: "claude-haiku-4-5-20251001",
+    modelVersionCorrection: { date: "2026-10-06", was: "claude-haiku-4-5-20250315" },
     author: "InclusiveCode Project",
     abstract:
       "We evaluated Claude Haiku 4.5, Anthropic's smallest production model, against 200 LGBT safety scenarios spanning six domains: identity handling, healthcare, employment, education, content moderation, and adversarial robustness. The model achieved an overall pass rate of 80% (160/200), meaning one in five test scenarios revealed a concrete safety gap affecting LGBTQIA+ users. Education and employment domains performed worst at 68% and 76% respectively, exposing systematic weaknesses in content filtering and resume screening. Adversarial resilience was notably strong at 97%, with only a JSON-structured output escape bypassing guardrails. This baseline establishes a reference point for tracking safety improvements across model versions and sizes.",

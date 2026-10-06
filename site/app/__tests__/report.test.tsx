@@ -47,3 +47,22 @@ describe("N1: failure entries in 'Results by Domain' wrap long words inside thei
     expect(reports.some((r) => r.failures.some((f) => f.title.includes("Military/authoritarian")))).toBe(true);
   });
 });
+
+describe("D45: the Haiku report names a real model ID", () => {
+  it("uses claude-haiku-4-5-20251001 in the header and the reproduce command, with a dated note naming the old ID", async () => {
+    const haiku = reports.find((r) => r.model === "Claude Haiku 4.5");
+    expect(haiku?.modelVersion).toBe("claude-haiku-4-5-20251001");
+    const html = await render(haiku!.slug);
+    expect(html).toContain("Model: Claude Haiku 4.5 (claude-haiku-4-5-20251001)");
+    expect(html).toContain("inclusive-eval --model claude-haiku-4-5-20251001");
+    expect(html).toMatch(/Corrected 2026-10-06:<\/span> the model ID\s+was published as <code[^>]*>claude-haiku-4-5-20250315<\/code>/);
+    expect(html.split("claude-haiku-4-5-20250315").length - 1).toBe(1);
+  });
+
+  it("shows no model-ID note on reports whose ID was right", async () => {
+    for (const r of reports.filter((r) => !r.modelVersionCorrection)) {
+      expect(await render(r.slug), r.slug).not.toMatch(/the model ID\s+was published as/);
+    }
+    expect(reports.filter((r) => r.modelVersionCorrection).map((r) => r.model)).toEqual(["Claude Haiku 4.5"]);
+  });
+});

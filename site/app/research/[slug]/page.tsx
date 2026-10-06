@@ -58,6 +58,14 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
           Published {report.date} &middot; Model: {report.model} ({report.modelVersion}) &middot;
           Author: {report.author}
         </p>
+        {report.modelVersionCorrection && (
+          <p className="mt-2 text-sm text-zinc-400">
+            <span className="font-semibold text-zinc-200">Corrected {report.modelVersionCorrection.date}:</span> the model ID
+            was published as <code className="font-mono wrap-anywhere">{report.modelVersionCorrection.was}</code>, which is not a
+            real model ID. {report.model}&apos;s ID is <code className="font-mono wrap-anywhere">{report.modelVersion}</code>. The
+            results are unchanged.
+          </p>
+        )}
 
         {/* Overall scorecard */}
         <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 sm:p-6">
