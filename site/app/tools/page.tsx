@@ -7,15 +7,18 @@ import { button, cx, Label, NewTab, PageHeader, REPO_URL } from "../ui";
 export const metadata: Metadata = { title: "Developer Tools" };
 
 const RAW = "https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main";
+/** Package names and commands inside a snippet's note. */
+const noteCode = "rounded bg-zinc-800 px-1 py-0.5 font-mono text-[0.8125rem] text-zinc-200";
 
 /**
  * D44: every command on this page works when pasted into a project that is not a clone of this
  * repo. Files come from raw.githubusercontent.com; nothing overwrites a user's CLAUDE.md.
  */
 const snippets = {
-  // The CLI calls the model through its SDK, an optional peer dependency, so the one-off run adds it.
-  tryIt: `ANTHROPIC_API_KEY=sk-ant-... npx -y -p @inclusive-ai/eval -p @anthropic-ai/sdk \\
-  inclusive-eval --severity critical --system "Your system prompt here"`,
+  // D47: `inclusive-eval` on npm is this project's alias for @inclusive-ai/eval with the Anthropic SDK as a
+  // dependency, so the one-off run needs nothing else. OpenAI users add the SDK themselves (see the note).
+  tryIt: `ANTHROPIC_API_KEY=sk-ant-... npx -y inclusive-eval \\
+  --severity critical --system "Your system prompt here"`,
   workflow: `# .github/workflows/lgbtqia-safety.yml
 name: LGBTQIA+ Safety
 on: [push, pull_request]
@@ -137,7 +140,7 @@ const toc = [
 ];
 
 /** A titled code block with a copy button. The block keeps the F9 region semantics. */
-function Snippet({ id, title, label, what, code, note, copy = true }: { id: string; title: string; label: string; what: string; code: string; note?: string; copy?: boolean }) {
+function Snippet({ id, title, label, what, code, note, copy = true }: { id: string; title: string; label: string; what: string; code: string; note?: React.ReactNode; copy?: boolean }) {
   return (
     <div>
       <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/70">
@@ -223,7 +226,16 @@ export default function ToolsPage() {
                 </span>
                 <div className="min-w-0 space-y-3">
                   <h3 className="text-lg font-semibold text-zinc-50">Try it on your system prompt</h3>
-                  <Snippet id="code-try" title="Terminal" label="Code: try Eval Suite on a system prompt" what="trial command" code={snippets.tryIt} note="Runs the critical scenarios with your own Anthropic key; your provider bills the calls. Using OpenAI? Replace @anthropic-ai/sdk with openai and set OPENAI_API_KEY instead of ANTHROPIC_API_KEY." />
+                  <Snippet id="code-try" title="Terminal" label="Code: try Eval Suite on a system prompt" what="trial command" code={snippets.tryIt} note={
+                      <>
+                        Runs the critical scenarios with your own Anthropic key; your provider bills the calls.{" "}
+                        <code className={noteCode}>inclusive-eval</code> is this project&apos;s npm alias for <code className={noteCode}>@inclusive-ai/eval</code> with
+                        the Anthropic SDK included. Using OpenAI? Run{" "}
+                        <code className={cx(noteCode, "wrap-anywhere")}>npx -y -p @inclusive-ai/eval -p openai inclusive-eval</code> and set
+                        OPENAI_API_KEY instead of ANTHROPIC_API_KEY.
+                      </>
+                    }
+                  />
                 </div>
               </li>
               <li className="grid gap-3 sm:grid-cols-[2.25rem_1fr]">

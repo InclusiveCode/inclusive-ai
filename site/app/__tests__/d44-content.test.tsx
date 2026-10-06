@@ -130,13 +130,17 @@ describe("D44 R1: crisis resources are named correctly in shipped content", () =
 // the hook goes where git says hooks live, and nothing overwrites CLAUDE.md
 // =====================================================================================
 const SHIPPED = ["site/app", "site/lib", "README.md", "CONTRIBUTING.md", "plugin", "templates", "hooks", ".claude/commands", "core", "packages/eval/src", "packages/adversarial/src", "domains", "action"];
-const UNSCOPED_NPX = /\bnpx\s+(?:(?:-y|--yes)\s+)?inclusive-eval\b/;
+/** D47: the unscoped `inclusive-eval` is this project's npm alias. Without -y, npx stops to ask before installing it. */
+const UNSCOPED_NO_YES = /\bnpx\s+inclusive-eval\b/;
 /** `npx @inclusive-ai/eval` runs the CLI without a provider SDK: ERR_MODULE_NOT_FOUND once a key is set. */
 const BARE_SCOPED_NPX = /\bnpx\s+(?:(?:-y|--yes)\s+)?@inclusive-ai\/eval\b/;
 const SDK = String.raw`(?:@anthropic-ai\/sdk|openai)(?:@\S+)?`;
 const EVAL = String.raw`@inclusive-ai\/eval(?:@\S+)?`;
-/** One-off: npx -y -p @inclusive-ai/eval -p <sdk> inclusive-eval … (either -p order). */
-const ONE_OFF = new RegExp(String.raw`\bnpx\s+(?:-y|--yes)\s+(?:-p\s+${EVAL}\s+-p\s+${SDK}|-p\s+${SDK}\s+-p\s+${EVAL})\s+inclusive-eval\b`);
+/** One-off naming the SDK: npx -y -p @inclusive-ai/eval -p <sdk> inclusive-eval … (either -p order). */
+const SCOPED_ONE_OFF = new RegExp(String.raw`\bnpx\s+(?:-y|--yes)\s+(?:-p\s+${EVAL}\s+-p\s+${SDK}|-p\s+${SDK}\s+-p\s+${EVAL})\s+inclusive-eval\b`);
+/** D47: one-off through the alias, which has the Anthropic SDK as a dependency: npx -y inclusive-eval … */
+const ALIAS_ONE_OFF = /\bnpx\s+(?:-y|--yes)\s+inclusive-eval(?:@\S+)?(?=\s|$)/;
+const isOneOff = (l: string) => SCOPED_ONE_OFF.test(l) || ALIAS_ONE_OFF.test(l);
 /** In a project: npx --no-install inclusive-eval …, after installing the suite together with an SDK. */
 const IN_PROJECT = /\bnpx\s+--no-install\s+inclusive-eval\b/;
 const INSTALLS_BOTH = new RegExp(String.raw`\bnpm\s+(?:install|i|add)\b[^\n]*?(?:@inclusive-ai\/eval\b[^\n]*?(?:@anthropic-ai\/sdk|\bopenai\b)|(?:@anthropic-ai\/sdk|\bopenai\b)[^\n]*?@inclusive-ai\/eval\b)`);
@@ -181,17 +185,17 @@ describe("D44 R2′: every eval CLI command brings a provider SDK", () => {
     expect(pkg.dependencies?.["@anthropic-ai/sdk"]).toBeUndefined();
   });
 
-  it("nothing shipped tells users to run the unscoped `npx inclusive-eval` (that package is not on npm)", () => {
+  it("nothing shipped runs the unscoped `npx inclusive-eval` without -y (D47: it is the project's alias, and -y keeps CI from stopping at a prompt)", () => {
     const bad: string[] = [];
     for (const f of files(...SHIPPED)) {
       read(f)
         .split("\n")
         .forEach((line, i) => {
-          if (UNSCOPED_NPX.test(line)) bad.push(`${rel(f)}:${i + 1} ${line.trim().slice(0, 140)}`);
+          if (UNSCOPED_NO_YES.test(line)) bad.push(`${rel(f)}:${i + 1} ${line.trim().slice(0, 140)}`);
         });
     }
     expect(bad, bad.join("\n")).toEqual([]);
-    expect(toolsCode).not.toMatch(UNSCOPED_NPX);
+    expect(toolsCode).not.toMatch(UNSCOPED_NO_YES);
   });
 
   it("/tools, README.md and plugin/ never show the bare `npx @inclusive-ai/eval` (it crashes without an SDK)", () => {
@@ -211,13 +215,13 @@ describe("D44 R2′: every eval CLI command brings a provider SDK", () => {
     expect(bad, bad.join("\n")).toEqual([]);
   });
 
-  it("every CLI run on /tools, in README.md and in plugin/ is `npx -y -p @inclusive-ai/eval -p <sdk> inclusive-eval …`, or `npx --no-install inclusive-eval …` after installing the suite with an SDK", () => {
+  it("every CLI run on /tools, in README.md and in plugin/ is `npx -y inclusive-eval …` (D47), `npx -y -p @inclusive-ai/eval -p <sdk> inclusive-eval …`, or `npx --no-install inclusive-eval …` after installing the suite with an SDK", () => {
     const bad: string[] = [];
     let runs = 0;
     for (const d of docs) {
       for (const l of cliRuns(d.text)) {
         runs += 1;
-        if (!(ONE_OFF.test(l) || (IN_PROJECT.test(l) && INSTALLS_BOTH.test(d.code)))) bad.push(`${d.name}: ${l}`);
+        if (!(isOneOff(l) || (IN_PROJECT.test(l) && INSTALLS_BOTH.test(d.code)))) bad.push(`${d.name}: ${l}`);
       }
     }
     expect(runs).toBeGreaterThanOrEqual(10);
@@ -226,11 +230,35 @@ describe("D44 R2′: every eval CLI command brings a provider SDK", () => {
 
   it("/tools and README.md offer both forms: a one-off run, and an install of the suite with an SDK", () => {
     for (const d of docs.filter((x) => x.name === "/tools" || x.name === "README.md")) {
-      expect(cliRuns(d.text).some((l) => ONE_OFF.test(l)), `${d.name}: one-off run`).toBe(true);
+      expect(cliRuns(d.text).some((l) => isOneOff(l)), `${d.name}: one-off run`).toBe(true);
       expect(d.code, `${d.name}: install with an SDK`).toMatch(INSTALLS_BOTH);
       expect(cliRuns(d.text).some((l) => IN_PROJECT.test(l)), `${d.name}: in-project run`).toBe(true);
     }
     expect(cliRuns(docs.filter((d) => d.name.startsWith("plugin/")).map((d) => d.text).join("\n")).length).toBeGreaterThan(0);
+  });
+});
+
+describe("D47: one-off runs use `npx -y inclusive-eval`, the project's npm alias with the Anthropic SDK", () => {
+  const docs = r2Documents();
+  const OPENAI_ONE_OFF = "npx -y -p @inclusive-ai/eval -p openai inclusive-eval";
+
+  it("the one-off runs on /tools, in README.md and in the plugin's red-team command use the alias", () => {
+    for (const name of ["/tools", "README.md", "plugin/commands/lgbt-red-team.md"]) {
+      const d = docs.find((x) => x.name === name)!;
+      const runs = cliRuns(d.text).filter((l) => isOneOff(l));
+      expect(runs.length, `${name}: one-off runs`).toBeGreaterThan(0);
+      expect(runs.filter((l) => !ALIAS_ONE_OFF.test(l) && !/-p\s+openai\b/.test(l)), name).toEqual([]);
+    }
+  });
+
+  it("OpenAI users are given the scoped one-off with openai, on /tools and in README.md (the alias brings only the Anthropic SDK)", () => {
+    expect(text(toolsTree)).toContain(OPENAI_ONE_OFF);
+    expect(read(join(REPO, "README.md"))).toContain(`OPENAI_API_KEY=sk-... ${OPENAI_ONE_OFF}`);
+  });
+
+  it("/tools and README.md say what the unscoped package is", () => {
+    expect(text(toolsTree)).toContain("inclusive-eval is this project's npm alias for @inclusive-ai/eval with the Anthropic SDK included");
+    expect(read(join(REPO, "README.md"))).toContain("`inclusive-eval`, this project's npm alias for `@inclusive-ai/eval` with the Anthropic SDK included");
   });
 });
 

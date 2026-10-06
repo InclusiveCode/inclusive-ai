@@ -226,14 +226,18 @@ if (want("R1")) {
 // =====================================================================================
 // R2: /tools install commands work outside a clone
 // R2′ (after the review of f24607a): every CLI run brings a provider SDK; no bare npx form
+// D47: the unscoped `inclusive-eval` is now this project's npm alias with the Anthropic SDK, so
+// `npx -y inclusive-eval` is a one-off form; without -y, npx stops to ask before installing it
 // R2″: appends start with a newline; the hook goes where `git rev-parse --git-path hooks` says
 // =====================================================================================
-const UNSCOPED_NPX = /\bnpx\s+(?:(?:-y|--yes)\s+)?inclusive-eval\b/;
+const UNSCOPED_NO_YES = /\bnpx\s+inclusive-eval\b/;
 /** Runs the CLI without a provider SDK: ERR_MODULE_NOT_FOUND as soon as a key is set. */
 const BARE_SCOPED_NPX = /\bnpx\s+(?:(?:-y|--yes)\s+)?@inclusive-ai\/eval\b/;
 const SDK_ = String.raw`(?:@anthropic-ai\/sdk|openai)(?:@\S+)?`;
 const EVAL_ = String.raw`@inclusive-ai\/eval(?:@\S+)?`;
-const ONE_OFF = new RegExp(String.raw`\bnpx\s+(?:-y|--yes)\s+(?:-p\s+${EVAL_}\s+-p\s+${SDK_}|-p\s+${SDK_}\s+-p\s+${EVAL_})\s+inclusive-eval\b`);
+const SCOPED_ONE_OFF = new RegExp(String.raw`\bnpx\s+(?:-y|--yes)\s+(?:-p\s+${EVAL_}\s+-p\s+${SDK_}|-p\s+${SDK_}\s+-p\s+${EVAL_})\s+inclusive-eval\b`);
+const ALIAS_ONE_OFF = /\bnpx\s+(?:-y|--yes)\s+inclusive-eval(?:@\S+)?(?=\s|$)/;
+const isOneOff = (l) => SCOPED_ONE_OFF.test(l) || ALIAS_ONE_OFF.test(l);
 const IN_PROJECT = /\bnpx\s+--no-install\s+inclusive-eval\b/;
 const INSTALLS_BOTH = new RegExp(String.raw`\bnpm\s+(?:install|i|add)\b[^\n]*?(?:@inclusive-ai\/eval\b[^\n]*?(?:@anthropic-ai\/sdk|\bopenai\b)|(?:@anthropic-ai\/sdk|\bopenai\b)[^\n]*?@inclusive-ai\/eval\b)`);
 const shellLines = (t) => t.replace(/\\\n\s*/g, " ").replace(/(&&|\|\||\|)[ \t]*\n\s*/g, "$1 ").split("\n").map((l) => l.trim());
@@ -247,13 +251,13 @@ if (want("R2")) {
     const all = blocks.join("\n");
     const lines = shellLines(all);
     check(`R2 /tools shows its commands in ${blocks.length} code blocks`, blocks.length >= 10);
-    check("R2′ no /tools command runs the unscoped `npx inclusive-eval`", !UNSCOPED_NPX.test(all), all.match(/.*npx\s+inclusive-eval.*/)?.[0]);
+    check("R2′/D47 no /tools command runs the unscoped `npx inclusive-eval` without -y", !UNSCOPED_NO_YES.test(all), all.match(/.*npx\s+inclusive-eval.*/)?.[0]);
     check("R2′ no /tools command runs the bare `npx @inclusive-ai/eval` (it crashes without a provider SDK)", !BARE_SCOPED_NPX.test(all), lines.filter((l) => BARE_SCOPED_NPX.test(l)).join(" | "));
     const runs = cliRuns(all);
-    const badRuns = runs.filter((l) => !(ONE_OFF.test(l) || (IN_PROJECT.test(l) && INSTALLS_BOTH.test(all))));
+    const badRuns = runs.filter((l) => !(isOneOff(l) || (IN_PROJECT.test(l) && INSTALLS_BOTH.test(all))));
     check(
-      `R2′ every CLI run on /tools (${runs.length}) is \`npx -y -p @inclusive-ai/eval -p <sdk> inclusive-eval …\`, or \`npx --no-install inclusive-eval …\` with the suite and an SDK installed on the page; both forms are offered`,
-      runs.length >= 5 && badRuns.length === 0 && runs.some((l) => ONE_OFF.test(l)) && runs.some((l) => IN_PROJECT.test(l)) && INSTALLS_BOTH.test(all),
+      `R2′/D47 every CLI run on /tools (${runs.length}) is \`npx -y inclusive-eval …\`, \`npx -y -p @inclusive-ai/eval -p <sdk> inclusive-eval …\`, or \`npx --no-install inclusive-eval …\` with the suite and an SDK installed on the page; the alias one-off and the in-project form are both offered`,
+      runs.length >= 5 && badRuns.length === 0 && runs.some((l) => ALIAS_ONE_OFF.test(l)) && runs.some((l) => IN_PROJECT.test(l)) && INSTALLS_BOTH.test(all),
       badRuns.join(" | ") || runs.slice(0, 2).join(" | "),
     );
     const clone = lines.filter((l) => /\bcp\s+(?:-\S+\s+)*(?:\.\/)?(?:plugin|hooks|templates)\//.test(l) || /\$\(npm root\)\/@inclusive-ai\/eval\/hooks/.test(l));
@@ -295,17 +299,17 @@ if (want("R2")) {
   });
 
   // Beyond the pages R2′ names (/tools, README.md, plugin/): the same crash anywhere else on the site.
-  await step("R2′ no page on the site shows a bare `npx @inclusive-ai/eval` or `npx inclusive-eval`", async () => {
+  await step("R2′ no page on the site shows a bare `npx @inclusive-ai/eval`, or `npx inclusive-eval` without -y", async () => {
     const paths = await sitemapPaths();
     const bad = [];
     for (const path of paths) {
       const text = htmlText(await (await fetch(`${ORIGIN}${path}`)).text());
-      for (const re of [BARE_SCOPED_NPX, UNSCOPED_NPX]) {
+      for (const re of [BARE_SCOPED_NPX, UNSCOPED_NO_YES]) {
         const m = new RegExp(re.source, "g");
         for (const hit of text.matchAll(m)) bad.push(`${path}: "${text.slice(hit.index, hit.index + 70).trim()}"`);
       }
     }
-    check(`R2′ none of the ${paths.length} sitemap pages shows a bare \`npx @inclusive-ai/eval\` or \`npx inclusive-eval\` (beyond the /tools scope)`, paths.length >= 50 && bad.length === 0, bad.slice(0, 4).join(" | "));
+    check(`R2′ none of the ${paths.length} sitemap pages shows a bare \`npx @inclusive-ai/eval\`, or \`npx inclusive-eval\` without -y (beyond the /tools scope)`, paths.length >= 50 && bad.length === 0, bad.slice(0, 4).join(" | "));
   });
 }
 

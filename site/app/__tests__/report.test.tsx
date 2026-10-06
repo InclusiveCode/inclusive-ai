@@ -66,3 +66,13 @@ describe("D45: the Haiku report names a real model ID", () => {
     expect(reports.filter((r) => r.modelVersionCorrection).map((r) => r.model)).toEqual(["Claude Haiku 4.5"]);
   });
 });
+
+describe("D47: each report's reproduce command runs the inclusive-eval alias with the report's own model", () => {
+  it("shows `npx -y inclusive-eval --model <modelVersion>` and no scoped -p form", async () => {
+    for (const r of reports) {
+      const html = await render(r.slug);
+      expect(html, r.slug).toContain(`ANTHROPIC_API_KEY=sk-ant-... npx -y inclusive-eval --model ${r.modelVersion}`);
+      expect(html, r.slug).not.toContain("-p @anthropic-ai/sdk");
+    }
+  });
+});

@@ -79,10 +79,13 @@ ANTHROPIC_API_KEY=sk-... npx --no-install inclusive-eval --red-team --judge --do
 ANTHROPIC_API_KEY=sk-... npx --no-install inclusive-eval --adversarial
 ```
 
-To try it once without installing anything in your project:
+To try it once without installing anything in your project, run `inclusive-eval`, this project's npm alias for `@inclusive-ai/eval` with the Anthropic SDK included:
 
 ```bash
-ANTHROPIC_API_KEY=sk-... npx -y -p @inclusive-ai/eval -p @anthropic-ai/sdk inclusive-eval --severity critical
+ANTHROPIC_API_KEY=sk-... npx -y inclusive-eval --severity critical
+
+# With OpenAI, add its SDK to the eval suite instead
+OPENAI_API_KEY=sk-... npx -y -p @inclusive-ai/eval -p openai inclusive-eval --severity critical
 ```
 
 ### 2. Install the Claude Code plugin
