@@ -141,8 +141,8 @@ Top 3 fixes to harden your prompts:
 3. ...
 
 For automated red-team runs:
-  npx -y inclusive-eval --red-team --system "your-system-prompt"
-  npx -y inclusive-eval --red-team --domain healthcare --concurrency 10
+  npx -y inclusive-eval@1.0.1 --red-team --system "your-system-prompt"
+  npx -y inclusive-eval@1.0.1 --red-team --domain healthcare --concurrency 10
 
 Resources:
 - Red team guide:     https://inclusive-ai.vercel.app/tools#eval

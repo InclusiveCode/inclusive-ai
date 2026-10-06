@@ -237,6 +237,9 @@ const SDK_ = String.raw`(?:@anthropic-ai\/sdk|openai)(?:@\S+)?`;
 const EVAL_ = String.raw`@inclusive-ai\/eval(?:@\S+)?`;
 const SCOPED_ONE_OFF = new RegExp(String.raw`\bnpx\s+(?:-y|--yes)\s+(?:-p\s+${EVAL_}\s+-p\s+${SDK_}|-p\s+${SDK_}\s+-p\s+${EVAL_})\s+inclusive-eval\b`);
 const ALIAS_ONE_OFF = /\bnpx\s+(?:-y|--yes)\s+inclusive-eval(?:@\S+)?(?=\s|$)/;
+/** D47 (review of ba9d041): the alias runs with the user's key and is published outside this repo, so it is pinned. */
+const ALIAS_PINNED = /\bnpx\s+(?:-y|--yes)\s+inclusive-eval@\d+\.\d+\.\d+(?=\s|$)/;
+const UNPINNED_ALIAS = /\bnpx\s+(?:-y|--yes)\s+inclusive-eval(?=\s|$)/;
 const isOneOff = (l) => SCOPED_ONE_OFF.test(l) || ALIAS_ONE_OFF.test(l);
 const IN_PROJECT = /\bnpx\s+--no-install\s+inclusive-eval\b/;
 const INSTALLS_BOTH = new RegExp(String.raw`\bnpm\s+(?:install|i|add)\b[^\n]*?(?:@inclusive-ai\/eval\b[^\n]*?(?:@anthropic-ai\/sdk|\bopenai\b)|(?:@anthropic-ai\/sdk|\bopenai\b)[^\n]*?@inclusive-ai\/eval\b)`);
@@ -256,8 +259,8 @@ if (want("R2")) {
     const runs = cliRuns(all);
     const badRuns = runs.filter((l) => !(isOneOff(l) || (IN_PROJECT.test(l) && INSTALLS_BOTH.test(all))));
     check(
-      `R2′/D47 every CLI run on /tools (${runs.length}) is \`npx -y inclusive-eval …\`, \`npx -y -p @inclusive-ai/eval -p <sdk> inclusive-eval …\`, or \`npx --no-install inclusive-eval …\` with the suite and an SDK installed on the page; the alias one-off and the in-project form are both offered`,
-      runs.length >= 5 && badRuns.length === 0 && runs.some((l) => ALIAS_ONE_OFF.test(l)) && runs.some((l) => IN_PROJECT.test(l)) && INSTALLS_BOTH.test(all),
+      `R2′/D47 every CLI run on /tools (${runs.length}) is \`npx -y inclusive-eval@<version> …\`, \`npx -y -p @inclusive-ai/eval -p <sdk> inclusive-eval …\`, or \`npx --no-install inclusive-eval …\` with the suite and an SDK installed on the page; the pinned alias one-off and the in-project form are both offered`,
+      runs.length >= 5 && badRuns.length === 0 && runs.some((l) => ALIAS_PINNED.test(l)) && runs.filter((l) => ALIAS_ONE_OFF.test(l)).every((l) => ALIAS_PINNED.test(l)) && runs.some((l) => IN_PROJECT.test(l)) && INSTALLS_BOTH.test(all),
       badRuns.join(" | ") || runs.slice(0, 2).join(" | "),
     );
     const clone = lines.filter((l) => /\bcp\s+(?:-\S+\s+)*(?:\.\/)?(?:plugin|hooks|templates)\//.test(l) || /\$\(npm root\)\/@inclusive-ai\/eval\/hooks/.test(l));
@@ -299,17 +302,17 @@ if (want("R2")) {
   });
 
   // Beyond the pages R2′ names (/tools, README.md, plugin/): the same crash anywhere else on the site.
-  await step("R2′ no page on the site shows a bare `npx @inclusive-ai/eval`, or `npx inclusive-eval` without -y", async () => {
+  await step("R2′ no page on the site shows a bare `npx @inclusive-ai/eval`, `npx inclusive-eval` without -y, or an unpinned alias", async () => {
     const paths = await sitemapPaths();
     const bad = [];
     for (const path of paths) {
       const text = htmlText(await (await fetch(`${ORIGIN}${path}`)).text());
-      for (const re of [BARE_SCOPED_NPX, UNSCOPED_NO_YES]) {
+      for (const re of [BARE_SCOPED_NPX, UNSCOPED_NO_YES, UNPINNED_ALIAS]) {
         const m = new RegExp(re.source, "g");
         for (const hit of text.matchAll(m)) bad.push(`${path}: "${text.slice(hit.index, hit.index + 70).trim()}"`);
       }
     }
-    check(`R2′ none of the ${paths.length} sitemap pages shows a bare \`npx @inclusive-ai/eval\`, or \`npx inclusive-eval\` without -y (beyond the /tools scope)`, paths.length >= 50 && bad.length === 0, bad.slice(0, 4).join(" | "));
+    check(`R2′ none of the ${paths.length} sitemap pages shows a bare \`npx @inclusive-ai/eval\`, \`npx inclusive-eval\` without -y, or an unpinned \`npx -y inclusive-eval\` (beyond the /tools scope)`, paths.length >= 50 && bad.length === 0, bad.slice(0, 4).join(" | "));
   });
 }
 

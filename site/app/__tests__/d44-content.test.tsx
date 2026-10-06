@@ -9,6 +9,7 @@ import { join, relative, resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { EVAL_ALIAS } from "@/lib/cli";
 import ToolsPage from "../tools/page";
 import { byTag, parse, text } from "./d44-html";
 
@@ -249,6 +250,20 @@ describe("D47: one-off runs use `npx -y inclusive-eval`, the project's npm alias
       expect(runs.length, `${name}: one-off runs`).toBeGreaterThan(0);
       expect(runs.filter((l) => !ALIAS_ONE_OFF.test(l) && !/-p\s+openai\b/.test(l)), name).toEqual([]);
     }
+  });
+
+  it("every alias one-off in shipped content is pinned to the reviewed release in lib/cli.ts (the alias is published outside this repo and runs with the user's key)", () => {
+    expect(EVAL_ALIAS).toMatch(/^inclusive-eval@\d+\.\d+\.\d+$/);
+    const unpinned: string[] = [];
+    for (const f of files(...SHIPPED)) {
+      read(f)
+        .split("\n")
+        .forEach((line, i) => {
+          for (const m of line.matchAll(/\bnpx\s+(?:-y|--yes)\s+(inclusive-eval(?:@\S+)?)/g)) if (m[1] !== EVAL_ALIAS) unpinned.push(`${rel(f)}:${i + 1} ${m[1]}`);
+        });
+    }
+    expect(unpinned, unpinned.join("\n")).toEqual([]);
+    for (const d of docs) for (const l of cliRuns(d.text).filter((x) => ALIAS_ONE_OFF.test(x))) expect(l, d.name).toContain(`npx -y ${EVAL_ALIAS} `);
   });
 
   it("OpenAI users are given the scoped one-off with openai, on /tools and in README.md (the alias brings only the Anthropic SDK)", () => {

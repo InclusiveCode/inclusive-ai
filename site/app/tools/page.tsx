@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CodeBlock } from "../code-block";
 import { CopyButton } from "../copy-button";
+import { EVAL_ALIAS } from "@/lib/cli";
 import { button, cx, Label, NewTab, PageHeader, REPO_URL } from "../ui";
 
 export const metadata: Metadata = { title: "Developer Tools" };
@@ -16,8 +17,9 @@ const noteCode = "rounded bg-zinc-800 px-1 py-0.5 font-mono text-[0.8125rem] tex
  */
 const snippets = {
   // D47: `inclusive-eval` on npm is this project's alias for @inclusive-ai/eval with the Anthropic SDK as a
-  // dependency, so the one-off run needs nothing else. OpenAI users add the SDK themselves (see the note).
-  tryIt: `ANTHROPIC_API_KEY=sk-ant-... npx -y inclusive-eval \\
+  // dependency, so the one-off run needs nothing else; it is pinned (lib/cli.ts). OpenAI users add the SDK
+  // themselves (see the note).
+  tryIt: `ANTHROPIC_API_KEY=sk-ant-... npx -y ${EVAL_ALIAS} \\
   --severity critical --system "Your system prompt here"`,
   workflow: `# .github/workflows/lgbtqia-safety.yml
 name: LGBTQIA+ Safety

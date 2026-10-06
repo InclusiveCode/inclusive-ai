@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { EVAL_ALIAS } from "@/lib/cli";
 import { reports } from "@/lib/reports";
 import ReportPage from "../research/[slug]/page";
 
@@ -54,7 +55,7 @@ describe("D45: the Haiku report names a real model ID", () => {
     expect(haiku?.modelVersion).toBe("claude-haiku-4-5-20251001");
     const html = await render(haiku!.slug);
     expect(html).toContain("Model: Claude Haiku 4.5 (claude-haiku-4-5-20251001)");
-    expect(html).toContain("inclusive-eval --model claude-haiku-4-5-20251001");
+    expect(html).toContain(`npx -y ${EVAL_ALIAS} --model claude-haiku-4-5-20251001`);
     expect(html).toMatch(/Corrected 2026-10-06:<\/span> the model ID\s+was published as <code[^>]*>claude-haiku-4-5-20250315<\/code>/);
     expect(html.split("claude-haiku-4-5-20250315").length - 1).toBe(1);
   });
@@ -67,11 +68,12 @@ describe("D45: the Haiku report names a real model ID", () => {
   });
 });
 
-describe("D47: each report's reproduce command runs the inclusive-eval alias with the report's own model", () => {
-  it("shows `npx -y inclusive-eval --model <modelVersion>` and no scoped -p form", async () => {
+describe("D47: each report's reproduce command runs the pinned inclusive-eval alias with the report's own model", () => {
+  it("shows `npx -y inclusive-eval@<pinned> --model <modelVersion>` and no scoped -p form", async () => {
+    expect(EVAL_ALIAS).toMatch(/^inclusive-eval@\d+\.\d+\.\d+$/);
     for (const r of reports) {
       const html = await render(r.slug);
-      expect(html, r.slug).toContain(`ANTHROPIC_API_KEY=sk-ant-... npx -y inclusive-eval --model ${r.modelVersion}`);
+      expect(html, r.slug).toContain(`ANTHROPIC_API_KEY=sk-ant-... npx -y ${EVAL_ALIAS} --model ${r.modelVersion}`);
       expect(html, r.slug).not.toContain("-p @anthropic-ai/sdk");
     }
   });
