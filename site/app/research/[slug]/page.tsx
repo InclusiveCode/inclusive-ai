@@ -138,7 +138,13 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
       {/* 2. Results Summary */}
       <section className="mb-12">
         <h2 className="text-xl font-semibold mb-4 text-zinc-200">2. Results Summary</h2>
-        <div className="border border-zinc-800 rounded-xl overflow-hidden">
+        {/* F11 (WCAG 1.4.10, 2.1.1): wider than a 320 px screen, so it scrolls in a keyboard-reachable region. */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Results summary table"
+          className="border border-zinc-800 rounded-xl overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+        >
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-800 text-zinc-400 text-left">
@@ -196,8 +202,8 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
                 key={r.domain}
                 className="border border-zinc-800 rounded-xl overflow-hidden group"
               >
-                <summary className="px-5 py-4 cursor-pointer hover:bg-zinc-900/50 transition-colors flex items-center justify-between list-none">
-                  <div className="flex items-center gap-3">
+                <summary className="px-5 py-4 cursor-pointer hover:bg-zinc-900/50 transition-colors flex flex-wrap items-center justify-between gap-2 list-none">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className="text-zinc-200 font-medium">{r.domain}</span>
                     <span className={`text-xs font-mono ${verdictColor[r.verdict]}`}>
                       {r.passed}/{r.total} ({r.rate}%)
