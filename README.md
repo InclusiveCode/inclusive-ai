@@ -82,7 +82,7 @@ ANTHROPIC_API_KEY=sk-... npx --no-install inclusive-eval --adversarial
 To try it once without installing anything in your project, run `inclusive-eval`, this project's npm alias for `@inclusive-ai/eval` with the Anthropic SDK included. The command pins the alias's version; its dependencies still resolve to the newest versions the alias allows:
 
 ```bash
-ANTHROPIC_API_KEY=sk-... npx -y inclusive-eval@1.0.1 --severity critical
+ANTHROPIC_API_KEY=sk-... npx -y inclusive-eval@1.0.2 --severity critical
 
 # With OpenAI, add its SDK to the eval suite instead
 OPENAI_API_KEY=sk-... npx -y -p @inclusive-ai/eval -p openai inclusive-eval --severity critical
