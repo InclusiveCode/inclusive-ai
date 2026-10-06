@@ -51,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <MobileNav />
         </nav>
         <main className="flex-1">{children}</main>
-        <footer className="border-t border-zinc-800 px-6 py-6 text-center text-sm text-zinc-500">
+        <footer className="border-t border-zinc-800 px-6 py-6 text-center text-sm text-zinc-400">
           Built for the community, by the community. MIT License.
         </footer>
       </body>

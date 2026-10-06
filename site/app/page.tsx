@@ -86,7 +86,7 @@ export default function HomePage() {
           <Link key={f.href} href={f.href} className={`card-rainbow-hover group p-6 border border-zinc-800 rounded-xl transition-colors ${f.className ?? ""}`}>
             <div className="text-2xl mb-3" aria-hidden="true">{f.icon}</div>
             <h2 className="font-semibold mb-2 group-hover:text-zinc-100">{f.title}</h2>
-            <p className="text-sm text-zinc-500">{f.description}</p>
+            <p className="text-sm text-zinc-400">{f.description}</p>
           </Link>
         ))}
       </div>

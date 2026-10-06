@@ -173,7 +173,7 @@ export default function ChecklistPage() {
         {/* Progress bar */}
         <div className="mt-6 mb-2">
           <div className="flex items-center justify-between text-sm mb-2">
-            <span className="font-mono text-zinc-500">
+            <span className="font-mono text-zinc-400">
               {mounted ? checkedCount : 0}/{totalItems} checks
             </span>
             {mounted && checkedCount === totalItems && (
@@ -200,7 +200,7 @@ export default function ChecklistPage() {
         {mounted && checkedCount > 0 && (
           <button
             onClick={reset}
-            className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
+            className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors mt-2"
           >
             Reset checklist
           </button>
@@ -218,7 +218,7 @@ export default function ChecklistPage() {
               <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 pl-3 border-l-2" style={{ borderLeftColor: accentColor }}>
                 <span>{section.emoji}</span>
                 <span>{section.title}</span>
-                <span className="text-xs font-mono text-zinc-600 ml-auto">
+                <span className="text-xs font-mono text-zinc-400 ml-auto">
                   {mounted ? sectionChecked : 0}/{section.items.length}
                 </span>
               </h2>
@@ -263,12 +263,12 @@ export default function ChecklistPage() {
                       <div>
                         <p
                           className={`font-medium text-sm mb-1 transition-colors ${
-                            isChecked ? "text-zinc-500 line-through" : ""
+                            isChecked ? "text-zinc-400 line-through" : ""
                           }`}
                         >
                           {item.label}
                         </p>
-                        <p className="text-xs text-zinc-500">{item.detail}</p>
+                        <p className="text-xs text-zinc-400">{item.detail}</p>
                       </div>
                     </button>
                   );

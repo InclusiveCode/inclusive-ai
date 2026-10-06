@@ -211,7 +211,7 @@ export default function ToolsPage() {
 
             {/* Install */}
             <div className="mb-6">
-              <h3 className="text-xs font-mono text-zinc-500 uppercase tracking-wider mb-2">
+              <h3 className="text-xs font-mono text-zinc-400 uppercase tracking-wider mb-2">
                 Install
               </h3>
               <pre className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-sm overflow-x-auto">
@@ -222,7 +222,7 @@ export default function ToolsPage() {
             {/* Usage */}
             {tool.usage && (
               <div className="mb-6">
-                <h3 className="text-xs font-mono text-zinc-500 uppercase tracking-wider mb-2">
+                <h3 className="text-xs font-mono text-zinc-400 uppercase tracking-wider mb-2">
                   Usage
                 </h3>
                 <pre className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-sm overflow-x-auto">
@@ -234,7 +234,7 @@ export default function ToolsPage() {
             {/* CLI (eval only) */}
             {"cli" in tool && tool.cli && (
               <div className="mb-6">
-                <h3 className="text-xs font-mono text-zinc-500 uppercase tracking-wider mb-2">
+                <h3 className="text-xs font-mono text-zinc-400 uppercase tracking-wider mb-2">
                   CLI
                 </h3>
                 <pre className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-sm overflow-x-auto">
@@ -246,7 +246,7 @@ export default function ToolsPage() {
             {/* Categories (eval only) */}
             {"categories" in tool && tool.categories && (
               <div className="mb-6">
-                <h3 className="text-xs font-mono text-zinc-500 uppercase tracking-wider mb-2">
+                <h3 className="text-xs font-mono text-zinc-400 uppercase tracking-wider mb-2">
                   Scenario Categories
                 </h3>
                 <div className="grid sm:grid-cols-2 gap-3">
@@ -257,11 +257,11 @@ export default function ToolsPage() {
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium text-sm">{cat.name}</span>
-                        <span className="text-xs font-mono text-zinc-500">
+                        <span className="text-xs font-mono text-zinc-400">
                           {cat.count} scenarios
                         </span>
                       </div>
-                      <p className="text-xs text-zinc-500">{cat.examples}</p>
+                      <p className="text-xs text-zinc-400">{cat.examples}</p>
                     </div>
                   ))}
                 </div>
@@ -271,7 +271,7 @@ export default function ToolsPage() {
             {/* Features */}
             {"features" in tool && tool.features && (
               <div className="mb-6">
-                <h3 className="text-xs font-mono text-zinc-500 uppercase tracking-wider mb-2">
+                <h3 className="text-xs font-mono text-zinc-400 uppercase tracking-wider mb-2">
                   Features
                 </h3>
                 <ul className="space-y-2">
@@ -288,17 +288,17 @@ export default function ToolsPage() {
             {/* Detects (hook only) */}
             {"detects" in tool && tool.detects && (
               <div className="mb-6">
-                <h3 className="text-xs font-mono text-zinc-500 uppercase tracking-wider mb-2">
+                <h3 className="text-xs font-mono text-zinc-400 uppercase tracking-wider mb-2">
                   What It Catches
                 </h3>
                 <div className="border border-zinc-800 rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-zinc-800">
-                        <th className="text-left px-4 py-2 text-xs font-mono text-zinc-500">
+                        <th className="text-left px-4 py-2 text-xs font-mono text-zinc-400">
                           Pattern
                         </th>
-                        <th className="text-right px-4 py-2 text-xs font-mono text-zinc-500">
+                        <th className="text-right px-4 py-2 text-xs font-mono text-zinc-400">
                           Severity
                         </th>
                       </tr>
