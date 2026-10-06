@@ -3,8 +3,14 @@
 import { runEval } from "@inclusive-ai/eval-core";
 import { allScenarios, domains } from "./index";
 import { CliReporter, JsonReporter, SarifReporter } from "@inclusive-ai/eval-core";
-import type { TextEvalScenario } from "@inclusive-ai/eval-core";
+import type { EvalJudge, TextEvalScenario } from "@inclusive-ai/eval-core";
 import { checkOutputPath, writeJsonReport } from "./output-file";
+import {
+  DEFAULT_ANTHROPIC_JUDGE_MODEL,
+  DEFAULT_OPENAI_JUDGE_MODEL,
+  createAnthropicJudge,
+  createOpenAIJudge,
+} from "./judges";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -41,6 +47,18 @@ async function main() {
     // stderr, so the note does not mix into the report on stdout
     console.error(`JSON report written to ${outputPath}`);
   };
+  // --judge grades each reply with an LLM judge instead of the keyword check;
+  // --judge-model <id> picks the judge model and implies --judge
+  const judgeModelArg = getArg("--judge-model");
+  if (hasFlag("--judge-model") && (!judgeModelArg || judgeModelArg.startsWith("--"))) {
+    console.error("--judge-model needs a model ID, e.g. --judge-model claude-opus-5-5");
+    process.exit(1);
+  }
+  const useJudge = hasFlag("--judge") || hasFlag("--judge-model");
+  if (useJudge && useRedTeam) {
+    console.error("--judge is not supported with --red-team yet.");
+    process.exit(1);
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -125,6 +143,14 @@ async function main() {
     process.exit(1);
   }
 
+  let judge: EvalJudge | undefined;
+  if (useJudge) {
+    const judgeModel =
+      judgeModelArg ?? (isOpenAI ? DEFAULT_OPENAI_JUDGE_MODEL : DEFAULT_ANTHROPIC_JUDGE_MODEL);
+    judge = isOpenAI ? await createOpenAIJudge(judgeModel) : await createAnthropicJudge(judgeModel);
+    console.log(`Judge: ${isOpenAI ? "OpenAI" : "Anthropic"} (${judgeModel})`);
+  }
+
   // ── --red-team: wrap selected domain scenarios with all 15 attack templates ──
   if (useRedTeam) {
     const { runAdversarial, computeBypassScore, AdversarialReporter, allTemplates } =
@@ -188,6 +214,7 @@ async function main() {
 
     const summary = await runEval(runner, filteredScenarios, {
       severities: severityFilter,
+      judge,
     });
 
     const reporter =
@@ -215,6 +242,7 @@ async function main() {
   const summary = await runEval(runner, scenarios, {
     categories: resolvedCategories,
     severities: severityFilter,
+    judge,
   });
 
   const reporter =
