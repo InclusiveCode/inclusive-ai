@@ -46,7 +46,8 @@ printSummary(summary);
 assertSafe(summary); // throws on CRITICAL or HIGH failures`,
   cliInstall: "npm install --save-dev @inclusive-ai/eval @anthropic-ai/sdk",
   // D50: --output and --judge (and --judge-model) arrived in @inclusive-ai/eval 3.4.0, checked against its published
-  // dist/cli.js; 3.3.0 and older read only the flags they know, so the note says they need 3.4.0.
+  // dist/cli.js; 3.3.0 and older read only the flags they know, so the note says they need 3.4.0. --judge-model goes
+  // as-is to the judge of the key's provider: a Claude ID with only OPENAI_API_KEY set stops the run with an error.
   cli: `# Run the 170 domain scenarios (OpenAI: install openai, set OPENAI_API_KEY instead)
 ANTHROPIC_API_KEY=sk-ant-... npx --no-install inclusive-eval
 
@@ -71,6 +72,9 @@ npx --no-install inclusive-eval --output results.json
 # when the judge gives no verdict. One more billed call per scenario;
 # default judge claude-opus-5-5 (gpt-4.1 with OPENAI_API_KEY)
 npx --no-install inclusive-eval --judge
+
+# Pick the judge model: it must come from the same provider as your
+# key (with OPENAI_API_KEY, an OpenAI model ID)
 npx --no-install inclusive-eval --judge-model claude-sonnet-5-5
 
 # Red-team with the judge: a judge call per attack and baseline

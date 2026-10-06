@@ -302,6 +302,16 @@ describe("D44 R2‴, D50: /tools shows only flags the published CLI has", () => 
     for (const f of ["--output", "--judge", "--judge-model"]) expect(flags).toContain(f);
     expect(text(toolsTree)).toContain("--output and --judge need @inclusive-ai/eval 3.4.0 or newer; older versions ignore them without a warning.");
   });
+
+  it("the --judge-model example says the judge must come from the key's provider (3.4.0 passes the ID as-is)", () => {
+    const block = toolsBlocks.find((b) => /inclusive-eval --judge-model /.test(b)) ?? "";
+    const lines = block.split("\n");
+    const at = lines.findIndex((l) => /inclusive-eval --judge-model /.test(l));
+    const comment = lines.slice(0, at).reverse().findIndex((l) => !l.startsWith("#"));
+    const above = lines.slice(at - (comment === -1 ? at : comment), at).join(" ");
+    expect(above).toMatch(/same provider as your\s*#?\s*key/);
+    expect(above).toContain("with OPENAI_API_KEY, an OpenAI model ID");
+  });
 });
 
 describe("D44 R2: no clone, no overwrite; R2″: appends start with a newline, hooks go where git keeps them", () => {
