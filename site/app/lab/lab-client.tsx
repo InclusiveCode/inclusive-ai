@@ -466,12 +466,12 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
           <section
             aria-labelledby="edit"
             aria-busy={running || undefined}
-            className="@container min-w-0 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto lg:rounded-xl lg:border lg:border-zinc-700 lg:bg-zinc-950 lg:p-5"
+            className="@container min-w-0 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:scroll-pb-40 lg:overflow-y-auto lg:rounded-xl lg:border lg:border-zinc-700 lg:bg-zinc-950 lg:px-5 lg:pt-5"
           >
             <h2 id="edit" className={`${H2} lg:text-xl`}>
               4. Edit the instruction and rerun
             </h2>
-            <div className="mt-4 space-y-4">
+            <div className="mt-4 space-y-4 lg:pb-5">
               <div>
                 <label htmlFor="lab-instruction" className="block font-medium text-zinc-100">
                   System instruction for “{scenario.title}”
@@ -575,7 +575,12 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                   onKeyErrorClear={() => setKeyError(null)}
                 />
               )}
-              <div className="flex flex-wrap items-center gap-4">
+              {/*
+                D49: on desktop the run row stays pinned to the bottom of the editor column while the column
+                scrolls, so Rerun is always on screen. The column's scroll-padding-bottom (10 rem, taller than
+                this row even with three buttons) keeps a focused control above it (WCAG 2.2 SC 2.4.11).
+              */}
+              <div className="flex flex-wrap items-center gap-4 lg:sticky lg:bottom-0 lg:z-10 lg:-mx-5 lg:gap-3 lg:border-t lg:border-zinc-800 lg:bg-zinc-950 lg:px-5 lg:py-3">
                 <button
                   ref={rerunRef}
                   type="button"

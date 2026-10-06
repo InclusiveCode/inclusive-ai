@@ -117,14 +117,25 @@ for (const [w, h] of [[320, 640], [375, 812], [768, 1024]]) {
       const navB = document.querySelector("body > nav").getBoundingClientRect().bottom;
       const inBar = bar?.contains(el);
       const inNav = el.closest("body > nav");
-      return { inBar, inNav: !!inNav, top: r.top, bottom: r.bottom, barTop: bar?.getBoundingClientRect().top ?? innerHeight, navB, name: (el.textContent || el.id || el.tagName).trim().slice(0, 30) };
+      return { inBar, inNav: !!inNav, top: r.top, bottom: r.bottom, height: r.height, barTop: bar?.getBoundingClientRect().top ?? innerHeight, navB, name: (el.textContent || el.id || el.tagName).trim().slice(0, 30) };
     });
     if (!info) continue;
     stops += 1;
-    if (!info.inBar && !info.inNav && info.bottom > info.barTop + 0.5) underBar.push(`${info.name} (${Math.round(info.bottom)} > ${Math.round(info.barTop)})`);
+    // A control up to 120 px tall must be fully clear of the bar. A taller one that still fits between the
+    // bars (the instruction box) must show its start, where focus and the caret are. One taller than the
+    // space between the bars (a scrollable table) cannot fit; SC 2.4.11 then asks only that it is not
+    // entirely hidden.
+    const space = info.barTop - info.navB;
+    const covered =
+      info.height <= 120
+        ? info.bottom > info.barTop + 0.5
+        : info.height <= space
+          ? !(info.top >= info.navB - 1 && info.top + 44 <= info.barTop)
+          : !(info.top < info.barTop - 44 && info.bottom > info.navB + 44);
+    if (!info.inBar && !info.inNav && covered) underBar.push(`${info.name} (${Math.round(info.top)}–${Math.round(info.bottom)} vs bar ${Math.round(info.barTop)})`);
     if (!info.inNav && !info.inBar && info.bottom <= info.navB) hiddenByNav.push(info.name);
   }
-  check(`D49 ${w}×${h}: across ${stops} Tab stops, no focused element is even partly under the run bar (WCAG 2.4.11)`, stops > 60 && underBar.length === 0, underBar.slice(0, 4).join(" | "));
+  check(`D49 ${w}×${h}: across ${stops} Tab stops, no focused control is covered by the run bar (small ones fully clear, tall ones with their start clear; WCAG 2.4.11)`, stops > 60 && underBar.length === 0, underBar.slice(0, 4).join(" | "));
   check(`D49 ${w}×${h}: … and none is entirely under the site bar`, hiddenByNav.length === 0, hiddenByNav.slice(0, 4).join(" | "));
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await page.waitForTimeout(100);
@@ -179,12 +190,13 @@ for (const rm of ["reduce", "no-preference"]) {
   check(`D49 reduced motion "${rm}": the result card ${rm === "reduce" ? "does not animate" : "outlines itself once"}`, rm === "reduce" ? anim === "none" : anim === "lab-flash", anim);
   if (rm === "no-preference") {
     const solid = await page.evaluate(() =>
-      [...document.querySelectorAll("a[href], button")].filter((el) => !el.closest("body > nav") && el.getClientRects().length && getComputedStyle(el).backgroundColor === "rgb(250, 250, 250)").map((el) => el.textContent.trim()),
+      [...document.querySelectorAll("a[href], button")].filter((el) => !el.closest("body > nav") && el.getClientRects().length && /(^|\s)bg-zinc-50(\s|$)/.test(el.className) && !/^skip to/i.test(el.textContent.trim())).map((el) => el.textContent.trim()),
     );
+    // The skip link is off-screen until focused; the D44 rule (one solid primary per view) excludes it the same way.
     check("D49: Rerun is the only solid primary button on the page", solid.length === 1 && solid[0] === "Rerun", solid.join(" | "));
     const links = page.locator("nav[aria-label='Checks at a glance'] a");
     const n = await links.count();
-    const rows = await page.locator("section[aria-labelledby=findings] ol > li").count();
+    const rows = await page.locator("section[aria-labelledby=findings] li[id^='finding-']").count();
     check("D49: Checks at a glance has one link per finding row", n === rows && n > 0, `${n} links, ${rows} rows`);
     await links.last().focus();
     await page.keyboard.press("Enter");
@@ -197,7 +209,42 @@ for (const rm of ["reduce", "no-preference"]) {
   await context.close();
 }
 
-// 5. Live mode in a short desktop window: the editor column scrolls, and the key field stays reachable and visible.
+// 5. The run row pinned to the bottom of the editor column: always visible, never covering a focused control.
+for (const mode of ["simulated", "live"]) {
+  const { page, context } = await open(1280, 640);
+  if (mode === "live") await page.locator("input[name=response-source][value=live]").check();
+  await page.locator("#findings").evaluate((e) => e.scrollIntoView());
+  await page.waitForTimeout(100);
+  const row = await page.locator("section[aria-labelledby=edit] button:text-is('Rerun')").evaluate((b) => {
+    const r = b.parentElement.getBoundingClientRect();
+    const a = b.closest("section").getBoundingClientRect();
+    return { rowTop: r.top, rowBottom: r.bottom, asideBottom: a.bottom, pos: getComputedStyle(b.parentElement).position };
+  });
+  check(`D49 1280×640 ${mode}: the run row is pinned to the bottom of the editor column and on screen`, row.pos === "sticky" && Math.abs(row.rowBottom - row.asideBottom) <= 2 && row.rowBottom <= 640, JSON.stringify(row));
+  await page.locator("#lab-instruction").focus();
+  const covered = [];
+  let n = 0;
+  for (let i = 0; i < 25; i++) {
+    await page.keyboard.press("Tab");
+    const info = await page.evaluate(() => {
+      const el = document.activeElement;
+      const aside = document.querySelector("section[aria-labelledby=edit]");
+      if (!el || !aside.contains(el)) return null;
+      const rerun = [...aside.querySelectorAll("button")].find((b) => b.textContent.trim() === "Rerun");
+      const rowEl = rerun.parentElement;
+      if (rowEl.contains(el)) return { inRow: true };
+      const r = el.getBoundingClientRect();
+      return { inRow: false, bottom: r.bottom, rowTop: rowEl.getBoundingClientRect().top, name: (el.textContent || el.id).trim().slice(0, 30) };
+    });
+    if (!info) break;
+    n += 1;
+    if (!info.inRow && info.bottom > info.rowTop + 0.5) covered.push(`${info.name} (${Math.round(info.bottom)} > ${Math.round(info.rowTop)})`);
+  }
+  check(`D49 1280×640 ${mode}: tabbing through the editor column (${n} stops), no control is under the pinned run row`, n >= 6 && covered.length === 0, covered.join(" | "));
+  await context.close();
+}
+
+// 6. Live mode in a short desktop window: the editor column scrolls, and the key field stays reachable and visible.
 {
   const { page, context } = await open(1280, 640);
   await page.locator("input[name=response-source][value=live]").check();

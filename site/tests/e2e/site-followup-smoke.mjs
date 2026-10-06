@@ -7,7 +7,7 @@
 //
 // Optional:
 //   MATRIX_OUT=/path/out.json      write the simulated UI result matrix (F3) to a file
-//   MATRIX_EXPECT=/path/in.json    compare against a matrix (default: tests/e2e/fixtures/sim-ui-matrix-b47d487.json)
+//   MATRIX_EXPECT=/path/in.json    compare against a matrix (default: tests/e2e/fixtures/sim-ui-matrix-d49.json)
 //   SKIP_MATRIX=1                  skip the 480-run simulated sweep
 //   ONLY=F1,F3                     run only these sections
 //
@@ -34,7 +34,7 @@ const LAB = `${ORIGIN}/lab`;
 const EVIDENCE = process.env.EVIDENCE_DIR ?? "/tmp/site-followup-evidence";
 const AXE_PATH = process.env.AXE_PATH;
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(",")) : null;
-const MATRIX_EXPECT = process.env.MATRIX_EXPECT ?? new URL("./fixtures/sim-ui-matrix-b47d487.json", import.meta.url).pathname;
+const MATRIX_EXPECT = process.env.MATRIX_EXPECT ?? new URL("./fixtures/sim-ui-matrix-d49.json", import.meta.url).pathname;
 mkdirSync(EVIDENCE, { recursive: true });
 const want = (k) => !ONLY || ONLY.has(k);
 

@@ -72,7 +72,14 @@ describe("D49 workbench layout", () => {
     const editClass = /<section aria-labelledby="edit" class="([^"]*)"/.exec(html)![1];
     // Sticky below the 4 rem site bar (it ends at 68 px), never taller than the viewport, and scrollable
     // (it holds focusable controls, so the scroll region is keyboard reachable: WCAG 2.1.1).
-    for (const c of ["lg:sticky", "lg:top-20", "lg:max-h-[calc(100dvh-6rem)]", "lg:overflow-y-auto", "@container"]) expect(editClass.split(" ")).toContain(c);
+    for (const c of ["lg:sticky", "lg:top-20", "lg:max-h-[calc(100dvh-6rem)]", "lg:overflow-y-auto", "lg:scroll-pb-40", "@container"]) expect(editClass.split(" ")).toContain(c);
+  });
+
+  it("pins the run row to the bottom of the editor column on desktop, with Rerun first and the status line in it", async () => {
+    const html = renderToStaticMarkup(<LabClient baselineRuns={await baselines()} />);
+    const row = /<div class="([^"]*lg:sticky lg:bottom-0[^"]*)"><button[^>]*>Rerun<\/button>[\s\S]*?role="status"/.exec(html);
+    expect(row).not.toBeNull();
+    for (const c of ["lg:bg-zinc-950", "lg:border-t", "lg:z-10"]) expect(row![1].split(" ")).toContain(c);
   });
 
   it("makes Rerun the page's one solid primary action", async () => {
