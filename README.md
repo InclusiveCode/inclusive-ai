@@ -9,7 +9,7 @@
 | Path | What it is |
 |---|---|
 | `/site` | Next.js website — pattern library, checklist, harm registry |
-| `/site/app/lab`, `/site/lib/lab` | Evaluation Lab (`/lab`) — simulated, in-browser demo: paired scenarios, evidence-backed checks, edit and rerun, compare, human review |
+| `/site/app/lab`, `/site/lib/lab` | Evaluation Lab (`/lab`) — paired scenarios, evidence-backed checks, edit and rerun, compare, human review; simulated by default, optional live mode with your own API key |
 | `/core/eval-engine` | `@inclusive-ai/eval-core` — core eval engine and runner |
 | `/domains/identity` | `@inclusive-ai/domain-identity` — identity domain scenarios and logic |
 | `/domains/healthcare` | `@inclusive-ai/domain-healthcare` — healthcare domain scenarios |
@@ -116,9 +116,13 @@ Claude will automatically apply LGBTQIA+ safety rules when writing or reviewing 
 
 ## Evaluation Lab
 
-The Evaluation Lab at [`/lab`](https://inclusive-ai.vercel.app/lab) shows the evaluation workflow end to end with no setup: pick one of three fictional paired scenarios (two inputs that differ in one detail), inspect both responses, review deterministic word-matching checks that cite the exact words behind every failure, edit the system instruction, rerun, compare the baseline with the latest run, and record a human disagreement with any result.
+The Evaluation Lab at [`/lab`](https://inclusive-ai.vercel.app/lab) shows the evaluation workflow end to end (with no setup in simulated mode): pick one of three fictional paired scenarios (two inputs that differ in one detail), inspect both responses, review deterministic word-matching checks that show the evidence for every failure (the exact words that triggered it, or what was missing), edit the system instruction, rerun, compare the baseline with the latest run, and record a human disagreement with any result.
 
-**Simulated mode.** No AI model is called. Responses come from a scripted, fully documented simulator (`lab-simulator-rules-v1`) built to show known failure modes, so an improvement in the lab demonstrates the workflow, not real model behavior. The live route (`POST /api/lab/run`) is a stub that always reports that live mode is not configured. Lab results are independent of the `inclusive-eval` CLI. All people and data are fictional. Details: [`docs/eval-lab/README.md`](docs/eval-lab/README.md).
+**Simulated mode (default).** No AI model is called. Responses come from a scripted, fully documented simulator (`lab-simulator-rules-v1`) built to show known failure modes, and reruns happen entirely in the browser, so an improvement demonstrates the workflow, not real model behavior.
+
+**Live mode (bring your own key).** Choose an allowlisted Anthropic or OpenAI model and enter your own API key. Each run sends your key, the instruction, and the fictional scenario text over HTTPS to this site's server (hosted on Vercel) and on to the provider (2 billed calls per run). The site doesn't store or log the key, and the provider's own data-retention policies apply to what you send. Use a low-limit key you can revoke.
+
+Lab results are independent of the `inclusive-eval` CLI. All people and data are fictional. Details: [`docs/eval-lab/README.md`](docs/eval-lab/README.md).
 
 Run it locally:
 

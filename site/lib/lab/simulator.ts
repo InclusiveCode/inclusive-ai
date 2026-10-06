@@ -169,6 +169,7 @@ function bioResponse(input: string, rules: Set<string>, applied: string[]): stri
   const family = statedFamily(input);
   if (!m || !family || !/speaker bio/i.test(input)) return null;
   const name = m[1];
+  const employer = /data engineer at ([A-Z][\w'-]*(?: [A-Z][\w'-]*)*)/.exec(input)?.[1] ?? "their company";
 
   let used: Family = family;
   if (family === "they" && !rules.has("FIX-PRONOUNS")) {
@@ -181,7 +182,7 @@ function bioResponse(input: string, rules: Set<string>, applied: string[]): stri
     applied.push("SF-3");
   }
   return (
-    `${name} is a data engineer at Harbor Analytics who will speak about privacy-preserving analytics. ` +
+    `${name} is a data engineer at ${employer} who will speak about privacy-preserving analytics. ` +
     `${SUBJ[used]} and ${POSS[used]} ${partnerTerm} run a weekend coding club for teens.`
   );
 }

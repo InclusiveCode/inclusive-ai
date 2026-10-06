@@ -1,11 +1,13 @@
 // Keyboard-only smoke test for /lab (independent verification; not run in CI).
 //
 // Usage:
-//   cd site && npm run build && npx next start -p 3100 &
-//   LAB_URL=http://localhost:3100/lab EVIDENCE_DIR=/path/to/screenshots node tests/e2e/lab-keyboard-smoke.mjs
+//   cd site && npm run build && npx next start -p 3921 &
+//   LAB_URL=http://localhost:3921/lab EVIDENCE_DIR=/path/to/screenshots node tests/e2e/lab-keyboard-smoke.mjs
 //
 // Requires Playwright 1.56.1 (global install is fine) and a Chromium in PLAYWRIGHT_BROWSERS_PATH.
 // Every interaction uses the keyboard only (Tab, Shift+Tab, Space, Enter, arrows, Escape, typing).
+// Live mode (section 8) never reaches a provider: every /api/lab/run request is answered by a test double,
+// and the key is an obviously fake placeholder. Detailed live-mode checks are in lab-live-smoke.mjs.
 import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -22,7 +24,7 @@ function loadPlaywright() {
 }
 const { chromium } = loadPlaywright();
 
-const URL = process.env.LAB_URL ?? "http://localhost:3100/lab";
+const URL = process.env.LAB_URL ?? "http://localhost:3921/lab";
 const EVIDENCE = process.env.EVIDENCE_DIR ?? "/tmp/lab-evidence";
 mkdirSync(EVIDENCE, { recursive: true });
 
@@ -370,32 +372,79 @@ await step("fault injection", async () => {
   check("REQ13 Home key resets the fault select to None", (await page.locator("#lab-fault").inputValue()) === "none");
 });
 
-// ---------- 8. Live mode -> unavailable; incompatible comparison refused ----------
+// ---------- 8. Live mode with a test double (replaces the stub-era "live mode -> unavailable" section) ----------
+const FAKE_KEY = "sk-ant-test-VerifierFakeKeyNotRealAbcdefghij";
 await step("live mode", async () => {
+  const api = [];
+  let reply = null;
+  const okReply = (body) => {
+    const fixed = String(body?.instruction ?? "").includes("Apply identical verification requirements");
+    const b = fixed
+      ? "Happy to help! To add your husband, Jordan Lee, as an authorized user, sign in and open Authorized users."
+      : "To add your partner, Jordan Lee, as an authorized user, please send a marriage certificate and a government-issued photo ID.";
+    const a = "Happy to help! To add your wife, Jordan Lee, as an authorized user, sign in and open Authorized users.";
+    return { status: "ok", text: body?.variant === "b" ? b : a, returnedModel: "claude-haiku-4-5-20251001", stopReason: "end_turn", durationMs: 900 };
+  };
+  await page.route("**/api/lab/run", async (route) => {
+    let body = null;
+    try {
+      body = JSON.parse(route.request().postData() ?? "");
+    } catch {}
+    api.push({ body, auth: route.request().headers().authorization ?? null });
+    const r = reply ? reply(body) : { delay: 100, json: okReply(body) };
+    if (r.hang) return;
+    if (r.delay) await new Promise((res) => setTimeout(res, r.delay));
+    if (r.abort) return route.abort("failed").catch(() => {});
+    await route.fulfill({ status: r.status ?? 200, contentType: "application/json", body: JSON.stringify(r.json) }).catch(() => {});
+  });
+  const labAlerts = () => page.evaluate(() => [...document.querySelectorAll("section[aria-labelledby=edit] [role=alert]")].map((a) => a.textContent.trim()));
+
   await tabUntil("response source radio", isRadio, "response-source", { back: true });
   await page.keyboard.press("ArrowDown");
   const f = await focusInfo();
   check("REQ2 ArrowDown selects Live", f.value === "live" && f.checked === true, JSON.stringify(f));
-  const st = await rerunViaKeyboard();
-  const alert = await page.locator("[role=alert]").first().innerText().catch(() => "");
-  check("ALERT credentials_unavailable text", alert.trim() === "Live mode unavailable on this deployment — this is not an evaluation result.", alert);
+
+  // L1: no key -> inline error, focus to the key field, no request.
+  await tabUntil("Run baseline live button", isButtonWithText, "Run baseline live");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+  let fk = await focusInfo();
+  const keyErr = await page.locator("#lab-live-key-error").innerText().catch(() => "");
+  check("L1 keyboard: no key -> inline alert", keyErr === "Enter your API key to run live.", keyErr);
+  check("L1 keyboard: focus moves to the key field", fk.id === "lab-live-key", JSON.stringify(fk));
+  check("L1 keyboard: no request sent", api.length === 0, String(api.length));
+
+  // Type the key (focus is already in the field) and run the baseline live.
+  await page.keyboard.type(FAKE_KEY);
+  check("L1 typing clears the inline error", (await page.locator("#lab-live-key-error").count()) === 0);
+  await tabUntil("Run baseline live button", isButtonWithText, "Run baseline live");
+  await page.keyboard.press("Enter");
+  runN += 1;
+  await waitStatus(runN);
+  check("L3 two requests, key only in the Authorization header", api.length === 2 && api.every((r) => r.auth === `Bearer ${FAKE_KEY}` && !JSON.stringify(r.body).includes(FAKE_KEY)), String(api.length));
+  check("L3 'Run baseline live' sends the unedited baseline instruction", api.every((r) => String(r.body?.instruction).startsWith("You are the customer support assistant") && !String(r.body?.instruction).includes("Apply identical verification")));
+  const banner = await page.locator("[role=note]").first().innerText();
+  check("L6 live banner names the provider and the returned model, with the single-sample disclaimer", banner.startsWith("Live run: responses from Anthropic claude-haiku-4-5-20251001.") && banner.includes("One sample per run"), banner);
   const inspect = await page.locator("section[aria-labelledby=inspect]").innerText();
-  check("REQ8 live: both versions show 'Credentials unavailable — not evaluated'", (inspect.match(/Credentials unavailable — not evaluated/g) ?? []).length >= 2);
-  check("REQ1 live run labeled 'Live (unavailable)' and not 'Simulated response'", inspect.includes("Live (unavailable)") && !inspect.includes("Simulated response"));
-  check("REQ9 live: headline is not a pass", (await headline()) !== "All displayed checks passed", await headline());
-  const cmp = await compareText();
-  check("REQ6 simulated baseline vs live run is refused", cmp.includes("Not comparable: mode differs") && parseSummary(cmp) === null, cmp.slice(0, 160));
+  check("REQ1/L6 live run labeled Live and not 'Simulated response'", /Mode\s+Live/.test(inspect) && !inspect.includes("Simulated response"));
+  check("L2 live baseline only -> 'Live baseline only — edit and rerun'", (await compareText()).includes("Live baseline only — edit and rerun"));
+
+  // Rerun with the edited instruction (FIX-VERIFY and FIX-TERMS are still in the editor) -> comparable pair.
+  api.length = 0;
+  await tabUntil("Rerun button", isButtonWithText, "Rerun", { back: true });
+  await page.keyboard.press("Enter");
+  runN += 1;
+  const st = await waitStatus(runN);
+  check("L3 Rerun sends the edited instruction", api.length === 2 && api.every((r) => String(r.body?.instruction).includes("Apply identical verification")), String(api.length));
+  const cmp = parseSummary(await compareText());
+  check("L2 live baseline + live rerun compare (improvements, no regressions)", !!cmp && cmp.improved > 0 && cmp.regressed === 0, JSON.stringify(cmp));
+  check("L2 the comparison uses a live baseline, never the simulated one", !/Mode\s+Simulated/.test(await compareText()));
   check("REQ13 status announces live completion", st.includes("complete"), st);
   await page.locator("section[aria-labelledby=compare]").scrollIntoViewIfNeeded();
-  await page.screenshot({ path: join(EVIDENCE, "04-live-unavailable-comparison-refused.png") });
+  await page.screenshot({ path: join(EVIDENCE, "04-live-double-comparison.png") });
 
-  // D2: loading state during a slow live response.
-  await page.route("**/api/lab/run", async (route) => {
-    await new Promise((r) => setTimeout(r, 2500));
-    try {
-      await route.continue();
-    } catch {}
-  });
+  // D2: loading state during a slow live response; focus moves to Cancel and comes back.
+  reply = (body) => ({ delay: 2500, json: okReply(body) });
   await tabUntil("Rerun button", isButtonWithText, "Rerun", { back: true });
   await page.keyboard.press("Enter");
   runN += 1;
@@ -407,72 +456,75 @@ await step("live mode", async () => {
         disabled: btn?.disabled ?? null,
         sectionBusy: document.querySelector("section[aria-labelledby=edit]")?.getAttribute("aria-busy") ?? null,
         anyBusy: document.querySelectorAll("[aria-busy=true]").length,
-        status: document.querySelector("[role=status]")?.textContent ?? "",
-        statusLive: document.querySelector("[role=status]")?.getAttribute("aria-live") ?? null,
-        alerts: [...document.querySelectorAll("[role=alert]")].map((a) => a.textContent),
+        status: [...document.querySelectorAll("[role=status]")].map((s) => s.textContent ?? "").join("|"),
+        alerts: [...document.querySelectorAll("section[aria-labelledby=edit] [role=alert]")].map((a) => a.textContent),
+        active: (document.activeElement?.textContent ?? "").trim(),
         activeIsRerun: document.activeElement === btn,
-        active: document.activeElement?.tagName ?? null,
       };
     });
   const during = await snap();
   check("D2 Rerun is disabled while the live run is in flight", during.disabled === true, JSON.stringify(during));
   check("D2 aria-busy=true is set while in flight", during.sectionBusy === "true" && during.anyBusy > 0, JSON.stringify(during));
-  check("D2 'Running…' is announced in the polite status region", during.status === "Running…" && during.statusLive === "polite", during.status);
-  check("D2 the previous run's alert is cleared while in flight", during.alerts.length === 0, JSON.stringify(during.alerts));
-  await page.keyboard.press("Enter"); // a second press during the run must not start another run
+  check("D2 'Running…' is announced in the polite status region", during.status.includes("Running…"), during.status);
+  check("D2 no stale alert while in flight", during.alerts.length === 0, JSON.stringify(during.alerts));
+  check("FIX keyboard focus is on Cancel while the live run is in flight", during.active === "Cancel", during.active);
   await waitStatus(runN);
   await page.waitForTimeout(300);
   const after = await snap();
   check("D2 Rerun is re-enabled afterwards", after.disabled === false, JSON.stringify(after));
   check("D2 aria-busy is removed afterwards", after.sectionBusy === null && after.anyBusy === 0, JSON.stringify(after));
-  check("D2 completion is announced afterwards", after.status === `Run ${runN} complete: Incomplete — not a pass`, after.status);
-  check("D2 keyboard focus is restored to Rerun afterwards", after.activeIsRerun === true, after.active);
-  check("D2 the credentials alert is shown again afterwards", after.alerts.length === 1 && after.alerts[0].includes("Live mode unavailable on this deployment"), JSON.stringify(after.alerts));
-  await page.waitForTimeout(3000);
-  check("D2 a second Enter during the run did not start an extra run", !(await statusText()).includes(`Run ${runN + 1}`), await statusText());
-  await page.unroute("**/api/lab/run");
+  check("FIX keyboard focus returns to Rerun (the control that started the run)", after.activeIsRerun === true, after.active);
+
+  // Cancel by keyboard: focus is on Cancel during the run; Enter cancels both calls.
+  reply = () => ({ hang: true });
+  await page.keyboard.press("Enter"); // focus is on Rerun
+  runN += 1;
+  await page.waitForFunction(() => (document.activeElement?.textContent ?? "").trim() === "Cancel", null, { timeout: 5000 });
+  await page.keyboard.press("Enter");
+  await waitStatus(runN);
+  check("L8 keyboard Cancel -> 'Live request cancelled — not evaluated'", (await labAlerts()).join("|") === "Live request cancelled — not evaluated", JSON.stringify(await labAlerts()));
+  check("L8 keyboard focus returns to Rerun after Cancel", (await focusInfo()).text === "Rerun", JSON.stringify(await focusInfo()));
 
   // Network failure -> model error (distinct from credentials).
-  await page.route("**/api/lab/run", (route) => route.abort("failed"));
+  reply = () => ({ abort: true });
   await page.keyboard.press("Enter");
   runN += 1;
   await waitStatus(runN);
   const inspect2 = await page.locator("section[aria-labelledby=inspect]").innerText();
   check("REQ8 live network failure shows 'Model error — not evaluated'", inspect2.includes("Model error — not evaluated"));
-  const alert2 = await page.locator("[role=alert]").first().innerText().catch(() => "");
-  check("ALERT network error text", alert2.trim() === "Live request failed — not evaluated", alert2);
-  await page.unroute("**/api/lab/run");
+  check("ALERT network error text", (await labAlerts()).join("|") === "Live request failed — not evaluated (Could not reach the lab server)", JSON.stringify(await labAlerts()));
 
-  // Timeout -> timed out (live responder aborts after 15 s).
-  await page.route("**/api/lab/run", async (route) => {
-    await new Promise((r) => setTimeout(r, 17000));
-    try {
-      await route.continue();
-    } catch {}
-  });
+  // Provider timeout (server side) -> timed out.
+  reply = () => ({ json: { status: "timeout", durationMs: 30000 } });
   await page.keyboard.press("Enter");
   runN += 1;
-  await page.waitForTimeout(1000);
-  const midTimeout = await snap();
-  check("D2 loading state persists during a long (timeout) request", midTimeout.disabled === true && midTimeout.status === "Running…", JSON.stringify(midTimeout));
   await waitStatus(runN);
   const inspect3 = await page.locator("section[aria-labelledby=inspect]").innerText();
   check("REQ8 live timeout shows 'Timed out — not evaluated'", inspect3.includes("Timed out — not evaluated"));
-  const alert3 = await page.locator("[role=alert]").first().innerText().catch(() => "");
-  check("ALERT timeout text", alert3.trim() === "Live request timed out — not evaluated", alert3);
+  check("ALERT timeout text", (await labAlerts()).join("|") === "Live request timed out — not evaluated", JSON.stringify(await labAlerts()));
+  check("REQ9 live timeout: headline is not a pass", (await headline()) !== "All displayed checks passed", await headline());
+
+  // Provider rejected the key -> credentials unavailable.
+  reply = () => ({ json: { status: "credentials_unavailable", error: "The provider rejected the API key", durationMs: 5 } });
+  await page.keyboard.press("Enter");
+  runN += 1;
+  await waitStatus(runN);
+  check("ALERT credentials text", (await labAlerts()).join("|") === "Credentials unavailable — not evaluated (The provider rejected the API key)", JSON.stringify(await labAlerts()));
+  check("REQ8 live: both versions show 'Credentials unavailable — not evaluated'", ((await page.locator("section[aria-labelledby=inspect]").innerText()).match(/Credentials unavailable — not evaluated/g) ?? []).length >= 2);
   await page.unroute("**/api/lab/run");
 
-  // Back to simulated: the live alert is cleared.
+  // Back to simulated: the live alert is cleared and the key is gone.
   await tabUntil("response source radio", isRadio, "response-source", { back: true });
   await page.keyboard.press("ArrowUp");
+  check("L4 switching to simulated removes the key field", (await page.locator("#lab-live-key").count()) === 0);
   await rerunViaKeyboard();
   // Scope to the lab (Playwright locators also pierce the framework's shadow-DOM route announcer, which has role=alert).
   const remaining = await page.evaluate(() => ({
     lab: [...document.querySelectorAll("section[aria-labelledby=edit] [role=alert]")].map((a) => a.textContent),
     docWide: [...document.querySelectorAll("[role=alert]")].map((a) => a.textContent),
-    announcer: !!document.querySelector("next-route-announcer"),
   }));
   check("ALERT cleared after a simulated run", remaining.lab.length === 0 && remaining.docWide.length === 0, JSON.stringify(remaining));
+  check("L6 simulated run -> simulated banner again", (await page.locator("[role=note]").first().innerText()).startsWith("Simulated demo — no AI model is called"));
 });
 
 // ---------- 9. Download review log ----------
@@ -499,8 +551,8 @@ observe(`Focused control kinds sampled: ${kinds.join(", ")}`);
 const resourceErrors = consoleErrors.filter((m) => /Failed to load resource|net::ERR_/i.test(m));
 const jsConsoleErrors = consoleErrors.filter((m) => !resourceErrors.includes(m));
 check("REQ13 no uncaught page errors", pageErrors.length === 0, pageErrors.join(" | "));
-check("REQ13 no JS console errors (network 503/aborts excluded)", jsConsoleErrors.length === 0, jsConsoleErrors.join(" | "));
-observe(`Network console errors (expected from 503 stub / injected aborts): ${resourceErrors.length}`);
+check("REQ13 no JS console errors (network aborts from the test double excluded)", jsConsoleErrors.length === 0, jsConsoleErrors.join(" | "));
+observe(`Network console errors (expected from injected aborts): ${resourceErrors.length}`);
 check("REQ11 no dialogs during the whole session", dialogs.length === 0, dialogs.join(" | "));
 
 await browser.close();

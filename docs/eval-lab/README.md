@@ -1,10 +1,15 @@
 # Evaluation Lab
 
-The Evaluation Lab (`/lab` on the site) is an in-browser demo of a paired-scenario evaluation workflow for LGBTQIA+-specific harms. A reviewer picks a scenario, inspects two responses whose inputs differ in exactly one detail, reviews evidence-backed findings, edits the system instruction, reruns, compares runs, and records a human disagreement.
+The Evaluation Lab (`/lab` on the site) demonstrates a paired-scenario evaluation workflow for LGBTQIA+-specific harms. A reviewer picks a scenario, inspects two responses whose inputs differ in exactly one detail, reviews evidence-backed findings, edits the system instruction, reruns, compares runs, and records a human disagreement.
 
-**v1 is a simulated demo.** No AI model is called. Responses come from a scripted simulator (`lab-simulator-rules-v1`). The live route is a stub. All people, organizations, and data are fictional. Lab results are independent of the `inclusive-eval` CLI, which uses a different runner, rubric, and system-message placement; results are not expected to match.
+It has two response sources:
 
-Design spec: [`docs/superpowers/specs/2026-10-05-evaluation-lab-design.md`](../superpowers/specs/2026-10-05-evaluation-lab-design.md).
+- **Simulated (default).** No AI model is called. Responses come from a scripted simulator (`lab-simulator-rules-v1`), and reruns happen entirely in the browser. An improvement here demonstrates the workflow, not real model behavior.
+- **Live (bring your own key).** The visitor picks an allowlisted Anthropic or OpenAI model and enters their own API key. Each run sends the instruction and the fictional scenario text to this site's server, which forwards them to the provider. See [Live mode](#live-mode).
+
+All people, organizations, and data are fictional. Lab results are independent of the `inclusive-eval` CLI, which uses a different runner, rubric, and system-message placement; results are not expected to match.
+
+Design specs: [`2026-10-05-evaluation-lab-design.md`](../superpowers/specs/2026-10-05-evaluation-lab-design.md) and [`2026-10-05-evaluation-lab-live-mode-design.md`](../superpowers/specs/2026-10-05-evaluation-lab-live-mode-design.md). Firewall setup (section 1), environment rules (section 2), and the real-provider smoke checklist (section 3): [`vercel-firewall.md`](vercel-firewall.md).
 
 ## Run and test
 
@@ -12,7 +17,7 @@ Design spec: [`docs/superpowers/specs/2026-10-05-evaluation-lab-design.md`](../s
 cd site
 npm install
 npm run dev      # http://localhost:3000/lab
-npm test         # Vitest unit tests for site/lib/lab and the lab UI
+npm test         # Vitest unit tests for site/lib/lab, the live route, and the lab UI (no network, placeholder keys only)
 npx tsc --noEmit
 npm run build
 ```
@@ -23,7 +28,7 @@ CI runs `npm test` and `npm run build` in the `site` job.
 
 ```
 site/
-  lib/lab/                 framework-free TypeScript (relative imports, no config needed for Vitest)
+  lib/lab/                 framework-free TypeScript (relative imports)
     types.ts               Run, CheckResult, Evidence, ResponseRecord, Override, ...
     fingerprint.ts         FNV-1a 32-bit "fingerprint" of the instruction (not a cryptographic hash)
     text.ts                case-insensitive whole-word matching, anchored matching, span merging
@@ -32,16 +37,25 @@ site/
     render.ts              renders Version A / Version B inputs from one template
     evaluate.ts            evaluate → validateResults → scenarioVerdict
     simulator.ts           snippet rules, failure modes, simulate(), simulatedResponder
-    run.ts                 runScenario(), makeLiveResponder(), LIVE_CONFIG
-    compare.ts             compareRuns()
+    run.ts                 runScenario(), normalizeResponse(), makeLiveResponder(), liveConfig()
+    models.ts              live model allowlist, PROVIDER_LABEL, LIVE_RESPONDER_VERSION
+    live-key.ts            the key rule shared by client and server (format pattern, provider prefix, messages)
+    live-messages.ts       the fixed messages a live result may carry (server and client)
+    history.ts             live baseline selection and empty comparison states
+    compare.ts             compareRuns(), returnedModels()
+    server/providers.ts    server-only provider adapters (official SDKs, per-request clients)
+    server/handler.ts      server-only request validation: createHandler(deps), OPTIONS, fixed 405
+    server/env-guard.ts    the only lab module that reads the environment (*_CUSTOM_HEADERS fail-closed check)
     overrides.ts           createOverride(), countsAfterReview(), reviewLogJson()
     __tests__/             Vitest suites (unit, UI via renderToStaticMarkup, source hygiene)
   app/lab/
     page.tsx               server page; precomputes the baseline runs (fixed IDs and timestamp)
     lab-client.tsx         the one client component that drives the workflow
     highlight.tsx          HighlightedText: <mark> segments built from text slices
-    components/            status badges, run details, findings + override form, comparison, reference tables
-  app/api/lab/run/route.ts live-mode stub: always 503 credentials_unavailable
+    components/            banner, live panel, status badges, run details, findings + override form, comparison, reference tables
+  app/api/lab/run/route.ts POST = createHandler({ clients: realClients }), Node runtime, maxDuration 60
+  next.config.ts           site-wide security headers, including one CSP with connect-src 'self'
+  vitest.config.ts         aliases `server-only` to an empty module under Vitest
 ```
 
 Data flow for a run:
@@ -114,21 +128,89 @@ The simulator is a pure function of `(instruction, renderedInput)`. It never see
 
 OVER-NEUTRAL also turns every spouse term into "partner", which produces a regression in the spouse scenario. An edit that matches no rule leaves the simulated output unchanged, and the page says so.
 
+## Live mode
+
+Live mode runs the same scenarios against a real model with the visitor's own API key (decisions D21, D22, D26). The deterministic evaluator is unchanged, and live text is rendered as inert text.
+
+### Models
+
+The allowlist is server-owned in `site/lib/lab/models.ts`. `responderVersion` is `live-adapter-v1`; it is bumped whenever per-model parameters change.
+
+| Provider | Model id | Temperature | Thinking | max_tokens |
+|---|---|---|---|---|
+| Anthropic | `claude-haiku-4-5` | `0` | none | 1024 |
+| Anthropic | `claude-sonnet-5-5` | omitted (non-default values are rejected) | `thinking: { type: "between_tools" }` (thinking off) | 1024 |
+| OpenAI | `gpt-4o-mini` | `0` | none | 1024 |
+| OpenAI | `gpt-4.1-mini` | `0` | none | 1024 |
+
+There is no automatic fallback to another model when a provider declines, because that would silently change the model being evaluated. Claude Opus 5.5 and OpenAI reasoning models are deferred.
+
+### Key handling
+
+- The key field is an uncontrolled password input outside any form, with `autocomplete="off"` and attributes that discourage password managers (this does not prevent capture). The key is read from the field only when a run starts.
+- The key is never placed in React state or props, a run object, the review log, a URL, browser storage, cookies, logs, or any message. It is sent only in the `Authorization: Bearer` header of `POST /api/lab/run`, over HTTPS on the deployed site.
+- On the server, the key goes from the header into the SDK constructor for that request only. Clients are created per request with an explicit `baseURL`, `maxRetries: 0`, a 30 s timeout, logging off, and no auth token, organization, project, or admin key read from the environment. The SDKs would still merge `ANTHROPIC_CUSTOM_HEADERS` / `OPENAI_CUSTOM_HEADERS` from the environment into every request, and no constructor option prevents that, so live mode refuses to build a client or call any provider while either variable is set (`site/lib/lab/server/env-guard.ts`, the only lab module that reads the environment).
+- The field is cleared by **Clear key**, when the provider is switched (announced in the polite status region: "Key cleared — enter your {provider} key"; focus stays on the provider select), on `pagehide` (which also covers the back/forward cache), and when the live panel unmounts (switching to simulated mode). A reload leaves it empty.
+- Before any request, the client trims the key and applies the server's rule from `site/lib/lab/live-key.ts`: 20–256 characters of letters, digits, hyphens, and underscores, with an `sk-ant-` prefix exactly when Anthropic is selected (decision D35). A missing key, a malformed key (internal whitespace, non-ASCII such as U+200B, wrong length), or a key for the other provider blocks the run without any request: an inline error with a correction hint appears and focus moves to the key field.
+- A run is also blocked, without any request, when the instruction contains the key. The server repeats the format, provider-match, and key-in-instruction checks before any SDK call.
+
+What the page tells users: this site doesn't store or log the key; it is sent over HTTPS to this site's server (hosted on Vercel) and on to the provider for each run, and isn't kept after the request. The instruction and the fictional scenario text also go through this site's server to the provider, and the provider's own data-retention policies apply to them. The key stays in the field until it is cleared, the provider is switched, the page switches to simulated mode, reloads, or is left. Each run makes 2 billed calls, and cancelling stops waiting but may not stop calls already sent.
+
+### Route checks and results
+
+`POST /api/lab/run` (`site/lib/lab/server/handler.ts`) checks each request before any outbound call and answers with fixed JSON and `Cache-Control: no-store`:
+
+| Check | Response |
+|---|---|
+| OPTIONS | 204 with `Allow: POST, OPTIONS`, `no-store`, and no `Access-Control-*` headers (no CORS grant) |
+| GET, HEAD, PUT, PATCH, or DELETE | 405 fixed JSON with `Allow: POST, OPTIONS` (`no-store` is also set in `next.config.ts`) |
+| Content type is not `application/json` | 415 |
+| Body over 32 768 bytes (declared or measured; sized so a valid 4000-character instruction always fits, even when every character is a control character that JSON escapes as `\uXXXX`, 6 bytes each) | 413 |
+| Body is not JSON | 400 |
+| Unknown scenario, bad variant, instruction over 4000 characters, or model not allowlisted | 400 |
+| `scenarioVersion` does not match the server | 409 |
+| `Authorization` is not `Bearer` + 20–256 characters of `[A-Za-z0-9_-]` | 400 "Missing or malformed API key — keys are 20–256 characters long and contain only letters, numbers, hyphens and underscores, with no spaces" |
+| The key is well formed but does not match the selected provider (an `sk-ant-` key only goes to Anthropic) | 400 "This key does not match the selected provider — check the provider or paste that provider's key" (D35) |
+| The instruction contains the key | 400 "Your instruction contains your API key — remove it before running" |
+
+The server renders the scenario input itself; the client never sends input text. Provider outcomes map by SDK error class and status/code, never by message text, and each status has its own fixed message, the same for both providers (decision D40):
+
+| Condition | Status | Message |
+|---|---|---|
+| Normal completion | `ok` | — |
+| `max_tokens` / `length` | `model_error` | Response cut off at the token limit — not evaluated |
+| Anthropic `refusal`, OpenAI `refusal` or `content_filter` | `provider_refused` | The provider declined to answer (safety system) — not evaluated |
+| 401 | `credentials_unavailable` | The provider rejected the API key |
+| 403 | `credentials_unavailable` | The provider denied this key access — check the account's permissions or region |
+| 404 | `model_error` | This model isn't available to the account behind this key |
+| 402 (Anthropic `billing_error`; neither SDK has a class for it) | `model_error` | The provider reports a billing problem on this account — check credits or payment |
+| 400 | `model_error` | The provider rejected the request |
+| 429 `insufficient_quota` | `model_error` | The provider account has no remaining quota |
+| Other 429 | `model_error` | Rate limited by the provider |
+| Timeout or abort | `timeout` | — |
+| Anything else | `model_error` | Provider unavailable |
+
+The client waits 45 s per call (longer than the server's 30 s), runs both versions concurrently, and has a **Cancel** button. A 4xx reply shows the route's own fixed request-check message when it carries one (for example "Unknown scenario" or "Missing or malformed API key — keys are 20–256 characters long and contain only letters, numbers, hyphens and underscores, with no spaces"); otherwise each status code has its own fixed fallback (405 and 415 included). The client never shows server or provider text outside the allowlist in `live-messages.ts`.
+
+When exactly one version of a live run is `provider_refused` and the other version completed (`ok`), the page shows an unscored, pair-level note near the findings headline (decision D34): "Only Version {X} was declined by the provider's safety system (one sample). This asymmetry may itself be the harm under test." The affected checks stay `not_evaluated`, the headline stays "Incomplete — not a pass", and the note is not added to the review-log export.
+
+### Comparison
+
+Runs are kept per scenario for the session. For a live run, the baseline is the most recent fully-ok run of the unedited baseline instruction that `compareRuns` accepts. **Run baseline live** always runs that unedited instruction, whatever is in the box; **Rerun** runs the box. When no compatible baseline exists, a fully-ok run of the unedited instruction whose versions A and B report the same model id becomes the baseline for its model and settings: section 5 shows "Live baseline only — edit and rerun". It is never compared with another model's baseline. If its A and B model ids differ or one is missing, it never becomes a baseline. Section 5 shows that reason ("Versions A and B were answered by different model versions" or "Version B did not return a model id, so the model version is unknown"), next to a usable baseline of the same model when one exists. An edited run with no baseline for its model and settings is refused with the reason "config differs (provider, model, temperature, or max tokens) — click “Run baseline live” with this model first." When a baseline of the same model and settings exists but is not comparable (for example, a different returned model version), that one is preferred so the reason names the real difference. The run metadata shows each run's rubric version. Live comparisons are refused when a version did not complete ("Version B did not complete (timed out) — rerun to compare"), when a run's versions report different (or no) model ids, or when the two runs were answered by different model versions. A one-sided provider refusal (the other version `ok`) is not comparable either, and the reason points at the D34 note under “3. Review findings” instead of suggesting a rerun. If the other version also failed for another reason, both are named and the rerun hint stays. Rows from two runs with the same instruction are labelled "run-to-run variation (same instruction)". Live and simulated runs never compare.
+
+### Abuse controls
+
+The route can be used to test whether a key is valid, and it proxies to two fixed hosts. Controls: a Vercel Firewall rate-limit rule (D27, see [`vercel-firewall.md`](vercel-firewall.md)), no CORS headers, a JSON content type and `Authorization` header (which force a CORS preflight), and a site-wide `Content-Security-Policy` with `connect-src 'self'`. It is site-wide rather than `/lab`-only so it still applies after client-side navigation into `/lab`. Nothing in the site connects cross-origin from the browser: the only client request is the lab's same-origin `POST /api/lab/run`, and there are no analytics or third-party scripts.
+
 ## Limitations
 
-- Each run is a single sample.
+- Each run is a single sample; differences between live runs can be nondeterministic.
 - Word matching does not resolve who a word refers to; wording outside the lexicons is missed. Absence of the listed terms does not prove nothing was disclosed.
+- The checks were designed against scripted text. Real model output may phrase refusals and relationship terms in ways the word lists miss, so expect more "inconclusive" results and occasional false findings.
 - In the spouse scenario, the spouse's gender changes together with same-sex vs different-sex, so one pair cannot separate those effects.
-- Simulated responses are scripted; an improvement demonstrates the workflow, not real assistant behavior.
-- Live mode is not configured; the route always returns `credentials_unavailable`.
+- Simulated responses are scripted; an improvement there demonstrates the workflow, not real assistant behavior.
 - Overrides live only in memory for the current tab.
 
-## Future work: adding a live adapter
+## Out of scope
 
-Not part of v1. **Update:** live mode is being designed as bring-your-own-key (spec decisions D21–D22): the user's own Anthropic or OpenAI key is held only in page memory and sent per request to the server route, which forwards it to the provider and never stores, logs, or echoes it. That supersedes the server-side-credentials approach in step 1 below. The rest of this list still applies. A live adapter would:
-
-1. Implement the provider call on the server inside `site/app/api/lab/run/route.ts` (or a server-only module it imports). ~~Read credentials from server-side environment variables only.~~ (Superseded by D21: the key comes from the user per request and must never be stored, logged, or echoed.) No server-side secret or env-var name may reach the client bundle; keep the existing `.next/static` grep check in review.
-2. Accept only `{ scenarioId, instruction }` from the client, look up the scenario on the server, render the inputs with `renderInputs`, and send the instruction as the system message and each input as an independent user message with a fixed server-side config (temperature, max tokens).
-3. Return a `ResponseRecord` per version, mapping provider failures to `model_error` or `timeout` with fixed messages (never raw error text), and never log request bodies.
-4. Extend `makeLiveResponder` to accept an `ok` response, and give live runs their own `responderVersion` and `RunConfig`, so `compareRuns` keeps refusing simulated-vs-live comparisons.
-5. Add rate limiting and an access control decision before deploying, and update the page banner and limitations to describe live mode honestly.
+Claude Opus 5.5 and OpenAI reasoning models, a server-owned key, re-importing recorded runs, multiple samples per run, an LLM judge, and user-configurable base URLs.

@@ -3,7 +3,7 @@ import { latestOverrides } from "../../../lib/lab/overrides";
 import type { Scenario } from "../../../lib/lab/scenarios";
 import type { Override, Run } from "../../../lib/lab/types";
 import { RunMeta } from "./run-details";
-import { StatusBadge, statusLabel, variantLabel } from "./status";
+import { FOCUS, StatusBadge, statusLabel, variantLabel } from "./status";
 
 const CLASS_TEXT: Record<RowClass, { icon: string; label: string; color: string }> = {
   improved: { icon: "↑", label: "Improved", color: "text-emerald-300" },
@@ -11,6 +11,26 @@ const CLASS_TEXT: Record<RowClass, { icon: string; label: string; color: string 
   unchanged: { icon: "=", label: "Unchanged", color: "text-zinc-300" },
   inconclusive: { icon: "?", label: "Inconclusive", color: "text-amber-300" },
 };
+
+/** The refusal box, for two runs that cannot be compared or a latest run that cannot be compared at all. */
+function NotComparableNote({ reason }: { reason: string }) {
+  return (
+    <div className="rounded-lg border border-zinc-600 p-4 text-zinc-300">
+      <p className="font-semibold text-zinc-100">Not comparable: {reason}</p>
+      <p>This is not an evaluation result.</p>
+    </div>
+  );
+}
+
+/** A latest live run that cannot serve as a baseline or be compared (its A and B model ids differ or one is missing). */
+export function LatestNotComparable({ latest, reason }: { latest: Run; reason: string }) {
+  return (
+    <div className="space-y-3">
+      <NotComparableNote reason={reason} />
+      <RunMeta run={latest} title="Latest run" />
+    </div>
+  );
+}
 
 export function CompareView({
   scenario,
@@ -36,10 +56,7 @@ export function CompareView({
   if (!c.compatible) {
     return (
       <div className="space-y-3">
-        <div className="rounded-lg border border-zinc-600 p-4 text-zinc-300">
-          <p className="font-semibold text-zinc-100">Not comparable: {c.reason}</p>
-          <p>This is not an evaluation result.</p>
-        </div>
+        <NotComparableNote reason={c.reason} />
         {metas}
       </div>
     );
@@ -60,7 +77,7 @@ export function CompareView({
         Classification uses the automated results only. Each run is a single sample. A pass means only that the displayed checks passed.
       </p>
       {metas}
-      <div className="overflow-x-auto rounded-lg border border-zinc-800">
+      <div tabIndex={0} role="region" aria-label="Comparison table" className={`overflow-x-auto rounded-lg border border-zinc-800 ${FOCUS}`}>
         <table className="w-full text-left text-sm">
           <caption className="px-4 py-2 text-left text-sm text-zinc-400">
             Per-check comparison of the baseline run and the latest run. Human review notes are shown but never change the classification.
@@ -98,6 +115,7 @@ export function CompareView({
                   <td className={`px-4 py-2 font-medium ${cls.color}`}>
                     <span aria-hidden="true">{cls.icon} </span>
                     {cls.label}
+                    {r.variation && <span className="block font-normal text-zinc-400">run-to-run variation (same instruction)</span>}
                   </td>
                   <td className="px-4 py-2 text-zinc-300">{notes.length > 0 ? notes.join("; ") : "—"}</td>
                 </tr>

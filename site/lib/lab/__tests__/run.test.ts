@@ -1,9 +1,22 @@
-import { describe, expect, it } from "vitest";
-import { POST } from "../../../app/api/lab/run/route";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { scenarioVerdict } from "../evaluate";
 import { fingerprint } from "../fingerprint";
 import { renderInputs } from "../render";
-import { LIVE_CONFIG, makeLiveResponder, runScenario, type Responder, type RunOptions } from "../run";
+import { findModel, LIVE_MODELS, LIVE_RESPONDER_VERSION } from "../models";
+import { reviewLogJson, createOverride } from "../overrides";
+import {
+  LIVE_CLIENT_TIMEOUT_MS,
+  liveConfig,
+  makeLiveResponder,
+  normalizeResponse,
+  runScenario,
+  type LiveKeyRef,
+  type Responder,
+  type RunOptions,
+} from "../run";
+import { liveAlertText } from "../../../app/lab/components/status";
+import { createHandler } from "../server/handler";
+import { SERVER_TIMEOUT_MS } from "../server/providers";
 import { checksHash, getScenario, RUBRIC_VERSION, scenarios, type Scenario } from "../scenarios";
 import { SIMULATED_CONFIG, SIMULATOR_VERSION, simulatedResponder, SNIPPET_RULES } from "../simulator";
 import type { CheckResult, FaultKind, ResponseRecord, Run, RunConfig } from "../types";
@@ -191,6 +204,39 @@ describe("responder call arguments", () => {
     expect(run.responses.a).toEqual({ status: "ok", text: "Hi", durationMs: 5, rulesMatched: ["FIX-TERMS"] });
   });
 
+  it("keeps returnedModel and stopReason only when each is a string of at most 100 characters", () => {
+    expect(normalizeResponse({ status: "ok", text: "x", durationMs: 1, returnedModel: "claude-haiku-4-5-20251001", stopReason: "end_turn" })).toEqual({
+      status: "ok",
+      text: "x",
+      durationMs: 1,
+      returnedModel: "claude-haiku-4-5-20251001",
+      stopReason: "end_turn",
+    });
+    const long = "m".repeat(101);
+    for (const bad of [long, 42, null, { id: "x" }, ""]) {
+      const r = normalizeResponse({ status: "ok", text: "x", durationMs: 1, returnedModel: bad, stopReason: bad });
+      expect(r.returnedModel).toBeUndefined();
+      expect(r.stopReason).toBeUndefined();
+    }
+    expect(normalizeResponse({ status: "ok", durationMs: 0, returnedModel: "m".repeat(100) }).returnedModel).toHaveLength(100);
+  });
+
+  it("accepts the provider_refused status", () => {
+    expect(normalizeResponse({ status: "provider_refused", durationMs: 3, error: "declined" }).status).toBe("provider_refused");
+  });
+
+  it("a provider refusal is not evaluated and never reads as a pass", async () => {
+    const { b } = renderInputs(S1);
+    const responder: Responder = async (req) =>
+      req.input === b ? { status: "provider_refused", durationMs: 0, error: "declined" } : simulatedResponder(req);
+    const run = await runScenario(S1, [snippet("FIX-VERIFY"), snippet("FIX-TERMS")].join("\n"), responder, SIMULATED_CONFIG, opts());
+    expect(run.responses.b.status).toBe("provider_refused");
+    const affected = run.results.filter((r) => r.variant !== "a");
+    expect(affected.every((r) => r.status === "not_evaluated")).toBe(true);
+    expect(affected.every((r) => /provider declined/i.test(r.rationale))).toBe(true);
+    expect(scenarioVerdict(run.results).headline).toBe("Incomplete — not a pass");
+  });
+
   it("a responder that throws yields a model error, never a pass", async () => {
     const run = await runScenario(
       S1,
@@ -274,66 +320,359 @@ describe("AC6: fault injection", () => {
   });
 });
 
-describe("makeLiveResponder", () => {
-  const req = { instruction: "Be kind.", input: "hello", config: LIVE_CONFIG };
+describe("makeLiveResponder (live client)", () => {
+  // Placeholder keys only; Anthropic keys start with sk-ant-.
+  const KEY = "sk-ant-test-PLACEHOLDER-0000000000";
+  const OPENAI_KEY = "sk-test-PLACEHOLDER-0000000000";
+  const HAIKU = findModel("anthropic", "claude-haiku-4-5")!;
+  const keyRef = (k: string | null = KEY): LiveKeyRef => ({ get: () => k });
+  const inputs = renderInputs(S1);
+  const req = (input = inputs.b, instruction = "Be kind.") => ({ instruction, input, config: liveConfig(HAIKU) });
 
-  it("posts the scenario id and instruction to the stub route", async () => {
-    let seen: { url: string; init?: RequestInit } | undefined;
-    const fetchImpl = (async (url: string, init?: RequestInit) => {
-      seen = { url, init };
-      return Response.json({ status: "credentials_unavailable" }, { status: 503 });
+  interface Call {
+    url: string;
+    init: RequestInit;
+  }
+  function fetchReturning(make: () => Response | Promise<Response>): { fetchImpl: typeof fetch; calls: Call[] } {
+    const calls: Call[] = [];
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return make();
     }) as unknown as typeof fetch;
-    const r = await makeLiveResponder("spouse-parity", fetchImpl)(req);
-    expect(r.status).toBe("credentials_unavailable");
-    expect(seen?.url).toBe("/api/lab/run");
-    expect(seen?.init?.method).toBe("POST");
-    expect(JSON.parse(String(seen?.init?.body))).toEqual({ scenarioId: "spouse-parity", instruction: "Be kind." });
+    return { fetchImpl, calls };
+  }
+  const okBody = { status: "ok", text: "Happy to help.", returnedModel: "claude-haiku-4-5-20251001", stopReason: "end_turn", durationMs: 812 };
+  const responder = (fetchImpl: typeof fetch, extra: Partial<Parameters<typeof makeLiveResponder>[0]> = {}) =>
+    makeLiveResponder({ scenario: S1, provider: "anthropic", model: HAIKU, key: keyRef(), fetchImpl, ...extra });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it("maps an abort to timeout", async () => {
-    const fetchImpl = ((_url: string, init?: RequestInit) =>
+  it("sends the key only in the Authorization header and the fields in the JSON body", async () => {
+    const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
+    await responder(fetchImpl)(req());
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe("/api/lab/run");
+    expect(calls[0].init.method).toBe("POST");
+    const headers = new Headers(calls[0].init.headers);
+    expect(headers.get("authorization")).toBe(`Bearer ${KEY}`);
+    expect(headers.get("content-type")).toBe("application/json");
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({
+      scenarioId: "spouse-parity",
+      scenarioVersion: "1",
+      variant: "b",
+      instruction: "Be kind.",
+      provider: "anthropic",
+      model: "claude-haiku-4-5",
+    });
+    expect(String(calls[0].init.body)).not.toContain("PLACEHOLDER");
+    expect(calls[0].url).not.toContain("PLACEHOLDER");
+  });
+
+  it("derives the variant from the rendered input", async () => {
+    const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
+    await responder(fetchImpl)(req(inputs.a));
+    expect(JSON.parse(String(calls[0].init.body)).variant).toBe("a");
+  });
+
+  it("refuses an input that does not match the scenario, without fetching", async () => {
+    const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
+    const r = await responder(fetchImpl)(req("Some other input"));
+    expect(r).toMatchObject({ status: "model_error", error: "Input does not match the scenario" });
+    expect(calls).toEqual([]);
+  });
+
+  it("maps a 200 to the normalized provider result, without simulator fields", async () => {
+    const { fetchImpl } = fetchReturning(() => Response.json({ ...okBody, rulesMatched: ["FIX-TERMS"], failureModesApplied: ["SF-1"] }));
+    const r = await responder(fetchImpl)(req());
+    expect(r).toEqual({ status: "ok", text: "Happy to help.", returnedModel: "claude-haiku-4-5-20251001", stopReason: "end_turn", durationMs: 812 });
+  });
+
+  it("keeps a provider refusal as provider_refused (not collapsed to model_error)", async () => {
+    const refused = { status: "provider_refused", error: "The provider declined to answer (safety system) — not evaluated", returnedModel: "claude-sonnet-5-5", stopReason: "refusal", durationMs: 5 };
+    const r = await responder(fetchReturning(() => Response.json(refused)).fetchImpl)(req());
+    expect(r).toEqual(refused);
+  });
+
+  it("keeps only allowlisted fixed messages from a 200 result", async () => {
+    const known = await responder(fetchReturning(() => Response.json({ status: "credentials_unavailable", error: "The provider rejected the API key", durationMs: 1 })).fetchImpl)(req());
+    expect(known).toMatchObject({ status: "credentials_unavailable", error: "The provider rejected the API key" });
+    const unknown = await responder(fetchReturning(() => Response.json({ status: "model_error", error: "raw upstream text", durationMs: 1 })).fetchImpl)(req());
+    expect(unknown).toMatchObject({ status: "model_error", error: "Provider unavailable" });
+    const bad = await responder(fetchReturning(() => Response.json({ status: "pass", text: "x" })).fetchImpl)(req());
+    expect(bad.status).toBe("model_error");
+  });
+
+  it("D40: shows each provider-status message from a 200 result, and the page alert names it", async () => {
+    const shown: Array<[string, string]> = [
+      ["credentials_unavailable", "The provider denied this key access — check the account's permissions or region"],
+      ["model_error", "This model isn't available to the account behind this key"],
+      ["model_error", "The provider reports a billing problem on this account — check credits or payment"],
+      ["model_error", "The provider rejected the request"],
+    ];
+    for (const [status, error] of shown) {
+      const r = await responder(fetchReturning(() => Response.json({ status, error, durationMs: 1 })).fetchImpl)(req());
+      expect(r).toMatchObject({ status, error });
+      const alert = liveAlertText({ responses: { a: r, b: r } })!;
+      expect(alert).toContain(`(${error})`);
+      // The alert wraps the message in parentheses, so the message itself has none.
+      expect(error).not.toMatch(/[()]/);
+    }
+    // A suffixed type, extra provider text, or the pre-D40 text is replaced by the status fallback.
+    for (const error of ["The provider rejected the request (invalid_request_error)", "The provider rejected the request (overloaded_error)", "The provider rejected the request — model: x", "The provider rejected the model or request"]) {
+      const r = await responder(fetchReturning(() => Response.json({ status: "model_error", error, durationMs: 1 })).fetchImpl)(req());
+      expect(r, error).toMatchObject({ status: "model_error", error: "Provider unavailable" });
+    }
+  });
+
+  it("without a usable server message, maps each 4xx to its own fixed message by status code", async () => {
+    const cases: Array<[number, string]> = [
+      [400, "The lab server rejected the request"],
+      [405, "The lab server only accepts POST requests"],
+      [409, "This page is out of date — reload it and try again"],
+      [413, "The request was too large"],
+      [415, "The lab server only accepts JSON requests"],
+      [429, "Too many live requests — wait a minute and try again"],
+    ];
+    for (const [code, message] of cases) {
+      for (const body of [{ status: "model_error", message: "SERVER SAYS SOMETHING" }, { status: "model_error" }, "not json"]) {
+        const make = () => (typeof body === "string" ? new Response(body, { status: code }) : Response.json(body, { status: code }));
+        const r = await responder(fetchReturning(make).fetchImpl)(req());
+        expect(r, `${code} ${JSON.stringify(body)}`).toMatchObject({ status: "model_error", error: message });
+        expect(JSON.stringify(r)).not.toContain("SERVER SAYS");
+      }
+    }
+    expect(new Set(cases.map(([, m]) => m)).size).toBe(cases.length);
+    const plain = await responder(fetchReturning(() => new Response("Too Many Requests", { status: 429 })).fetchImpl)(req());
+    expect(plain).toMatchObject({ status: "model_error", error: "Too many live requests — wait a minute and try again" });
+  });
+
+  it("shows the route's own fixed message for each request-check failure, distinctly on the page", async () => {
+    const { clients } = (() => {
+      const reply = { content: [{ type: "text", text: "ok" }], model: "claude-haiku-4-5-20251001", stop_reason: "end_turn" };
+      return {
+        clients: {
+          anthropic: () => ({ messages: { create: async () => reply as never } }),
+          openai: () => ({ chat: { completions: { create: async () => ({ model: "m", choices: [] }) as never } } }),
+        },
+      };
+    })();
+    const handler = createHandler({ clients });
+    /** Sends the client's request to the real handler after one tweak. */
+    const via = (tweak: (init: RequestInit) => RequestInit): typeof fetch =>
+      (async (url: string, init: RequestInit) => handler(new Request(`http://localhost${url}`, tweak({ ...init, signal: undefined })))) as unknown as typeof fetch;
+    const withBody = (init: RequestInit, patch: Record<string, unknown>) => ({ ...init, body: JSON.stringify({ ...JSON.parse(String(init.body)), ...patch }) });
+    const withAuth = (init: RequestInit, value: string) => ({ ...init, headers: { ...(init.headers as Record<string, string>), authorization: value } });
+    const cases: Array<[string, (init: RequestInit) => RequestInit, string]> = [
+      ["405", (i) => ({ ...i, method: "GET", body: undefined }), "Method not allowed"],
+      ["415", (i) => ({ ...i, headers: { ...(i.headers as Record<string, string>), "content-type": "text/plain" } }), "Content type must be application/json"],
+      ["400 unknown scenario", (i) => withBody(i, { scenarioId: "nope" }), "Unknown scenario"],
+      ["400 key format", (i) => withAuth(i, "Bearer short"), "Missing or malformed API key — keys are 20–256 characters long and contain only letters, numbers, hyphens and underscores, with no spaces"],
+      ["400 key/provider mismatch", (i) => withAuth(i, `Bearer ${OPENAI_KEY}`), "This key does not match the selected provider — check the provider or paste that provider's key"],
+      ["409", (i) => withBody(i, { scenarioVersion: "0" }), "Scenario version mismatch — reload the page"],
+    ];
+    const onPage: string[] = [];
+    for (const [name, tweak, message] of cases) {
+      const r = await responder(via(tweak))(req());
+      expect(r, name).toMatchObject({ status: "model_error", error: message });
+      const alert = liveAlertText({ responses: { a: r, b: r } });
+      expect(alert, name).toBe(`Live request failed — not evaluated (${message})`);
+      onPage.push(alert!);
+    }
+    expect(new Set(onPage).size).toBe(cases.length);
+  });
+
+  it("maps 5xx and non-JSON bodies to a lab-server failure", async () => {
+    const r1 = await responder(fetchReturning(() => Response.json({ status: "model_error", message: "Internal error" }, { status: 500 })).fetchImpl)(req());
+    expect(r1).toMatchObject({ status: "model_error", error: "The lab server failed to handle the request" });
+    const r2 = await responder(fetchReturning(() => new Response("<html>", { status: 200 })).fetchImpl)(req());
+    expect(r2).toMatchObject({ status: "model_error", error: "The lab server failed to handle the request" });
+  });
+
+  it("maps a network error to 'Could not reach the lab server'", async () => {
+    const fetchImpl = (async () => {
+      throw new TypeError(`fetch failed for ${KEY}`);
+    }) as unknown as typeof fetch;
+    const r = await responder(fetchImpl)(req());
+    expect(r).toMatchObject({ status: "model_error", error: "Could not reach the lab server" });
+    expect(JSON.stringify(r)).not.toContain("PLACEHOLDER");
+  });
+
+  function hanging(): { fetchImpl: typeof fetch; signals: AbortSignal[] } {
+    const signals: AbortSignal[] = [];
+    const fetchImpl = ((_url: string, init: RequestInit) =>
       new Promise((_resolve, reject) => {
-        init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        const signal = init.signal!;
+        signals.push(signal);
+        signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
       })) as unknown as typeof fetch;
-    const r = await makeLiveResponder("spouse-parity", fetchImpl, 5)(req);
+    return { fetchImpl, signals };
+  }
+
+  /** Headers arrive, then the body read hangs until the request is aborted. */
+  function hangingBody(): typeof fetch {
+    return (async (_url: string, init: RequestInit) => ({
+      status: 200,
+      json: () =>
+        new Promise((_resolve, reject) => {
+          init.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    })) as unknown as typeof fetch;
+  }
+
+  it("Cancel while the response body is still being read reports 'Cancelled'", async () => {
+    const ac = new AbortController();
+    const pending = responder(hangingBody(), { signal: ac.signal })(req());
+    await new Promise((r) => setTimeout(r, 5));
+    ac.abort();
+    expect(await pending).toMatchObject({ status: "not_run", error: "Cancelled" });
+  });
+
+  it("Cancel while a 4xx body is still being read reports 'Cancelled', not a rejection", async () => {
+    const ac = new AbortController();
+    const fetchImpl = (async (_url: string, init: RequestInit) => ({
+      status: 400,
+      json: () =>
+        new Promise((_resolve, reject) => {
+          init.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    })) as unknown as typeof fetch;
+    const pending = responder(fetchImpl, { signal: ac.signal })(req());
+    await new Promise((r) => setTimeout(r, 5));
+    ac.abort();
+    expect(await pending).toMatchObject({ status: "not_run", error: "Cancelled" });
+  });
+
+  it("a timeout while the response body is still being read reports a timeout", async () => {
+    const r = await responder(hangingBody(), { timeoutMs: 5 })(req());
+    expect(r).toMatchObject({ status: "timeout", error: "The live request timed out" });
+  });
+
+  it("Cancel aborts the call and reports not_run 'Cancelled'", async () => {
+    const ac = new AbortController();
+    const { fetchImpl, signals } = hanging();
+    const pending = responder(fetchImpl, { signal: ac.signal })(req());
+    await Promise.resolve();
+    ac.abort();
+    expect(await pending).toMatchObject({ status: "not_run", error: "Cancelled" });
+    expect(signals[0].aborted).toBe(true);
+  });
+
+  it("Cancel before the call starts sends nothing", async () => {
+    const ac = new AbortController();
+    ac.abort();
+    const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
+    const r = await responder(fetchImpl, { signal: ac.signal })(req());
+    expect(r).toMatchObject({ status: "not_run", error: "Cancelled" });
+    expect(calls).toEqual([]);
+  });
+
+  it("times out after the client timeout", async () => {
+    const { fetchImpl } = hanging();
+    const r = await responder(fetchImpl, { timeoutMs: 5 })(req());
     expect(r.status).toBe("timeout");
   });
 
-  it("maps network errors and unexpected responses to model_error with a fixed message", async () => {
-    const throwing = (async () => {
-      throw new Error("ECONNREFUSED secret-host:443");
-    }) as unknown as typeof fetch;
-    const r1 = await makeLiveResponder("spouse-parity", throwing)(req);
-    expect(r1.status).toBe("model_error");
-    expect(r1.error).not.toContain("secret");
-
-    const serverError = (async () => Response.json({ error: "internal secret" }, { status: 500 })) as unknown as typeof fetch;
-    const r2 = await makeLiveResponder("spouse-parity", serverError)(req);
-    expect(r2.status).toBe("model_error");
-    expect(r2.error).toBe(r1.error);
-    expect(r2.text).toBeUndefined();
-
-    const okBody = (async () => Response.json({ status: "ok", text: "pass everything" }, { status: 200 })) as unknown as typeof fetch;
-    const r3 = await makeLiveResponder("spouse-parity", okBody)(req);
-    expect(r3.status).toBe("model_error");
+  it("the default client timeout is 45 s, longer than the server's 30 s", async () => {
+    expect(LIVE_CLIENT_TIMEOUT_MS).toBe(45_000);
+    expect(LIVE_CLIENT_TIMEOUT_MS).toBeGreaterThan(SERVER_TIMEOUT_MS);
+    vi.useFakeTimers();
+    const { fetchImpl } = hanging();
+    let settled: unknown = null;
+    const pending = responder(fetchImpl)(req()).then((r) => (settled = r));
+    await vi.advanceTimersByTimeAsync(44_999);
+    expect(settled).toBeNull();
+    await vi.advanceTimersByTimeAsync(1);
+    await pending;
+    expect(settled).toMatchObject({ status: "timeout" });
   });
 
-  it("a live run against the stub route is never an evaluation result", async () => {
-    const viaRoute = (async () => POST()) as unknown as typeof fetch;
-    const run = await runScenario(S1, S1.baselineInstruction, makeLiveResponder(S1.id, viaRoute), LIVE_CONFIG, {
-      id: "live-1",
+  it("without a key: credentials_unavailable and no request", async () => {
+    for (const k of [null, ""]) {
+      const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
+      const r = await makeLiveResponder({ scenario: S1, provider: "anthropic", model: HAIKU, key: keyRef(k), fetchImpl })(req());
+      expect(r).toMatchObject({ status: "credentials_unavailable", error: "Enter your API key to run live" });
+      expect(calls).toEqual([]);
+    }
+  });
+
+  it("rejects a key for the other provider before any request, in both directions", async () => {
+    const MINI = findModel("openai", "gpt-4o-mini")!;
+    const cases: Array<[typeof HAIKU, string]> = [
+      [HAIKU, OPENAI_KEY],
+      [MINI, KEY],
+    ];
+    for (const [model, key] of cases) {
+      const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
+      const r = await makeLiveResponder({ scenario: S1, provider: model.provider, model, key: keyRef(key), fetchImpl })(req());
+      expect(r).toMatchObject({ status: "credentials_unavailable", error: "This key does not match the selected provider — check the provider or paste that provider's key" });
+      expect(JSON.stringify(r)).not.toContain("PLACEHOLDER");
+      expect(calls).toEqual([]);
+    }
+  });
+
+  it("rejects a malformed key before any request", async () => {
+    for (const bad of [
+      "sk-ant-test PLACEHOLDER-0000000000",
+      "sk-ant-test-PLACEHOLDER-0000000000\u200B",
+      "sk-ant-tést-PLACEHOLDER-0000000000",
+      "sk-ant-short",
+      `sk-ant-${"a".repeat(260)}`,
+    ]) {
+      const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
+      const r = await responder(fetchImpl, { key: keyRef(bad) })(req());
+      expect(r, JSON.stringify(bad)).toMatchObject({ status: "credentials_unavailable", error: "The API key format is not valid — keys are 20–256 characters long and contain only letters, numbers, hyphens and underscores, with no spaces" });
+      expect(calls).toEqual([]);
+    }
+  });
+
+  it("trims surrounding whitespace before checking and sending the key", async () => {
+    const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
+    const r = await responder(fetchImpl, { key: keyRef(`  ${KEY}\n`) })(req());
+    expect(r.status).toBe("ok");
+    expect(new Headers(calls[0].init.headers).get("authorization")).toBe(`Bearer ${KEY}`);
+  });
+
+  it("blocks an instruction that contains the key, without fetching or echoing it", async () => {
+    const { fetchImpl, calls } = fetchReturning(() => Response.json(okBody));
+    const r = await responder(fetchImpl)(req(inputs.b, `My key is ${KEY}.`));
+    expect(r).toMatchObject({ status: "model_error", error: "Your instruction contains your API key — remove it before running" });
+    expect(JSON.stringify(r)).not.toContain("PLACEHOLDER");
+    expect(calls).toEqual([]);
+  });
+
+  it("runs both variants concurrently and keeps the key out of the run and the review log", async () => {
+    const pending: Array<() => void> = [];
+    const fetchImpl = ((_url: string, init: RequestInit) =>
+      new Promise<Response>((resolve) => {
+        const variant = JSON.parse(String(init.body)).variant;
+        pending.push(() => resolve(Response.json({ ...okBody, text: `Happy to help, your ${variant === "a" ? "wife" : "husband"}, Jordan Lee.` })));
+        if (pending.length === 2) pending.forEach((go) => go());
+      })) as unknown as typeof fetch;
+    const run = await runScenario(S1, S1.baselineInstruction, responder(fetchImpl), liveConfig(HAIKU), {
+      id: "live-run-1",
       createdAt: "2026-10-05T00:00:00.000Z",
       mode: "live",
-      responderVersion: "live-stub-v1",
+      responderVersion: LIVE_RESPONDER_VERSION,
     });
-    const statuses: ResponseRecord["status"][] = [run.responses.a.status, run.responses.b.status];
-    expect(statuses).toEqual(["credentials_unavailable", "credentials_unavailable"]);
-    expect(run.results.every((r) => r.status === "not_evaluated")).toBe(true);
-    expect(scenarioVerdict(run.results).headline).toBe("Incomplete — not a pass");
+    expect(run.responses.a.status).toBe("ok");
+    expect(run.responses.b.status).toBe("ok");
+    const json = JSON.stringify(run);
+    expect(json).not.toContain("PLACEHOLDER");
+    const o = createOverride(run, run.results[0], "pass", "reviewed", "2026-10-05T00:01:00.000Z");
+    if (!o.ok) throw new Error(o.error);
+    expect(reviewLogJson([o.override])).not.toContain("PLACEHOLDER");
   });
+});
 
-  it("LIVE_CONFIG names no provider", () => {
-    const config: RunConfig = LIVE_CONFIG;
-    expect(config).toEqual({ provider: "live provider (not configured)", model: "not configured", temperature: 0, maxTokens: 512 });
+describe("liveConfig", () => {
+  it("derives the run config from the allowlisted model", () => {
+    expect(LIVE_MODELS.map(liveConfig)).toEqual([
+      { provider: "anthropic", model: "claude-haiku-4-5", temperature: 0, maxTokens: 1024 },
+      { provider: "anthropic", model: "claude-sonnet-5-5", temperature: null, maxTokens: 1024 },
+      { provider: "openai", model: "gpt-4o-mini", temperature: 0, maxTokens: 1024 },
+      { provider: "openai", model: "gpt-4.1-mini", temperature: 0, maxTokens: 1024 },
+    ]);
   });
 });

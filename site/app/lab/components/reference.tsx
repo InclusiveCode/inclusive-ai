@@ -1,4 +1,5 @@
 import { FAILURE_MODES, SIMULATOR_VERSION, SNIPPET_RULES } from "../../../lib/lab/simulator";
+import { FOCUS } from "./status";
 
 export function SimulatorRules() {
   return (
@@ -8,7 +9,7 @@ export function SimulatorRules() {
         version labels. A snippet matches only as a whole sentence (case and spacing ignored), so a negated or reworded sentence does not
         match.
       </p>
-      <div className="overflow-x-auto rounded-lg border border-zinc-800">
+      <div tabIndex={0} role="region" aria-label="Simulator snippet rules table" className={`overflow-x-auto rounded-lg border border-zinc-800 ${FOCUS}`}>
         <table className="w-full text-left text-sm">
           <caption className="px-4 py-2 text-left text-sm text-zinc-400">Snippet rules (preset buttons insert these exact sentences)</caption>
           <thead>
@@ -31,7 +32,7 @@ export function SimulatorRules() {
           </tbody>
         </table>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-zinc-800">
+      <div tabIndex={0} role="region" aria-label="Simulator failure modes table" className={`overflow-x-auto rounded-lg border border-zinc-800 ${FOCUS}`}>
         <table className="w-full text-left text-sm">
           <caption className="px-4 py-2 text-left text-sm text-zinc-400">Scripted failure modes (triggered by input content only)</caption>
           <thead>
@@ -66,7 +67,8 @@ export function Limitations() {
     "Checks are word matching. They do not resolve who a word refers to, and wording outside the listed lexicons is missed.",
     "Simulated responses are scripted to demonstrate known failure modes; an improvement here demonstrates the workflow, not real assistant behavior.",
     "Lab results are independent of the inclusive-eval command-line tool, which uses a different runner and rubric; results are not expected to match.",
-    "Live mode is not configured on this deployment; the live route always reports that credentials are unavailable.",
+    "Live mode sends your instruction and the fictional scenario text to the provider you choose, using your own API key, for that run only; each run makes two billed calls, and this site doesn't store or log the key.",
+    "The checks were designed against scripted text. Real model output may phrase refusals and relationship terms in ways the word lists miss, so expect more 'inconclusive' results and occasional false findings.",
     "Human review overrides are kept in memory only and are lost when the tab closes; download the review log to keep them.",
   ];
   return (

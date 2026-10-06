@@ -2,6 +2,7 @@ import { renderInputs } from "../../../lib/lab/render";
 import type { Scenario } from "../../../lib/lab/scenarios";
 import type { Run, Variant } from "../../../lib/lab/types";
 import { HighlightedText } from "../highlight";
+import { providerLabel, returnedModelText } from "./banner";
 import { ModeBadge, RESPONSE_STATUS_TEXT } from "./status";
 
 function na(v: number | null): string {
@@ -18,35 +19,51 @@ export function RunMeta({ run, title }: { run: Run; title?: string }) {
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
       {title && <p className="mb-2 text-sm font-semibold text-zinc-100">{title}</p>}
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[max-content_minmax(0,1fr)]">
         <dt className="text-zinc-400">Mode</dt>
-        <dd>
+        <dd className="min-w-0 break-words">
           <ModeBadge mode={run.mode} />
         </dd>
         <dt className="text-zinc-400">Run ID</dt>
-        <dd className="font-mono text-zinc-300">{run.id}</dd>
+        <dd className="min-w-0 break-all font-mono text-zinc-300">{run.id}</dd>
         <dt className="text-zinc-400">Provider</dt>
-        <dd className="text-zinc-300">{run.config.provider}</dd>
-        <dt className="text-zinc-400">Model</dt>
-        <dd className="font-mono text-zinc-300">{run.config.model}</dd>
+        <dd className="min-w-0 break-words text-zinc-300">{run.mode === "live" ? providerLabel(run.config.provider) : run.config.provider}</dd>
+        <dt className="text-zinc-400">{run.mode === "live" ? "Requested model" : "Model"}</dt>
+        <dd className="min-w-0 break-all font-mono text-zinc-300">{run.config.model}</dd>
+        {run.mode === "live" && (
+          <>
+            <dt className="text-zinc-400">Returned model</dt>
+            <dd className="min-w-0 break-all font-mono text-zinc-300">{returnedModelText(run)}</dd>
+          </>
+        )}
         <dt className="text-zinc-400">Temperature</dt>
-        <dd className="text-zinc-300">{na(run.config.temperature)}</dd>
+        <dd className="min-w-0 break-words text-zinc-300">{na(run.config.temperature)}</dd>
         <dt className="text-zinc-400">Max tokens</dt>
-        <dd className="text-zinc-300">{na(run.config.maxTokens)}</dd>
+        <dd className="min-w-0 break-words text-zinc-300">{na(run.config.maxTokens)}</dd>
+        <dt className="text-zinc-400">Rubric version</dt>
+        <dd className="min-w-0 break-all font-mono text-zinc-300">{run.rubricVersion}</dd>
         <dt className="text-zinc-400">Instruction fingerprint</dt>
-        <dd className="font-mono text-zinc-300">{run.instructionFingerprint}</dd>
+        <dd className="min-w-0 break-all font-mono text-zinc-300">{run.instructionFingerprint}</dd>
         <dt className="text-zinc-400">Created at</dt>
-        <dd className="font-mono text-zinc-300">{run.createdAt}</dd>
+        <dd className="min-w-0 break-all font-mono text-zinc-300">{run.createdAt}</dd>
+        {run.mode === "live" && (
+          <>
+            <dt className="text-zinc-400">Duration</dt>
+            <dd className="min-w-0 break-words text-zinc-300">
+              A: {run.responses.a.durationMs} ms; B: {run.responses.b.durationMs} ms
+            </dd>
+          </>
+        )}
         {run.mode === "simulated" && (
           <>
             <dt className="text-zinc-400">Simulator rules matched</dt>
-            <dd className="text-zinc-300">{list(rules)}</dd>
+            <dd className="min-w-0 break-words text-zinc-300">{list(rules)}</dd>
             <dt className="text-zinc-400">Failure modes applied</dt>
-            <dd className="text-zinc-300">
+            <dd className="min-w-0 break-words text-zinc-300">
               A: {list(run.responses.a.failureModesApplied)}; B: {list(run.responses.b.failureModesApplied)}
             </dd>
             <dt className="text-zinc-400">Fault injected</dt>
-            <dd className="text-zinc-300">{run.faultInjected ?? "none"}</dd>
+            <dd className="min-w-0 break-words text-zinc-300">{run.faultInjected ?? "none"}</dd>
           </>
         )}
       </dl>

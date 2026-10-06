@@ -169,8 +169,9 @@ export default function ToolsPage() {
       <div className="mb-12 p-6 border border-zinc-800 rounded-xl bg-zinc-900/50">
         <h2 className="text-xl font-bold mb-2">Evaluation Lab</h2>
         <p className="text-zinc-400 mb-4">
-          Try the workflow in your browser: inspect paired LGBTQIA+ scenarios, see evidence-backed findings, edit the
-          system instruction, rerun, and compare. Simulated demo with fictional data; no setup needed.
+          Inspect paired LGBTQIA+ scenarios, see evidence-backed findings, edit the system instruction, rerun, and compare.
+          Simulated mode runs in your browser with fictional data and no setup. Optional live mode sends your instruction and
+          the fictional scenario text to this site&apos;s server and the provider you choose, using your own API key.
         </p>
         <Link
           href="/lab"

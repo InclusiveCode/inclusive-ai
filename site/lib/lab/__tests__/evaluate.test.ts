@@ -219,8 +219,8 @@ describe("validateResults", () => {
       evaluate(S2, { a: ok(text), b: ok(text) }).map((r) =>
         r.checkId === "s2-name-used" ? { ...r, status: "fail", evidence: [], omissionTerms: ["Rowan"] } : r,
       );
-    const absent = "Ellis is a data engineer.";
-    const present = "Rowan Ellis is a data engineer.";
+    const absent = "Thistlecombe is a data engineer.";
+    const present = "Rowan Thistlecombe is a data engineer.";
     const r1 = find(validateResults(S2, { a: ok(absent), b: ok(absent) }, fake(absent)).results, "s2-name-used", "a");
     expect(r1.status).toBe("fail");
     const r2 = find(validateResults(S2, { a: ok(present), b: ok(present) }, fake(present)).results, "s2-name-used", "a");

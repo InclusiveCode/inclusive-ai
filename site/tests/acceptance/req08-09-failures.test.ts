@@ -3,15 +3,18 @@
  * REQ 9: failed or missing runs never appear as passes.
  */
 import { describe, expect, it } from "vitest";
-import { POST } from "../../app/api/lab/run/route";
 import { compareRuns } from "../../lib/lab/compare";
 import { scenarioVerdict, validateResults, evaluate } from "../../lib/lab/evaluate";
 import { countsAfterReview } from "../../lib/lab/overrides";
-import { LIVE_CONFIG, LIVE_RESPONDER_VERSION, makeLiveResponder, runScenario, type Responder } from "../../lib/lab/run";
+import Anthropic from "@anthropic-ai/sdk";
+import { CLIENT_MESSAGES, PROVIDER_MESSAGES } from "../../lib/lab/live-messages";
+import { renderInputs } from "../../lib/lab/render";
+import { liveConfig, makeLiveResponder, runScenario, type Responder } from "../../lib/lab/run";
 import { getScenario, type Scenario } from "../../lib/lab/scenarios";
 import { SIMULATED_CONFIG } from "../../lib/lab/simulator";
-import type { CheckResult, FaultKind, Override, Run } from "../../lib/lab/types";
+import type { CheckResult, FaultKind, Override } from "../../lib/lab/types";
 import { ALL_PASS_HEADLINE, FAULTS, fixedResponder, opts, SCENARIO_IDS, simRun, SNIP, withSnippets } from "./helpers";
+import { anthropicReply, FAKE_KEY, fakeClients, HAIKU, leaksKey, liveRun, model } from "./live-helpers";
 
 /** Presets that make every check pass for each scenario under the simulator (verified below). */
 const ALL_PASS_INSTRUCTION: Record<string, string[]> = {
@@ -231,34 +234,75 @@ describe("REQ 8: fault kinds are distinct from each other and from evaluator fai
   });
 });
 
+// The six tests below replace the stub-era versions (live-mode spec v0.2 §6: stub tests are replaced deliberately).
+// The stub route answered every call with 503 credentials_unavailable; the live route now forwards to a provider,
+// so each test pins the new mapping and keeps the original guarantee: every transport failure is a distinct,
+// non-pass status, and no raw server or provider text (or the key) is forwarded.
 describe("REQ 8: live responder maps transport outcomes to distinct, non-pass statuses", () => {
   const s = getScenario("spouse-parity");
-  const call = (f: typeof fetch, timeoutMs?: number) =>
-    makeLiveResponder(s.id, f, timeoutMs)({ instruction: "x", input: "y", config: LIVE_CONFIG });
+  const m = model(HAIKU);
+  const call = (f: typeof fetch, timeoutMs?: number, key: string | null = FAKE_KEY) =>
+    makeLiveResponder({ scenario: s, provider: "anthropic", model: m, key: { get: () => key }, fetchImpl: f, timeoutMs })({
+      instruction: "x",
+      input: renderInputs(s).b,
+      config: liveConfig(m),
+    });
+  const outcomes = new Map<string, string>();
+  const remember = (name: string, rec: { status: string; error?: string }) => outcomes.set(name, `${rec.status}|${rec.error ?? ""}`);
 
-  it("503 credentials_unavailable -> credentials_unavailable", async () => {
-    const f = (async () => Response.json({ status: "credentials_unavailable" }, { status: 503 })) as typeof fetch;
-    expect((await call(f)).status).toBe("credentials_unavailable");
+  it("the provider rejects the key (server result credentials_unavailable) -> credentials_unavailable; no key at all -> credentials_unavailable with no request", async () => {
+    const f = (async () => Response.json({ status: "credentials_unavailable", error: PROVIDER_MESSAGES.badKey, durationMs: 3 })) as typeof fetch;
+    const rec = await call(f);
+    expect(rec).toMatchObject({ status: "credentials_unavailable", error: PROVIDER_MESSAGES.badKey });
+    remember("bad key", rec);
+    let fetched = 0;
+    const counting = (async () => {
+      fetched += 1;
+      return Response.json({ status: "ok", text: "hi", durationMs: 1 });
+    }) as typeof fetch;
+    const none = await call(counting, undefined, null);
+    expect(none).toMatchObject({ status: "credentials_unavailable", error: CLIENT_MESSAGES.noKey });
+    expect(fetched).toBe(0);
+    remember("no key", none);
   });
 
   it("500 -> model_error; raw server error text is not forwarded", async () => {
-    const f = (async () => Response.json({ error: "sk-labcanaryLEAKEDKEY" }, { status: 500 })) as typeof fetch;
+    const f = (async () => Response.json({ error: "sk-labcanaryLEAKEDKEY", message: `key ${FAKE_KEY}` }, { status: 500 })) as typeof fetch;
     const rec = await call(f);
-    expect(rec.status).toBe("model_error");
+    expect(rec).toMatchObject({ status: "model_error", error: CLIENT_MESSAGES.serverFailed });
     expect(JSON.stringify(rec)).not.toContain("LEAKEDKEY");
+    expect(leaksKey(JSON.stringify(rec))).toBe(false);
+    remember("500", rec);
   });
 
-  it("200 with a fabricated ok body is still not treated as an ok response", async () => {
-    const f = (async () => Response.json({ status: "ok", text: "Happy to help, your husband Jordan" }, { status: 200 })) as typeof fetch;
-    const rec = await call(f);
-    expect(rec.status).not.toBe("ok");
+  it("a 200 body that is not a well-formed result is never ok, and an ok body cannot smuggle metadata or unlisted messages", async () => {
+    for (const body of [
+      JSON.stringify({ text: "Happy to help, your husband Jordan" }),
+      JSON.stringify({ status: "pass", text: "Happy to help, your husband Jordan" }),
+      "Happy to help, your husband Jordan",
+    ]) {
+      const f = (async () => new Response(body, { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch;
+      const rec = await call(f);
+      expect(rec.status, body).not.toBe("ok");
+      expect(rec.error).toBe(CLIENT_MESSAGES.serverFailed);
+    }
+    const smuggle = (async () =>
+      Response.json({ status: "ok", text: "Happy to help", error: "sk-labcanaryLEAKEDKEY", rulesMatched: ["FIX-VERIFY"], failureModesApplied: [] })) as typeof fetch;
+    const rec = await call(smuggle);
+    expect(rec.status).toBe("ok");
+    expect(rec.error).toBeUndefined();
+    expect(rec.rulesMatched).toBeUndefined();
+    expect(rec.failureModesApplied).toBeUndefined();
   });
 
   it("network error -> model_error", async () => {
     const f = (async () => {
-      throw new TypeError("fetch failed");
+      throw new TypeError(`fetch failed ${FAKE_KEY}`);
     }) as typeof fetch;
-    expect((await call(f)).status).toBe("model_error");
+    const rec = await call(f);
+    expect(rec).toMatchObject({ status: "model_error", error: CLIENT_MESSAGES.unreachable });
+    expect(leaksKey(JSON.stringify(rec))).toBe(false);
+    remember("network", rec);
   });
 
   it("a hung request -> timeout", async () => {
@@ -267,21 +311,32 @@ describe("REQ 8: live responder maps transport outcomes to distinct, non-pass st
         init?.signal?.addEventListener("abort", () => rej(new DOMException("aborted", "AbortError")));
       })) as typeof fetch;
     const rec = await call(f, 25);
-    expect(rec.status).toBe("timeout");
+    expect(rec).toMatchObject({ status: "timeout", error: CLIENT_MESSAGES.timedOut });
+    remember("timeout", rec);
+    // The provider-side timeout result from the server is also a timeout.
+    const server = (async () => Response.json({ status: "timeout", durationMs: 30_000 })) as typeof fetch;
+    expect((await call(server)).status).toBe("timeout");
   });
 
-  it("end to end against the real stub route: every check is not evaluated and the headline is not a pass", async () => {
-    const viaRoute = (async () => POST()) as unknown as typeof fetch;
-    const run: Run = await runScenario(s, s.baselineInstruction, makeLiveResponder(s.id, viaRoute), LIVE_CONFIG, {
-      id: "live-1",
-      createdAt: "2026-10-05T00:00:00Z",
-      mode: "live",
-      responderVersion: LIVE_RESPONDER_VERSION,
+  it("end to end through the real route handler: a provider that rejects the key leaves every check not evaluated and the headline is not a pass", async () => {
+    // Control: the same chain with a provider that answers is evaluated.
+    const okRun = (await liveRun(s, s.baselineInstruction, HAIKU, fakeClients(() => anthropicReply("Happy to help, Jordan Lee.")).clients)).run;
+    expect(okRun.results.some((r) => r.status !== "not_evaluated")).toBe(true);
+
+    const rejecting = fakeClients(() => {
+      throw Anthropic.APIError.generate(401, { type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } }, "invalid x-api-key", new Headers());
     });
+    const { run } = await liveRun(s, s.baselineInstruction, HAIKU, rejecting.clients, { id: "live-1" });
     expect(run.mode).toBe("live");
     expect(run.responses.a.status).toBe("credentials_unavailable");
     expect(run.responses.b.status).toBe("credentials_unavailable");
+    expect(run.responses.a.error).toBe(PROVIDER_MESSAGES.badKey);
     expect(run.results.every((r) => r.status === "not_evaluated")).toBe(true);
     expect(scenarioVerdict(run.results).headline).not.toBe(ALL_PASS_HEADLINE);
+    expect(leaksKey(JSON.stringify(run))).toBe(false);
+    // Every transport outcome above is distinct from the others and none is ok.
+    expect([...outcomes.values()].every((v) => !v.startsWith("ok|"))).toBe(true);
+    expect(new Set(outcomes.values()).size).toBe(outcomes.size);
+    expect(outcomes.size).toBe(5);
   });
 });

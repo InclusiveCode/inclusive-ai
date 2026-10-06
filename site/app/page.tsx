@@ -21,7 +21,7 @@ const features: Array<{ title: string; description: string; href: string; icon: 
   },
   {
     title: "Evaluation Lab",
-    description: "A simulated, in-browser demo: inspect paired LGBTQIA+ scenarios, edit a system instruction, rerun, and compare what improved or regressed — no setup.",
+    description: "Inspect paired LGBTQIA+ scenarios, edit a system instruction, rerun, and compare what improved or regressed. The simulated demo runs in your browser with no setup; optional live mode uses your own API key.",
     href: "/lab",
     icon: "🧪",
     className: "lg:col-span-2",

@@ -7,7 +7,7 @@ import { LabClient } from "./lab-client";
 export const metadata: Metadata = {
   title: "Evaluation Lab — InclusiveCode",
   description:
-    "Inspect paired synthetic LGBTQIA+ scenarios, review evidence-backed findings, edit the system instruction, rerun, and compare. A simulated demo with fictional data.",
+    "Inspect paired synthetic LGBTQIA+ scenarios, review evidence-backed findings, edit the system instruction, rerun, and compare. Simulated by default with fictional data; optional live mode uses your own API key.",
 };
 
 // Fixed ID and timestamp: nothing time- or random-dependent runs during server render.
