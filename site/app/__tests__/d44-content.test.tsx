@@ -1,7 +1,8 @@
 /**
- * D44 independent verification: shipped content (R1 crisis resources, R2 install commands, R8 no
- * gradient text in the site source). Written from the D44 requirements, not from the
- * implementation. Each check would fail on the pre-D44 tree (1304510).
+ * D44 independent verification: shipped content (R1 crisis resources, R2/R2′/R2″ install and CLI
+ * commands, R8 no gradient text in the site source). Written from the D44 requirements (as revised
+ * after the review of f24607a), not from the implementation. Each check would fail on the pre-D44
+ * tree (1304510).
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
@@ -125,13 +126,59 @@ describe("D44 R1: crisis resources are named correctly in shipped content", () =
 
 // =====================================================================================
 // R2: install commands work in a project that is not a clone of this repo
+// R2′ (review of f24607a): every CLI run brings a provider SDK; R2″: appends start with a newline,
+// the hook goes where git says hooks live, and nothing overwrites CLAUDE.md
 // =====================================================================================
 const SHIPPED = ["site/app", "site/lib", "README.md", "CONTRIBUTING.md", "plugin", "templates", "hooks", ".claude/commands", "core", "packages/eval/src", "packages/adversarial/src", "domains", "action"];
 const UNSCOPED_NPX = /\bnpx\s+(?:(?:-y|--yes)\s+)?inclusive-eval\b/;
+/** `npx @inclusive-ai/eval` runs the CLI without a provider SDK: ERR_MODULE_NOT_FOUND once a key is set. */
+const BARE_SCOPED_NPX = /\bnpx\s+(?:(?:-y|--yes)\s+)?@inclusive-ai\/eval\b/;
+const SDK = String.raw`(?:@anthropic-ai\/sdk|openai)(?:@\S+)?`;
+const EVAL = String.raw`@inclusive-ai\/eval(?:@\S+)?`;
+/** One-off: npx -y -p @inclusive-ai/eval -p <sdk> inclusive-eval … (either -p order). */
+const ONE_OFF = new RegExp(String.raw`\bnpx\s+(?:-y|--yes)\s+(?:-p\s+${EVAL}\s+-p\s+${SDK}|-p\s+${SDK}\s+-p\s+${EVAL})\s+inclusive-eval\b`);
+/** In a project: npx --no-install inclusive-eval …, after installing the suite together with an SDK. */
+const IN_PROJECT = /\bnpx\s+--no-install\s+inclusive-eval\b/;
+const INSTALLS_BOTH = new RegExp(String.raw`\bnpm\s+(?:install|i|add)\b[^\n]*?(?:@inclusive-ai\/eval\b[^\n]*?(?:@anthropic-ai\/sdk|\bopenai\b)|(?:@anthropic-ai\/sdk|\bopenai\b)[^\n]*?@inclusive-ai\/eval\b)`);
 
-describe("D44 R2: install commands", () => {
+/** Shell lines, with continuations joined (a trailing backslash, or a line ending in && or |). */
+const shellLines = (text: string) => text.replace(/\\\n\s*/g, " ").replace(/(&&|\|\||\|)[ \t]*\n\s*/g, "$1 ").split("\n");
+/** Lines that run the eval CLI (comments and prose such as "the `inclusive-eval` CLI" are not runs). */
+const cliRuns = (text: string) =>
+  shellLines(text)
+    .map((l) => l.trim())
+    .filter((l) => !l.startsWith("#") && (/\bnpx\b.*(?:\binclusive-eval\b|@inclusive-ai\/eval\b)/.test(l) || /^(?:[A-Z_]+=\S+\s+)*inclusive-eval\b/.test(l)));
+/** The code in a Markdown file: fenced blocks and inline code spans (prose is not a command). */
+function markdownCode(md: string): string {
+  const fenced = [...md.matchAll(/^```[^\n]*\n([\s\S]*?)^```/gm)].map((m) => m[1]);
+  const inline = [...md.replace(/^```[^\n]*\n[\s\S]*?^```/gm, "").matchAll(/`([^`\n]+)`/g)].map((m) => m[1]);
+  return [...fenced, ...inline].join("\n");
+}
+
+/** The documents R2 covers: /tools (its code blocks), README.md, and every file in plugin/. */
+function r2Documents(): Array<{ name: string; text: string; code: string }> {
+  const readme = read(join(REPO, "README.md"));
+  return [
+    { name: "/tools", text: toolsCode, code: toolsCode },
+    { name: "README.md", text: readme, code: markdownCode(readme) },
+    ...files("plugin").map((f) => ({ name: rel(f), text: read(f), code: /\.md$/.test(f) ? markdownCode(read(f)) : read(f) })),
+  ];
+}
+
+describe("D44 R2′: every eval CLI command brings a provider SDK", () => {
+  const docs = r2Documents();
+
   it("/tools shows its commands in code blocks (the checks below are not vacuous)", () => {
-    expect(toolsBlocks.length).toBeGreaterThanOrEqual(9);
+    expect(toolsBlocks.length).toBeGreaterThanOrEqual(10);
+    expect(docs.map((d) => d.name)).toEqual(expect.arrayContaining(["/tools", "README.md", "plugin/commands/lgbt-red-team.md"]));
+  });
+
+  it("the premise: the published CLI's provider SDKs are optional peer dependencies, so they must be installed with it", () => {
+    const pkg = JSON.parse(read(join(REPO, "packages/eval/package.json")));
+    expect(pkg.name).toBe("@inclusive-ai/eval");
+    expect(Object.keys(pkg.bin ?? {})).toEqual(["inclusive-eval"]);
+    expect(Object.keys(pkg.peerDependencies ?? {})).toEqual(expect.arrayContaining(["@anthropic-ai/sdk", "openai"]));
+    expect(pkg.dependencies?.["@anthropic-ai/sdk"]).toBeUndefined();
   });
 
   it("nothing shipped tells users to run the unscoped `npx inclusive-eval` (that package is not on npm)", () => {
@@ -147,16 +194,56 @@ describe("D44 R2: install commands", () => {
     expect(toolsCode).not.toMatch(UNSCOPED_NPX);
   });
 
-  it("/tools, README.md and plugin/ use `npx @inclusive-ai/eval`", () => {
-    expect(toolsCode).toContain("npx @inclusive-ai/eval");
-    expect(read(join(REPO, "README.md"))).toContain("npx @inclusive-ai/eval");
-    const plugin = files("plugin").filter((f) => read(f).includes("npx @inclusive-ai/eval"));
-    expect(plugin.length, "a plugin/ file that shows the eval CLI").toBeGreaterThan(0);
-    // The scoped package is the one this repo publishes, and it has a single bin, so `npx @inclusive-ai/eval` runs it.
-    const pkg = JSON.parse(read(join(REPO, "packages/eval/package.json")));
-    expect(pkg.name).toBe("@inclusive-ai/eval");
-    expect(Object.keys(pkg.bin ?? {})).toHaveLength(1);
+  it("/tools, README.md and plugin/ never show the bare `npx @inclusive-ai/eval` (it crashes without an SDK)", () => {
+    const bad = docs.flatMap((d) => cliRuns(d.text).filter((l) => BARE_SCOPED_NPX.test(l)).map((l) => `${d.name}: ${l}`));
+    expect(bad, bad.join("\n")).toEqual([]);
   });
+
+  it("no other shipped content shows the bare `npx @inclusive-ai/eval` either (site source, templates, hooks, packages, …)", () => {
+    const bad: string[] = [];
+    for (const f of files(...SHIPPED)) {
+      read(f)
+        .split("\n")
+        .forEach((line, i) => {
+          if (BARE_SCOPED_NPX.test(line)) bad.push(`${rel(f)}:${i + 1} ${line.trim().slice(0, 140)}`);
+        });
+    }
+    expect(bad, bad.join("\n")).toEqual([]);
+  });
+
+  it("every CLI run on /tools, in README.md and in plugin/ is `npx -y -p @inclusive-ai/eval -p <sdk> inclusive-eval …`, or `npx --no-install inclusive-eval …` after installing the suite with an SDK", () => {
+    const bad: string[] = [];
+    let runs = 0;
+    for (const d of docs) {
+      for (const l of cliRuns(d.text)) {
+        runs += 1;
+        if (!(ONE_OFF.test(l) || (IN_PROJECT.test(l) && INSTALLS_BOTH.test(d.code)))) bad.push(`${d.name}: ${l}`);
+      }
+    }
+    expect(runs).toBeGreaterThanOrEqual(10);
+    expect(bad, bad.join("\n")).toEqual([]);
+  });
+
+  it("/tools and README.md offer both forms: a one-off run, and an install of the suite with an SDK", () => {
+    for (const d of docs.filter((x) => x.name === "/tools" || x.name === "README.md")) {
+      expect(cliRuns(d.text).some((l) => ONE_OFF.test(l)), `${d.name}: one-off run`).toBe(true);
+      expect(d.code, `${d.name}: install with an SDK`).toMatch(INSTALLS_BOTH);
+      expect(cliRuns(d.text).some((l) => IN_PROJECT.test(l)), `${d.name}: in-project run`).toBe(true);
+    }
+    expect(cliRuns(docs.filter((d) => d.name.startsWith("plugin/")).map((d) => d.text).join("\n")).length).toBeGreaterThan(0);
+  });
+});
+
+describe("D44 R2‴: /tools shows only flags the published CLI has", () => {
+  it("/tools never mentions --output or --judge (@inclusive-ai/eval@3.3.0 on npm has neither; README.md documents the repo's HEAD and is out of scope)", () => {
+    const page = text(toolsTree);
+    expect(page).toContain("inclusive-eval");
+    expect(page.match(/--(?:output|judge)\b[^\n]{0,40}/g) ?? []).toEqual([]);
+  });
+});
+
+describe("D44 R2: no clone, no overwrite; R2″: appends start with a newline, hooks go where git keeps them", () => {
+  const docs = r2Documents();
 
   it("no /tools command depends on a clone of this repo (no `cp plugin/`, `cp hooks/`, `cp templates/`, or `$(npm root)/@inclusive-ai/eval/hooks`)", () => {
     const bad: string[] = [];
@@ -165,7 +252,7 @@ describe("D44 R2: install commands", () => {
         if (/\bcp\s+(?:-\S+\s+)*(?:\.\/)?(?:plugin|hooks|templates)\//.test(line)) bad.push(`block ${i + 1}: ${line}`);
         if (/\$\(npm root\)\/@inclusive-ai\/eval\/hooks/.test(line)) bad.push(`block ${i + 1}: ${line}`);
         // Any other read of the repo's own folders by a relative path (cat templates/…, bash hooks/…).
-        if (!line.trim().startsWith("#") && /(?<![\w./-])(?:\.\/)?(?:plugin|hooks|templates)\/[\w.-]+/.test(line)) bad.push(`block ${i + 1}: ${line}`);
+        if (!line.trim().startsWith("#") && /(?<![\w./$)-])(?:\.\/)?(?:plugin|hooks|templates)\/[\w.-]+/.test(line)) bad.push(`block ${i + 1}: ${line}`);
       }
     }
     expect(bad, bad.join("\n")).toEqual([]);
@@ -175,7 +262,7 @@ describe("D44 R2: install commands", () => {
   const OVERWRITES = [
     /\bcp\s+(?:-\S+\s+)*\S+\s+\S*CLAUDE\.md\b/,
     /\bmv\s+(?:-\S+\s+)*\S+\s+\S*CLAUDE\.md\b/,
-    /(?<![>\d&])>\s*\S*CLAUDE\.md\b/,
+    /(?<![>\d&])>(?!>)\s*\S*CLAUDE\.md\b/,
     /(?:\s-o|--output)\s+\S*CLAUDE\.md\b/,
     /\btee\s+(?!-a\b|--append\b)\S*CLAUDE\.md\b/,
   ];
@@ -185,15 +272,64 @@ describe("D44 R2: install commands", () => {
       .map((l) => l.replace(/^\s*(?:>\s*)+/, "")) // Markdown blockquote markers are not redirections
       .filter((l) => OVERWRITES.some((re) => re.test(l)));
 
-  it("the CLAUDE.md template is appended with `>> CLAUDE.md`, never copied over an existing file (/tools, README.md, plugin/)", () => {
-    const append = toolsBlocks.filter((b) => /templates\/CLAUDE\.md/.test(b));
-    expect(append.length, "a /tools block that installs the template").toBeGreaterThan(0);
-    for (const b of append) expect(b).toMatch(/>>\s*CLAUDE\.md\b/);
-    const bad: string[] = [];
-    for (const [i, b] of toolsBlocks.entries()) for (const l of overwriteLines(b)) bad.push(`/tools block ${i + 1}: ${l}`);
-    for (const f of [join(REPO, "README.md"), ...files("plugin")]) for (const l of overwriteLines(read(f))) bad.push(`${rel(f)}: ${l.trim()}`);
+  it("nothing overwrites CLAUDE.md (/tools, README.md, plugin/)", () => {
+    const bad = docs.flatMap((d) => overwriteLines(d.code).map((l) => `${d.name}: ${l.trim()}`));
     expect(bad, bad.join("\n")).toEqual([]);
-    expect(read(join(REPO, "README.md"))).toMatch(/templates\/CLAUDE\.md\s*>>\s*CLAUDE\.md/);
+  });
+
+  it("the CLAUDE.md template is appended as `{ echo; curl -fsSL …/templates/CLAUDE.md; } >> CLAUDE.md` on /tools, in README.md and in plugin/README.md", () => {
+    const FORM = /^\{ echo; curl -fsSL https:\/\/raw\.githubusercontent\.com\/InclusiveCode\/inclusive-ai\/main\/templates\/CLAUDE\.md; \} >> CLAUDE\.md$/;
+    for (const d of docs) {
+      const uses = shellLines(d.code).map((l) => l.trim()).filter((l) => /templates\/CLAUDE\.md/.test(l));
+      if (["/tools", "README.md", "plugin/README.md"].includes(d.name)) expect(uses.length, `${d.name} installs the template`).toBeGreaterThan(0);
+      for (const l of uses) expect(l, d.name).toMatch(FORM);
+    }
+  });
+
+  it("every append (`>>`) starts with a newline, so a file without a trailing newline is not corrupted", () => {
+    const bad: string[] = [];
+    let appends = 0;
+    for (const d of docs) {
+      for (const raw of shellLines(d.code)) {
+        const l = raw.trim();
+        if (!/>>/.test(l) || l.startsWith("#")) continue;
+        appends += 1;
+        const producer = l.slice(0, l.indexOf(">>")).trim();
+        if (!(/^\{\s*echo;/.test(producer) || /^printf\s+(['"])\\n/.test(producer) || /^echo\s+-e\s+(['"])\\n/.test(producer))) bad.push(`${d.name}: ${l}`);
+      }
+    }
+    expect(appends).toBeGreaterThanOrEqual(4);
+    expect(bad, bad.join("\n")).toEqual([]);
+  });
+
+  it("husky gets `printf '\\nbash .husky/inclusive-ai-pre-commit\\n' >> .husky/pre-commit` (/tools, README.md)", () => {
+    for (const d of docs.filter((x) => x.name === "/tools" || x.name === "README.md")) {
+      const lines = shellLines(d.code).map((l) => l.trim()).filter((l) => /\.husky\/pre-commit\b/.test(l) && />>/.test(l));
+      expect(lines.length, d.name).toBeGreaterThan(0);
+      for (const l of lines) expect(l, d.name).toBe(String.raw`printf '\nbash .husky/inclusive-ai-pre-commit\n' >> .husky/pre-commit`);
+    }
+  });
+
+  it("the hook installs as `HOOKS=\"$(git rev-parse --git-common-dir)/hooks\" && mkdir -p \"$HOOKS\" && rm -f \"$HOOKS/pre-commit\" && curl … -o \"$HOOKS/pre-commit\" && chmod +x …` on /tools, in README.md and in the hooks/pre-commit header; never a literal .git/hooks path or --git-path", () => {
+    // --git-common-dir ignores core.hooksPath (so husky's own hooks are never overwritten) and works from
+    // subfolders, worktrees and submodules; mkdir -p covers a repo without a hooks folder; rm -f replaces a
+    // symlinked hook instead of writing through it; the && chain stops at the first failure (e.g. outside a repo).
+    const FORM = /^(\w+)="\$\(git rev-parse --git-common-dir\)\/hooks" && mkdir -p "\$\1" && rm -f "\$\1\/pre-commit" && curl -fsSL https:\/\/raw\.githubusercontent\.com\/InclusiveCode\/inclusive-ai\/main\/hooks\/pre-commit -o "\$\1\/pre-commit" && chmod \+x "\$\1\/pre-commit"$/;
+    const header = read(join(REPO, "hooks/pre-commit"))
+      .split("\n")
+      .filter((l) => /^#\s*Install:/i.test(l))
+      .map((l) => l.replace(/^#\s*Install:\s*/i, ""))
+      .join("\n");
+    const all = [...docs, { name: "hooks/pre-commit (header)", text: header, code: header }];
+    const bad: string[] = [];
+    for (const d of all) {
+      const lines = shellLines(d.code).map((x) => x.trim());
+      for (const l of lines) if (/\.git\/hooks\b|--git-path\s+hooks/.test(l)) bad.push(`${d.name}: ${l}`);
+      const installs = lines.filter((l) => /\/hooks\/pre-commit\s+-o\s+/.test(l) && !/-o\s+\.husky\//.test(l));
+      if (["/tools", "README.md", "hooks/pre-commit (header)"].includes(d.name) && installs.length === 0) bad.push(`${d.name}: no plain hook install`);
+      for (const l of installs) if (!FORM.test(l)) bad.push(`${d.name}: ${l}`);
+    }
+    expect(bad, bad.join("\n")).toEqual([]);
   });
 
   it("the plugin installs with `/plugin marketplace add InclusiveCode/inclusive-ai` and `/plugin install inclusive-ai@inclusive-ai` (/tools, README.md, plugin/README.md)", () => {

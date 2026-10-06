@@ -578,7 +578,8 @@ if (want("F6")) {
   await step("F6 /checklist checkboxes: role, state, name, description, groups, click and Space, border contrast", async () => {
     const { page, context } = await newPage();
     await page.goto(`${ORIGIN}/checklist`, { waitUntil: "networkidle" });
-    const src = readFileSync(new URL("../../app/checklist/page.tsx", import.meta.url), "utf8");
+    // D44: the checklist items moved from app/checklist/page.tsx to lib/checklist.ts.
+    const src = readFileSync(new URL("../../lib/checklist.ts", import.meta.url), "utf8");
     const itemCount = [...src.matchAll(/^\s+id: "[a-z0-9-]+",\s*$/gm)].length;
     const boxes = page.locator("[role=checkbox]");
     const n = await boxes.count();

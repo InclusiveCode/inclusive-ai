@@ -81,3 +81,17 @@ describe("D44 R5: a skip link is the first focusable element and targets the mai
     expect(contains(mainNav(root), first)).toBe(false);
   });
 });
+
+describe("D44 R15: the header 'Add to CI' is outlined, not the solid primary", () => {
+  it("on every page the nav's 'Add to CI' links to the quick start, has a border, and no solid bg-zinc-50 fill", () => {
+    for (const path of ["/", "/tools", "/patterns"]) {
+      const root = render(path);
+      const cta = all(mainNav(root), (e) => e.tag === "a" && /^Add to CI$/.test(accessibleName(e, root)));
+      expect(cta, path).toHaveLength(1);
+      expect(cta[0].attrs.href).toBe("/tools#quick-start");
+      const cls = (cta[0].attrs.class ?? "").split(/\s+/);
+      expect(cls, path).not.toContain("bg-zinc-50");
+      expect(cls, path).toContain("border");
+    }
+  });
+});

@@ -107,3 +107,27 @@ export function contains(ancestor: El, node: El): boolean {
   for (let n: El | null = node; n; n = n.parent) if (n === ancestor) return true;
   return false;
 }
+
+// ---------- D44 R11 verdict vocabulary ----------
+
+/** The verdict words the site shows. */
+export const VERDICT_LABELS = { PASS: "Pass", NEEDS_WORK: "Needs work", FAIL: "Fail" } as const;
+
+/**
+ * A bar's verdict from its colour: pass/fail colours are semantic (emerald/green, amber/yellow,
+ * rose/red), whether set by a Tailwind class or an inline hex colour.
+ */
+export function barVerdict(bar: El | undefined): "PASS" | "NEEDS_WORK" | "FAIL" | null {
+  const cls = bar?.attrs.class ?? "";
+  if (/\bbg-(?:emerald|green|lime)-\d/.test(cls)) return "PASS";
+  if (/\bbg-(?:amber|yellow)-\d/.test(cls)) return "NEEDS_WORK";
+  if (/\bbg-(?:rose|red)-\d/.test(cls)) return "FAIL";
+  const hex = /background(?:-color)?:\s*#([0-9a-f]{6})/i.exec(bar?.attrs.style ?? "")?.[1];
+  if (!hex) return null;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max === min) return null;
+  const h = ((max === r ? ((g - b) / (max - min)) % 6 : max === g ? (b - r) / (max - min) + 2 : (r - g) / (max - min) + 4) * 60 + 360) % 360;
+  return h >= 330 || h < 15 ? "FAIL" : h >= 30 && h < 65 ? "NEEDS_WORK" : h >= 120 && h < 175 ? "PASS" : null;
+}

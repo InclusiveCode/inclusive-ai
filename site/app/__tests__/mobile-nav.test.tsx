@@ -30,10 +30,11 @@ describe("F8: the mobile menu is a disclosure with a constant name", () => {
     expect(html.match(/<svg\b[^>]*>/g)?.every((s) => /aria-hidden="true"/.test(s))).toBe(true);
   });
 
+  // D44 R5': focus may return with { preventScroll: true }, so the page stays where it was.
   it("Escape closes the menu and returns focus to the toggle; navigation closes it", () => {
     const src = readFileSync(join(SITE, "app/mobile-nav.tsx"), "utf8");
     expect(src).toMatch(
-      /if \(e\.key !== "Escape"\) return;\s*if \(!menuOwnsEscape\(document\.activeElement, toggleRef\.current, menuRef\.current\)\) return;\s*setOpen\(false\);\s*toggleRef\.current\?\.focus\(\);/,
+      /if \(e\.key !== "Escape"\) return;\s*if \(!menuOwnsEscape\(document\.activeElement, toggleRef\.current, menuRef\.current\)\) return;\s*setOpen\(false\);\s*toggleRef\.current\?\.focus\((?:\{ preventScroll: true \})?\);/,
     );
     expect(src).toContain("ref={menuRef}");
     expect(src).toMatch(/useEffect\(\(\) => \{\s*setOpen\(false\);\s*\}, \[pathname\]\);/);
