@@ -115,7 +115,7 @@ The action installs the published `@inclusive-ai/eval` CLI into the runner's tem
 ### 4. Add the pre-commit hook
 
 ```bash
-HOOKS="$(git rev-parse --git-common-dir)/hooks" &&
+HOOKS="$(git rev-parse --git-common-dir)/hooks" && mkdir -p "$HOOKS" && rm -f "$HOOKS/pre-commit" &&
 curl -fsSL https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main/hooks/pre-commit -o "$HOOKS/pre-commit" && chmod +x "$HOOKS/pre-commit"
 ```
 

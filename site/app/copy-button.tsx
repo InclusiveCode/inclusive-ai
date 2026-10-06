@@ -47,6 +47,8 @@ export function CopyButton({
     // flushSync: when the clipboard API is missing the failure is synchronous, and React would
     // otherwise batch both updates into one render with no change to announce.
     flushSync(() => setState("idle"));
+    // Let the empty status reach assistive technology in its own task before the new message.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     try {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(text);
@@ -62,8 +64,10 @@ export function CopyButton({
         const sel = window.getSelection();
         sel?.removeAllRanges();
         sel?.addRange(range);
-        // The text may be far from the button (the checklist's Markdown preview is at the bottom).
-        target.scrollIntoView({ block: "nearest" });
+        // Scroll only when the selected text is entirely off screen (the checklist's Markdown preview
+        // is at the bottom); otherwise the page would move and could hide the focused button.
+        const r = target.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) target.scrollIntoView({ block: "nearest" });
       }
       settle("failed");
     }
@@ -76,17 +80,11 @@ export function CopyButton({
   const how = touch ? "use your browser's Copy" : `press ${shortcut}`;
 
   return (
-    <span className="relative inline-flex items-center gap-2" data-print="hide">
-      {/* The hint sits beside the button, or below it for compact buttons, where there is no room. */}
-      {state === "failed" && (
-        <span
-          className={
-            compact
-              ? "absolute right-0 top-full z-10 mt-1.5 w-max max-w-[16rem] rounded-md border border-amber-300/40 bg-zinc-900 px-2.5 py-1.5 text-xs text-amber-100 shadow-lg shadow-black/40"
-              : "text-xs text-amber-200"
-          }
-          aria-hidden="true"
-        >
+    <span className={`inline-flex gap-2 ${compact ? "flex-col items-end" : "items-center"}`} data-print="hide">
+      {/* The hint sits beside the button, or under it (in the flow, never clipped or covering text)
+          for compact buttons, where there is no room beside it. */}
+      {state === "failed" && !compact && (
+        <span className="text-xs text-amber-200" aria-hidden="true">
           {selectId ? `Selected — ${how}` : "Select the text to copy"}
         </span>
       )}
@@ -116,6 +114,11 @@ export function CopyButton({
         <span className={compact && state === "idle" ? "sr-only sm:not-sr-only" : undefined}>{word}</span>
         {!label && <span className="sr-only"> {what}</span>}
       </button>
+      {state === "failed" && compact && (
+        <span className="max-w-[12rem] text-right text-xs text-amber-200" aria-hidden="true">
+          {selectId ? `Selected — ${how}` : "Select the text to copy"}
+        </span>
+      )}
       <span role="status" className="sr-only">
         {state === "copied" ? `Copied ${what} to the clipboard.` : state === "failed" ? `Couldn't copy ${what}.${selectId ? ` The text is selected; ${how} to copy it.` : " Select the text and copy it."}` : ""}
       </span>

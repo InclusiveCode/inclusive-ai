@@ -100,6 +100,11 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
           {report.methodology.map((p, i) => (
             <p key={i}>{p}</p>
           ))}
+          {/* D44: the published wording described 90%/85% thresholds the verdicts never followed. */}
+          <p className="rounded-lg border border-zinc-800 px-4 py-3 text-sm">
+            <span className="font-semibold text-zinc-200">Corrected 2026-10-06:</span> this section said each domain had a 90% pass and 85% needs-work
+            threshold. The verdicts were always produced by the severity rule above (the raw CLI output confirms it); only the description changed.
+          </p>
         </div>
       </section>
 

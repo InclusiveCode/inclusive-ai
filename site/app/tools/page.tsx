@@ -65,8 +65,9 @@ npx --no-install inclusive-eval --red-team --domain healthcare`,
 /inclusive-ai:lgbt-audit src/models/user.ts`,
   // --git-common-dir finds the repository's hooks folder from subfolders, worktrees, and submodules.
   // It ignores core.hooksPath, so a husky setup's own hooks are never overwritten; && stops the
-  // download outside a git repository.
-  hookInstall: `HOOKS="$(git rev-parse --git-common-dir)/hooks" &&
+  // download outside a git repository. mkdir covers repos without a hooks folder, and rm replaces a
+  // symlinked hook instead of writing through it into a tracked script.
+  hookInstall: `HOOKS="$(git rev-parse --git-common-dir)/hooks" && mkdir -p "$HOOKS" && rm -f "$HOOKS/pre-commit" &&
 curl -fsSL ${RAW}/hooks/pre-commit -o "$HOOKS/pre-commit" && chmod +x "$HOOKS/pre-commit"`,
   // Appends start with a newline, so a file without a trailing newline isn't corrupted.
   hookHusky: `curl -fsSL ${RAW}/hooks/pre-commit -o .husky/inclusive-ai-pre-commit
