@@ -3,6 +3,24 @@ import Link from "next/link";
 
 export const metadata: Metadata = { title: "Developer Tools" };
 
+/**
+ * F9 (WCAG 2.1.1): a code block can scroll sideways (at 320 px most do), so it is a focusable,
+ * named region. Keyboard users can reach it with Tab and scroll it with the arrow keys, as with
+ * the lab's tables.
+ */
+function CodeBlock({ label, codeClassName, children }: { label: string; codeClassName: string; children: React.ReactNode }) {
+  return (
+    <pre
+      tabIndex={0}
+      role="region"
+      aria-label={label}
+      className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-sm overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+    >
+      <code className={codeClassName}>{children}</code>
+    </pre>
+  );
+}
+
 const tools = [
   {
     id: "eval",
@@ -214,9 +232,9 @@ export default function ToolsPage() {
               <h3 className="text-xs font-mono text-zinc-400 uppercase tracking-wider mb-2">
                 Install
               </h3>
-              <pre className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-sm overflow-x-auto">
-                <code className="text-green-400">{tool.install}</code>
-              </pre>
+              <CodeBlock label={`Code: install ${tool.name}`} codeClassName="text-green-400">
+                {tool.install}
+              </CodeBlock>
             </div>
 
             {/* Usage */}
@@ -225,9 +243,9 @@ export default function ToolsPage() {
                 <h3 className="text-xs font-mono text-zinc-400 uppercase tracking-wider mb-2">
                   Usage
                 </h3>
-                <pre className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-sm overflow-x-auto">
-                  <code className="text-zinc-300">{tool.usage}</code>
-                </pre>
+                <CodeBlock label={`Code: use ${tool.name}`} codeClassName="text-zinc-300">
+                  {tool.usage}
+                </CodeBlock>
               </div>
             )}
 
@@ -237,9 +255,9 @@ export default function ToolsPage() {
                 <h3 className="text-xs font-mono text-zinc-400 uppercase tracking-wider mb-2">
                   CLI
                 </h3>
-                <pre className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-sm overflow-x-auto">
-                  <code className="text-zinc-300">{tool.cli}</code>
-                </pre>
+                <CodeBlock label={`Code: ${tool.name} command line`} codeClassName="text-zinc-300">
+                  {tool.cli}
+                </CodeBlock>
               </div>
             )}
 
