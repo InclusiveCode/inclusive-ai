@@ -16,11 +16,13 @@ import { CompareView, LatestNotComparable } from "./components/compare-view";
 import { Findings } from "./components/findings";
 import { BASELINE_LIVE_HELP_ID, BaselineLiveHelp, clearKeyForProviderSwitch, LivePanel } from "./components/live-panel";
 import { pickFocusAfterRun } from "./focus";
+import { forceLabControls, readPreHydrationChoices, type LabControlState } from "./form-sync";
 import { completionAnnouncement } from "./announce";
 import { abortInFlight } from "./inflight";
+import { afterNextPaint } from "./yield";
 import { Limitations, SimulatorRules } from "./components/reference";
 import { RunDetails } from "./components/run-details";
-import { BUTTON, FOCUS, liveAlertText, providerRefusalAsymmetryNote, statusLabel } from "./components/status";
+import { BUTTON, FOCUS, liveAlertText, providerRefusalAsymmetryNote, statusLabel, withRunLabel } from "./components/status";
 
 const MAX_INSTRUCTION = 4000;
 const NO_MATCH =
@@ -84,6 +86,9 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
   const errorSeq = useRef(0);
   // The API key lives only in this uncontrolled input element; it is read at call time.
   const keyInputRef = useRef<HTMLInputElement>(null);
+  // F1: the visible controls must equal the state the lab acts on (see form-sync.ts).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [hydrated, setHydrated] = useState(false);
 
   // The scenario on screen right now, read when a run finishes (the run may belong to another one).
   const displayedScenarioRef = useRef(scenarioId);
@@ -124,9 +129,57 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
         ? (latestRun ?? baseline)
         : (history.find((r) => r.id === view) ?? latestRun ?? baseline);
   const instruction = instructions[scenario.id] ?? "";
+  // The "Show run" radio that is checked: an older run, the precomputed baseline, or the latest run.
+  const viewRun = view === "baseline" ? "baseline" : history.slice(0, -1).some((r) => r.id === view) ? view : "latest";
   const liveModel = findModel(liveProvider, liveModelId) ?? LIVE_MODELS.find((m) => m.provider === liveProvider) ?? LIVE_MODELS[0];
-  const statusAlert = !running && shown?.mode === "live" ? liveAlertText(shown) : null;
-  const asymmetryNote = !running && shown ? providerRefusalAsymmetryNote(shown) : null;
+  // F2: each run alert names its run (it stays up while other controls change).
+  const statusAlert = !running && shown?.mode === "live" ? withRunLabel(shown, liveAlertText(shown)) : null;
+  const asymmetryNote = !running && shown ? withRunLabel(shown, providerRefusalAsymmetryNote(shown)) : null;
+
+  const controlState: LabControlState = {
+    scenarioId: scenario.id,
+    source,
+    fault,
+    instruction,
+    viewRun: latestRun ? viewRun : null,
+    provider: liveProvider,
+    modelId: liveModel.id,
+  };
+  const controlStateRef = useRef(controlState);
+  useEffect(() => {
+    controlStateRef.current = controlState;
+  });
+
+  // Right after hydration: adopt a scenario, source, or fault the user picked before the page was
+  // interactive (restoration is off, so a difference here is this visit's own click). The
+  // instruction text is never adopted; the textarea is read-only until now.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (root) {
+      const picked = readPreHydrationChoices(root, controlStateRef.current, {
+        scenarioIds: scenarios.map((s) => s.id),
+        faults: FAULTS.map(([v]) => v),
+      });
+      if (picked.scenarioId) chooseScenario(picked.scenarioId);
+      if (picked.source) setSource(picked.source);
+      if (picked.fault) setFault(picked.fault as FaultKind);
+    }
+    setHydrated(true);
+    // Runs once, after hydration; the helpers it calls only use state setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // State wins: once hydrated, and whenever the page is shown again (including from the
+  // back/forward cache), every control is forced to show the state.
+  useEffect(() => {
+    if (!hydrated) return;
+    const sync = () => {
+      if (rootRef.current) forceLabControls(rootRef.current, controlStateRef.current);
+    };
+    sync();
+    window.addEventListener("pageshow", sync);
+    return () => window.removeEventListener("pageshow", sync);
+  }, [hydrated]);
 
   function readKey(): string | null {
     const value = keyInputRef.current?.value.trim();
@@ -187,6 +240,9 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
     setCancellable(live);
     setAnnouncement("Running…");
     try {
+      // F3: let "Running…" paint before the evaluation work, so the click is not blocked on it.
+      // Every input of the run (scenario, instruction, mode, model, fault) is already fixed above.
+      await afterNextPaint();
       const responder =
         live && controller
           ? makeLiveResponder({ scenario: s, provider: liveModel.provider, model: liveModel, key: { get: readKey }, signal: controller.signal })
@@ -212,7 +268,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
       setNoMatch(!live && runInstruction !== s.baselineInstruction && matchSnippets(runInstruction).length === 0);
     } catch {
       setAnnouncement(displayedScenarioRef.current === s.id ? `Run ${n} could not be completed.` : `Run ${n} for ${s.title} could not be completed.`);
-      setRunError({ key: `${s.id}-run-${n}-failed`, text: "The run could not be completed. This is not an evaluation result." });
+      setRunError({ key: `${s.id}-run-${n}-failed`, text: `Run ${n}: The run could not be completed. This is not an evaluation result.` });
     } finally {
       cancelRef.current = null;
       runningRef.current = false;
@@ -261,7 +317,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-16 text-zinc-300">
+    <div ref={rootRef} className="mx-auto max-w-6xl px-6 py-16 text-zinc-300">
       <header className="mb-8">
         <h1 className="scroll-mt-24 text-3xl font-bold tracking-tight text-zinc-100 sm:text-4xl">Evaluation Lab</h1>
         <p className="mt-4 max-w-3xl text-lg text-zinc-300">
@@ -308,6 +364,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                       value={s.id}
                       checked={s.id === scenario.id}
                       onChange={() => chooseScenario(s.id)}
+                      autoComplete="off"
                       className={`mt-1 ${FOCUS}`}
                     />
                     <span>
@@ -343,8 +400,9 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                       type="radio"
                       name="view-run"
                       value={o.value}
-                      checked={view === o.value || (o.value === "latest" && !history.some((r) => r.id === view) && view !== "baseline")}
+                      checked={o.value === viewRun}
                       onChange={() => setView(o.value)}
+                      autoComplete="off"
                       className={FOCUS}
                     />
                     {o.label}
@@ -388,6 +446,8 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                 rows={7}
                 maxLength={MAX_INSTRUCTION}
                 value={instruction}
+                readOnly={!hydrated}
+                autoComplete="off"
                 onChange={(e) => setInstruction(e.target.value)}
                 aria-describedby="lab-instruction-count"
                 className={`mt-2 w-full rounded-md border border-zinc-500 bg-zinc-900 p-3 font-mono text-sm text-zinc-100 ${FOCUS}`}
@@ -429,6 +489,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                       value="simulated"
                       checked={source === "simulated"}
                       onChange={() => setSource("simulated")}
+                      autoComplete="off"
                       className={FOCUS}
                     />
                     Simulated (scripted demo)
@@ -440,6 +501,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                       value="live"
                       checked={source === "live"}
                       onChange={() => setSource("live")}
+                      autoComplete="off"
                       className={FOCUS}
                     />
                     Live model (your API key)
@@ -454,6 +516,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
                   id="lab-fault"
                   value={fault}
                   disabled={source === "live"}
+                  autoComplete="off"
                   onChange={(e) => setFault(e.target.value as FaultKind)}
                   className={`mt-2 w-full max-w-sm rounded-md border border-zinc-500 bg-zinc-900 p-2 text-sm text-zinc-100 disabled:opacity-60 ${FOCUS}`}
                 >

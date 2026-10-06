@@ -398,6 +398,20 @@ await step("live mode", async () => {
     await route.fulfill({ status: r.status ?? 200, contentType: "application/json", body: JSON.stringify(r.json) }).catch(() => {});
   });
   const labAlerts = () => page.evaluate(() => [...document.querySelectorAll("section[aria-labelledby=edit] [role=alert]")].map((a) => a.textContent.trim()));
+  // F2: each alert names its run; the label must be the displayed run's ("Run ID" spouse-parity-run-N → "Run N").
+  const shownRun = async () => {
+    const id = await page.evaluate(() => {
+      const dt = [...document.querySelectorAll("section[aria-labelledby=inspect] dt")].find((d) => (d.textContent ?? "").trim() === "Run ID");
+      return (dt?.nextElementSibling?.textContent ?? "").trim();
+    });
+    const m = /-run-(\d+)$/.exec(id);
+    return m ? `Run ${m[1]}` : id;
+  };
+  const expectAlert = async (name, text) => {
+    const label = await shownRun();
+    const got = (await labAlerts()).join("|");
+    check(name, label === `Run ${runN}` && got === `${label}: ${text}`, JSON.stringify({ label, runN, got }));
+  };
 
   await tabUntil("response source radio", isRadio, "response-source", { back: true });
   await page.keyboard.press("ArrowDown");
@@ -482,7 +496,7 @@ await step("live mode", async () => {
   await page.waitForFunction(() => (document.activeElement?.textContent ?? "").trim() === "Cancel", null, { timeout: 5000 });
   await page.keyboard.press("Enter");
   await waitStatus(runN);
-  check("L8 keyboard Cancel -> 'Live request cancelled — not evaluated'", (await labAlerts()).join("|") === "Live request cancelled — not evaluated", JSON.stringify(await labAlerts()));
+  await expectAlert("L8 keyboard Cancel -> 'Run N: Live request cancelled — not evaluated' (N = the displayed run)", "Live request cancelled — not evaluated");
   check("L8 keyboard focus returns to Rerun after Cancel", (await focusInfo()).text === "Rerun", JSON.stringify(await focusInfo()));
 
   // Network failure -> model error (distinct from credentials).
@@ -492,7 +506,7 @@ await step("live mode", async () => {
   await waitStatus(runN);
   const inspect2 = await page.locator("section[aria-labelledby=inspect]").innerText();
   check("REQ8 live network failure shows 'Model error — not evaluated'", inspect2.includes("Model error — not evaluated"));
-  check("ALERT network error text", (await labAlerts()).join("|") === "Live request failed — not evaluated (Could not reach the lab server)", JSON.stringify(await labAlerts()));
+  await expectAlert("ALERT network error text (labelled with its run)", "Live request failed — not evaluated (Could not reach the lab server)");
 
   // Provider timeout (server side) -> timed out.
   reply = () => ({ json: { status: "timeout", durationMs: 30000 } });
@@ -501,7 +515,7 @@ await step("live mode", async () => {
   await waitStatus(runN);
   const inspect3 = await page.locator("section[aria-labelledby=inspect]").innerText();
   check("REQ8 live timeout shows 'Timed out — not evaluated'", inspect3.includes("Timed out — not evaluated"));
-  check("ALERT timeout text", (await labAlerts()).join("|") === "Live request timed out — not evaluated", JSON.stringify(await labAlerts()));
+  await expectAlert("ALERT timeout text (labelled with its run)", "Live request timed out — not evaluated");
   check("REQ9 live timeout: headline is not a pass", (await headline()) !== "All displayed checks passed", await headline());
 
   // Provider rejected the key -> credentials unavailable.
@@ -509,7 +523,7 @@ await step("live mode", async () => {
   await page.keyboard.press("Enter");
   runN += 1;
   await waitStatus(runN);
-  check("ALERT credentials text", (await labAlerts()).join("|") === "Credentials unavailable — not evaluated (The provider rejected the API key)", JSON.stringify(await labAlerts()));
+  await expectAlert("ALERT credentials text (labelled with its run)", "Credentials unavailable — not evaluated (The provider rejected the API key)");
   check("REQ8 live: both versions show 'Credentials unavailable — not evaluated'", ((await page.locator("section[aria-labelledby=inspect]").innerText()).match(/Credentials unavailable — not evaluated/g) ?? []).length >= 2);
   await page.unroute("**/api/lab/run");
 

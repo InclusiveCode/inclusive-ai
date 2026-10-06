@@ -51,6 +51,7 @@ site/
   app/lab/
     page.tsx               server page; precomputes the baseline runs (fixed IDs and timestamp)
     lab-client.tsx         the one client component that drives the workflow
+    form-sync.ts           keeps the form controls equal to the lab's state (restoration, pre-hydration clicks)
     highlight.tsx          HighlightedText: <mark> segments built from text slices
     components/            banner, live panel, status badges, run details, findings + override form, comparison, reference tables
   app/api/lab/run/route.ts POST = createHandler({ clients: realClients }), Node runtime, maxDuration 60
@@ -68,6 +69,14 @@ Data flow for a run:
 6. `scenarioVerdict` computes the headline: any fail → "Checks failed" (plus "(incomplete)"); any error or not-evaluated → "Incomplete — not a pass"; any inconclusive → "Inconclusive"; otherwise "All displayed checks passed". A pass means only that the displayed checks passed.
 
 Overrides are a separate in-memory list. They never change automated results, the headline, or comparison classifications. Counts are shown twice: "Automated" and "After human review". The review log downloads as JSON (`inclusive-lab-review-log/v1`). Nothing is persisted to browser storage.
+
+### Form controls always show the state that runs
+
+The instruction a run uses is always exactly the text shown, and the scenario and response-source radios always show what the next run will use (D41, F1). Two things could otherwise change a control without React knowing. A browser restoring form state after Back, and a click before the page is hydrated. React 19 keeps such DOM values when it hydrates, so a radio could show "Live model" while the lab ran a simulated run. The lab therefore:
+
+- sets `autocomplete="off"` on every radio, select, and textarea, which stops browser form restoration where the browser honours it. The key input stays outside any form;
+- after hydration, adopts a scenario, response source, or fault that was clicked before hydration, since that choice was made on this visit. The instruction textarea is read-only until hydration, and text in it is never adopted;
+- after hydration and on every `pageshow` (including a page restored from the back/forward cache), forces every control to show the lab's state (`forceLabControls` in `app/lab/form-sync.ts`).
 
 ## Rubric summary
 
@@ -190,9 +199,9 @@ The server renders the scenario input itself; the client never sends input text.
 | Timeout or abort | `timeout` | — |
 | Anything else | `model_error` | Provider unavailable |
 
-The client waits 45 s per call (longer than the server's 30 s), runs both versions concurrently, and has a **Cancel** button. A 4xx reply shows the route's own fixed request-check message when it carries one (for example "Unknown scenario" or "Missing or malformed API key — keys are 20–256 characters long and contain only letters, numbers, hyphens and underscores, with no spaces"); otherwise each status code has its own fixed fallback (405 and 415 included). The client never shows server or provider text outside the allowlist in `live-messages.ts`.
+The client waits 45 s per call (longer than the server's 30 s), runs both versions concurrently, and has a **Cancel** button. A 4xx reply shows the route's own fixed request-check message when it carries one (for example "Unknown scenario" or "Missing or malformed API key — keys are 20–256 characters long and contain only letters, numbers, hyphens and underscores, with no spaces"); otherwise each status code has its own fixed fallback (405 and 415 included). The client never shows server or provider text outside the allowlist in `live-messages.ts`. A run's alerts follow the displayed run. They stay up while you switch provider, fix a key error, or clear the key, so each one names its run (F2): "Run 2: Credentials unavailable — not evaluated (The provider rejected the API key)". A run that throws reads "Run 2: The run could not be completed. This is not an evaluation result." The precomputed baseline is labelled "Baseline run".
 
-When exactly one version of a live run is `provider_refused` and the other version completed (`ok`), the page shows an unscored, pair-level note near the findings headline (decision D34): "Only Version {X} was declined by the provider's safety system (one sample). This asymmetry may itself be the harm under test." The affected checks stay `not_evaluated`, the headline stays "Incomplete — not a pass", and the note is not added to the review-log export.
+When exactly one version of a live run is `provider_refused` and the other version completed (`ok`), the page shows an unscored, pair-level note near the findings headline (decision D34), labelled with its run like the other run alerts: "Run {N}: Only Version {X} was declined by the provider's safety system (one sample). This asymmetry may itself be the harm under test." The affected checks stay `not_evaluated`, the headline stays "Incomplete — not a pass", and the note is not added to the review-log export.
 
 ### Comparison
 

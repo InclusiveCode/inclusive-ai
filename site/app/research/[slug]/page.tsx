@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { reports, type Report, type ReportFailure } from "@/lib/reports";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const report = reports.find((r) => r.slug === slug);
+  return { title: report ? `${report.title} — Evaluation Reports` : "Evaluation Reports" };
+}
 
 export async function generateStaticParams() {
   return reports.map((r) => ({ slug: r.slug }));
@@ -53,7 +60,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
     <div className="max-w-4xl mx-auto px-6 py-20">
       <Link
         href="/research"
-        className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors mb-8 inline-block"
+        className="text-sm text-zinc-400 hover:text-zinc-300 transition-colors mb-8 inline-block"
       >
         &larr; Back to all reports
       </Link>
@@ -64,7 +71,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
           research report
         </div>
         <h1
-          className="text-3xl sm:text-4xl font-bold tracking-tight mb-4"
+          className="text-3xl sm:text-4xl font-bold tracking-tight mb-4 wrap-anywhere"
           style={{
             background:
               "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)",
@@ -75,7 +82,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
         >
           {report.title}
         </h1>
-        <p className="text-sm text-zinc-500 mb-6">
+        <p className="text-sm text-zinc-400 mb-6">
           Published {report.date} &middot; Model: {report.model} ({report.modelVersion}) &middot;
           Author: {report.author}
         </p>
@@ -98,7 +105,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
               }}
             />
           </div>
-          <p className="mt-2 text-xs text-zinc-500">
+          <p className="mt-2 text-xs text-zinc-400">
             {report.failures.length} failures across {report.results.length} domains &middot;{" "}
             {report.failures.filter((f) => f.severity === "critical").length} critical,{" "}
             {report.failures.filter((f) => f.severity === "high").length} high,{" "}
@@ -131,10 +138,16 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
       {/* 2. Results Summary */}
       <section className="mb-12">
         <h2 className="text-xl font-semibold mb-4 text-zinc-200">2. Results Summary</h2>
-        <div className="border border-zinc-800 rounded-xl overflow-hidden">
+        {/* F11 (WCAG 1.4.10, 2.1.1): wider than a 320 px screen, so it scrolls in a keyboard-reachable region. */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label="Results summary table"
+          className="border border-zinc-800 rounded-xl overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400"
+        >
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-800 text-zinc-500 text-left">
+              <tr className="border-b border-zinc-800 text-zinc-400 text-left">
                 <th className="px-4 py-3 font-medium">Domain</th>
                 <th className="px-4 py-3 font-medium">Passed</th>
                 <th className="px-4 py-3 font-medium">Total</th>
@@ -189,8 +202,8 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
                 key={r.domain}
                 className="border border-zinc-800 rounded-xl overflow-hidden group"
               >
-                <summary className="px-5 py-4 cursor-pointer hover:bg-zinc-900/50 transition-colors flex items-center justify-between list-none">
-                  <div className="flex items-center gap-3">
+                <summary className="px-5 py-4 cursor-pointer hover:bg-zinc-900/50 transition-colors flex flex-wrap items-center justify-between gap-2 list-none">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className="text-zinc-200 font-medium">{r.domain}</span>
                     <span className={`text-xs font-mono ${verdictColor[r.verdict]}`}>
                       {r.passed}/{r.total} ({r.rate}%)
@@ -201,14 +214,14 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
                       {r.verdict}
                     </span>
                   </div>
-                  <span className="text-zinc-600 text-sm">
+                  <span className="text-zinc-400 text-sm">
                     {domainFailures.length} failure{domainFailures.length !== 1 ? "s" : ""}{" "}
                     &#9662;
                   </span>
                 </summary>
                 <div className="px-5 pb-5 space-y-3 border-t border-zinc-800/50 pt-4">
                   {domainFailures.length === 0 ? (
-                    <p className="text-sm text-zinc-500">All scenarios passed.</p>
+                    <p className="text-sm text-zinc-400">All scenarios passed.</p>
                   ) : (
                     domainFailures.map((f) => (
                       <FailureCard key={f.id} failure={f} />
@@ -257,7 +270,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
           </p>
           {adversarialFailures.length > 0 && (
             <div className="space-y-3">
-              <p className="text-sm text-zinc-500 font-medium">Failure:</p>
+              <p className="text-sm text-zinc-400 font-medium">Failure:</p>
               {adversarialFailures.map((f) => (
                 <FailureCard key={f.id} failure={f} />
               ))}
@@ -332,7 +345,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
       <div className="pt-6 border-t border-zinc-800">
         <Link
           href="/research"
-          className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="text-sm text-zinc-400 hover:text-zinc-300 transition-colors"
         >
           &larr; Back to all reports
         </Link>
@@ -350,14 +363,15 @@ function FailureCard({ failure }: { failure: ReportFailure }) {
         >
           {failure.severity}
         </span>
-        <div>
-          <span className="font-mono text-xs text-zinc-500 mr-2">{failure.id}</span>
+        {/* N1 (WCAG 1.4.10): long words such as "Military/authoritarian" break inside the card. */}
+        <div className="min-w-0 wrap-anywhere">
+          <span className="font-mono text-xs text-zinc-400 mr-2">{failure.id}</span>
           <span className="text-sm text-zinc-200">{failure.title}</span>
         </div>
       </div>
-      <p className="text-sm text-zinc-400 leading-relaxed ml-0 sm:ml-16">{failure.failMessage}</p>
-      <div className="mt-2 ml-0 sm:ml-16">
-        <span className="text-xs text-zinc-600 font-mono">{failure.category}</span>
+      <p className="text-sm text-zinc-400 leading-relaxed ml-0 sm:ml-16 wrap-anywhere">{failure.failMessage}</p>
+      <div className="mt-2 ml-0 sm:ml-16 wrap-anywhere">
+        <span className="text-xs text-zinc-400 font-mono">{failure.category}</span>
       </div>
     </div>
   );

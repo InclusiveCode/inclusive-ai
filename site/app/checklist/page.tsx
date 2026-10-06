@@ -173,7 +173,7 @@ export default function ChecklistPage() {
         {/* Progress bar */}
         <div className="mt-6 mb-2">
           <div className="flex items-center justify-between text-sm mb-2">
-            <span className="font-mono text-zinc-500">
+            <span className="font-mono text-zinc-400">
               {mounted ? checkedCount : 0}/{totalItems} checks
             </span>
             {mounted && checkedCount === totalItems && (
@@ -200,7 +200,7 @@ export default function ChecklistPage() {
         {mounted && checkedCount > 0 && (
           <button
             onClick={reset}
-            className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors mt-2"
+            className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors mt-2"
           >
             Reset checklist
           </button>
@@ -215,19 +215,26 @@ export default function ChecklistPage() {
           const accentColor = prideColors[si % prideColors.length];
           return (
             <div key={section.title}>
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 pl-3 border-l-2" style={{ borderLeftColor: accentColor }}>
+              <h2 id={`checklist-section-${si}`} className="text-lg font-semibold mb-4 flex items-center gap-2 pl-3 border-l-2" style={{ borderLeftColor: accentColor }}>
                 <span>{section.emoji}</span>
                 <span>{section.title}</span>
-                <span className="text-xs font-mono text-zinc-600 ml-auto">
+                <span className="text-xs font-mono text-zinc-400 ml-auto">
                   {mounted ? sectionChecked : 0}/{section.items.length}
                 </span>
               </h2>
-              <div className="space-y-3">
+              <div role="group" aria-labelledby={`checklist-section-${si}`} className="space-y-3">
                 {section.items.map((item) => {
                   const isChecked = mounted && !!checked[item.id];
                   return (
+                    // F6 (WCAG 4.1.2): a checklist item is a checkbox, so it says so and exposes its state.
+                    // Its name is the label; the detail is its description.
                     <button
                       key={item.id}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={isChecked}
+                      aria-labelledby={`${item.id}-label`}
+                      aria-describedby={`${item.id}-detail`}
                       onClick={() => toggle(item.id)}
                       className={`w-full flex gap-4 p-4 border rounded-lg text-left transition-all duration-200 ${
                         isChecked
@@ -236,10 +243,11 @@ export default function ChecklistPage() {
                       }`}
                     >
                       <div
+                        aria-hidden="true"
                         className={`w-5 h-5 rounded border shrink-0 mt-0.5 flex items-center justify-center transition-all duration-200 ${
                           isChecked
                             ? "bg-green-500 border-green-500"
-                            : "border-zinc-600"
+                            : "border-zinc-500"
                         }`}
                       >
                         {isChecked && (
@@ -262,13 +270,16 @@ export default function ChecklistPage() {
                       </div>
                       <div>
                         <p
+                          id={`${item.id}-label`}
                           className={`font-medium text-sm mb-1 transition-colors ${
-                            isChecked ? "text-zinc-500 line-through" : ""
+                            isChecked ? "text-zinc-400 line-through" : ""
                           }`}
                         >
                           {item.label}
                         </p>
-                        <p className="text-xs text-zinc-500">{item.detail}</p>
+                        <p id={`${item.id}-detail`} className="text-xs text-zinc-400">
+                          {item.detail}
+                        </p>
                       </div>
                     </button>
                   );

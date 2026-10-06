@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { reports } from "@/lib/reports";
+
+export const metadata: Metadata = { title: "Evaluation Reports" };
 
 const verdictColor: Record<string, string> = {
   PASS: "bg-emerald-900/50 text-emerald-300 border-emerald-700",
@@ -62,7 +65,7 @@ export default function ResearchPage() {
                   >
                     {report.title}
                   </h2>
-                  <p className="text-sm text-zinc-500">
+                  <p className="text-sm text-zinc-400">
                     {report.date} &middot; {report.model}
                   </p>
                 </div>
@@ -97,7 +100,7 @@ export default function ResearchPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs">
                 {report.results.map((r) => (
                   <div key={r.domain} className="flex items-center gap-2">
-                    <span className="text-zinc-500 w-20 shrink-0">{r.domain}</span>
+                    <span className="text-zinc-400 w-20 shrink-0">{r.domain}</span>
                     <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full"
@@ -117,7 +120,7 @@ export default function ResearchPage() {
                 ))}
               </div>
 
-              <p className="mt-4 text-sm text-zinc-500 group-hover:text-zinc-400 transition-colors">
+              <p className="mt-4 text-sm text-zinc-400 group-hover:text-zinc-200 transition-colors">
                 Read full report &rarr;
               </p>
             </Link>

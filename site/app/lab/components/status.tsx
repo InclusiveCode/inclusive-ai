@@ -99,6 +99,25 @@ export function liveAlertText(run: { responses: { a: { status: ResponseStatus; e
 }
 
 /**
+ * "Run 2" for a lab run id ("<scenario>-run-2"), the same number the status announcements use;
+ * "Baseline run" for the precomputed baseline ("<scenario>-baseline"), as in "Show run"; the id otherwise.
+ */
+export function runLabel(run: { id: string }): string {
+  const m = /-run-(\d+)$/.exec(run.id);
+  if (m) return `Run ${m[1]}`;
+  return run.id.endsWith("-baseline") ? "Baseline run" : run.id;
+}
+
+/**
+ * F2: a run's alerts stay up while other controls change (they follow the displayed run), so each
+ * one names its run: "Run 2: Credentials unavailable — not evaluated (…)". The rest is fixed text
+ * from `liveAlertText` and the D34 note, so the allowlist still decides what detail appears.
+ */
+export function withRunLabel(run: { id: string }, text: string | null): string | null {
+  return text ? `${runLabel(run)}: ${text}` : null;
+}
+
+/**
  * D34: an unscored, pair-level note when exactly one version of a live run was declined by
  * the provider's safety system and the other version completed (ok). The checks stay not
  * evaluated; this never changes a score.

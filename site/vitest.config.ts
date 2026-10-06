@@ -7,6 +7,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "server-only": fileURLToPath(new URL("./vitest.server-only-stub.ts", import.meta.url)),
+      // Mirrors tsconfig's "@/*" path so tests can import pages that use it.
+      "@": fileURLToPath(new URL("./", import.meta.url)),
     },
   },
 });

@@ -212,6 +212,25 @@ const headline = (page) => page.locator("section[aria-labelledby=findings] p.tex
 const compareText = (page) => page.locator("section[aria-labelledby=compare]").innerText();
 const inspectText = (page) => page.locator("section[aria-labelledby=inspect]").innerText();
 const bannerText = (page) => page.locator("[role=note]").first().innerText();
+/**
+ * F2: alerts name the run they belong to. The label is derived from the displayed run's own metadata
+ * ("Run ID" spouse-parity-run-7 → "Run 7"; the precomputed baseline → "Baseline run"), so an alert
+ * is only accepted when its label matches the run on screen.
+ */
+async function shownRunLabel(page) {
+  const id = await page.evaluate(() => {
+    const dts = [...document.querySelectorAll("section[aria-labelledby=inspect] dt")];
+    const dt = dts.find((d) => (d.textContent ?? "").trim() === "Run ID");
+    return (dt?.nextElementSibling?.textContent ?? "").trim();
+  });
+  const m = /-run-(\d+)$/.exec(id);
+  return m ? `Run ${m[1]}` : id.endsWith("-baseline") ? "Baseline run" : `(unknown run id ${id})`;
+}
+/** Splits "Run 7: text" into its label and text. */
+function splitLabel(alert) {
+  const m = /^(Run \d+|Baseline run): ([\s\S]*)$/.exec(alert ?? "");
+  return m ? { label: m[1], text: m[2] } : { label: null, text: alert };
+}
 const activeId = (page) => page.evaluate(() => document.activeElement?.id ?? "");
 const activeText = (page) => page.evaluate(() => (document.activeElement?.textContent ?? "").trim());
 const statusTexts = (page) => page.evaluate(() => [...document.querySelectorAll("[role=status]")].map((s) => s.textContent ?? ""));
@@ -717,7 +736,9 @@ await step("C. L5 error matrix in the UI", async () => {
     const alerts = await editAlerts(page);
     const hl = await headline(page);
     const inspect = await inspectText(page);
-    check(`L5 ${name}: alert '${expected}'`, alerts.length === 1 && alerts[0] === expected, JSON.stringify(alerts));
+    const label = await shownRunLabel(page);
+    const parts = splitLabel(alerts[0]);
+    check(`L5 ${name}: alert '${expected}', labelled with the displayed run (F2)`, alerts.length === 1 && label === `Run ${n}` && parts.label === label && parts.text === expected, JSON.stringify({ label, alerts }));
     check(`L5 ${name}: headline is not a pass`, hl !== ALL_PASS && /not a pass|incomplete/i.test(hl), hl);
     check(`L5 ${name}: both versions shown as not evaluated / not OK`, (inspect.match(/Response status: OK/g) ?? []).length === 0, inspect.slice(0, 100));
     check(`L5 ${name}: no raw server text or key on the page`, !leaksKey(await page.content()) && !(await page.content()).includes("upstream said") && !(await page.content()).includes("oops"));
@@ -725,7 +746,7 @@ await step("C. L5 error matrix in the UI", async () => {
       const cmp = await compareText(page);
       check("L2/fix round: compare names the failure ('did not complete (… timed out …) — rerun to compare')", /Not comparable: Versions A and B did not complete \(A: timed out; B: timed out\) — rerun to compare/.test(cmp), cmp.slice(0, 200));
     }
-    seen.set(name, alerts[0]);
+    seen.set(name, parts.text); // compared without the run label, which alone would make every alert unique
   }
   await page.screenshot({ path: join(EVIDENCE, "verifier-live-03-error-state.png"), fullPage: false });
   const providerRows = [...seen.entries()].filter(([k]) => k.startsWith("provider:")).map(([, v]) => v);
@@ -753,6 +774,8 @@ await step("D. D34 one-sided refusal note", async () => {
   await waitRun(page, ++n);
   let t = await pageText();
   check("D34 only B refused → note names Version B", t.includes(ASYM("B")), t.match(/Only Version[^\n]*/)?.[0] ?? "(no note)");
+  const findingsAlerts = () => page.evaluate(() => [...document.querySelectorAll("section[aria-labelledby=findings] [role=alert]")].map((a) => (a.textContent ?? "").trim()));
+  check("F2 the D34 note is labelled with the displayed run", JSON.stringify(await findingsAlerts()) === JSON.stringify([`${await shownRunLabel(page)}: ${ASYM("B")}`]), JSON.stringify(await findingsAlerts()));
   check("D34 only B refused → headline stays 'Incomplete — not a pass'", (await headline(page)) === "Incomplete — not a pass", await headline(page));
   const bResults = await page.locator("section[aria-labelledby=findings]").innerText();
   check("D34 the refused version's checks stay not evaluated (no pass/fail for B)", /Not evaluated/.test(bResults));
@@ -787,6 +810,7 @@ await step("D. D34 one-sided refusal note", async () => {
   await page.locator(`input[name=view-run][value="spouse-parity-run-${noteRun}"]`).check();
   t = await pageText();
   check("D34 note follows the displayed run (shown again for the one-sided run)", t.includes(ASYM("B")));
+  check("F2 the re-shown note carries that older run's label", (await shownRunLabel(page)) === `Run ${noteRun}` && JSON.stringify(await findingsAlerts()) === JSON.stringify([`Run ${noteRun}: ${ASYM("B")}`]), JSON.stringify(await findingsAlerts()));
   await page.locator("input[name=view-run][value=baseline]").check();
   t = await pageText();
   check("D34 never on a simulated run", !/Only Version [AB] was declined/.test(t));
@@ -819,7 +843,8 @@ await step("E. L8 Cancel", async () => {
   const aborted = main.cap.failed.slice(failedBefore).filter((f) => f.url.includes("/api/lab/run"));
   check("L8 Cancel aborts both in-flight requests", aborted.length === 2, JSON.stringify(aborted));
   const alerts = await editAlerts(page);
-  check("L8 cancelled run: alert 'Live request cancelled — not evaluated'", alerts.length === 1 && alerts[0] === "Live request cancelled — not evaluated", JSON.stringify(alerts));
+  const cancelLabel = await shownRunLabel(page);
+  check("L8 cancelled run: alert '<Run N>: Live request cancelled — not evaluated', N = the displayed run", alerts.length === 1 && /^Run \d+$/.test(cancelLabel) && alerts[0] === `${cancelLabel}: Live request cancelled — not evaluated`, JSON.stringify({ cancelLabel, alerts }));
   check("L8 cancelled run is not a pass", (await headline(page)) !== ALL_PASS);
   check("L8 Cancel button gone and run buttons enabled again", (await page.getByRole("button", { name: "Cancel" }).count()) === 0 && (await trigger.isEnabled()));
   check("FIX focus returns to the control that started the run", (await activeText(page)) === "Run baseline live", await activeText(page));
@@ -999,7 +1024,7 @@ await step("G. L8 client waits 45 s, then times out", async () => {
   await t.page.clock.runFor(1_500);
   await t.page.waitForFunction(() => [...document.querySelectorAll("[role=status]")].some((s) => /Run 1 complete/.test(s.textContent ?? "")), null, { timeout: 10000 });
   const alerts = await editAlerts(t.page);
-  check("L8 after 45 s: 'Live request timed out — not evaluated'", alerts.length === 1 && alerts[0] === "Live request timed out — not evaluated", JSON.stringify(alerts));
+  check("L8 after 45 s: 'Run 1: Live request timed out — not evaluated' (run 1 is on screen)", (await shownRunLabel(t.page)) === "Run 1" && alerts.length === 1 && alerts[0] === "Run 1: Live request timed out — not evaluated", JSON.stringify(alerts));
   const failed = t.cap.failed.filter((f) => f.url.includes("/api/lab/run"));
   check("L8 the client timeout aborts both requests", failed.length === 2, JSON.stringify(failed));
   await t.cap.context.close();
@@ -1449,7 +1474,9 @@ await step("K. L7 accessibility parity: live mode adds no axe violation types", 
   check("L7 live-mode states add no axe violation types beyond the simulated page", added.length === 0, [...new Set(added)].join(", "));
   // The only known violation (D31, follow-up) is the footer's contrast; nothing inside the lab, including the U1 note and U2 help.
   const inLab = [...sim, ...panel, ...keyErr, ...run, ...err].flatMap((v) => v.targets.filter((t) => !t.startsWith("footer")).map((t) => `${v.id}: ${t}`));
-  check("L7/U1/U2 axe finds no violation inside the lab in any state (only the known footer contrast, D31)", inLab.length === 0, inLab.join(" | "));
+  check("L7/U1/U2 axe finds no violation inside the lab in any state", inLab.length === 0, inLab.join(" | "));
+  const anywhere = [...sim, ...panel, ...keyErr, ...run, ...err].map((v) => `${v.id}×${v.nodes}`);
+  check("F5 axe finds no violation anywhere on /lab in any state (the D31 footer contrast is fixed)", anywhere.length === 0, anywhere.join(" | "));
   await t.cap.context.close();
 });
 

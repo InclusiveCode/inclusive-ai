@@ -1,6 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { CodeBlock } from "../../code-block";
 import { notFound } from "next/navigation";
 import { patterns } from "@/lib/patterns";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const pattern = patterns.find((p) => p.slug === slug);
+  return { title: pattern ? `${pattern.title} — Anti-Pattern Library` : "Anti-Pattern Library" };
+}
 
 export async function generateStaticParams() {
   return patterns.map((p) => ({ slug: p.slug }));
@@ -26,7 +34,7 @@ export default async function PatternDetailPage({
     <div className="max-w-3xl mx-auto px-6 py-20">
       <Link
         href="/patterns"
-        className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors mb-8 inline-block"
+        className="text-sm text-zinc-400 hover:text-zinc-300 transition-colors mb-8 inline-block"
       >
         ← Back to patterns
       </Link>
@@ -37,13 +45,14 @@ export default async function PatternDetailPage({
           <span className={`text-xs font-mono px-2 py-0.5 rounded ${severityColor[pattern.severity]}`}>
             {pattern.severity}
           </span>
-          <span className="text-xs text-zinc-500 font-mono">{pattern.category}</span>
+          <span className="text-xs text-zinc-400 font-mono">{pattern.category}</span>
         </div>
-        <h1 className="text-3xl font-bold mb-3">{pattern.title}</h1>
+        {/* F12 (WCAG 1.4.10): long words such as "Housing/Employment" break rather than widen the page. */}
+        <h1 className="text-3xl font-bold mb-3 wrap-anywhere">{pattern.title}</h1>
         <p className="text-zinc-400">{pattern.description}</p>
         <div className="flex gap-2 mt-4 flex-wrap">
           {pattern.tags.map((t) => (
-            <span key={t} className="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-500 rounded font-mono">
+            <span key={t} className="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded font-mono">
               {t}
             </span>
           ))}
@@ -59,11 +68,15 @@ export default async function PatternDetailPage({
         <div className="rounded-lg overflow-hidden bg-red-950/20 border border-red-900/30">
           <div className="px-4 py-2 border-b border-red-900/30 flex items-center gap-2">
             <span className="text-xs font-mono text-red-400">harmful pattern</span>
-            <span className="text-xs font-mono text-zinc-600 ml-auto">{pattern.problem.language}</span>
+            <span className="text-xs font-mono text-zinc-400 ml-auto">{pattern.problem.language}</span>
           </div>
-          <pre className="p-4 text-sm font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap">
+          <CodeBlock
+            label={`Code: harmful pattern (${pattern.problem.language})`}
+            className="p-4 text-sm font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap"
+            insetFocus
+          >
             {pattern.problem.code}
-          </pre>
+          </CodeBlock>
         </div>
       </section>
 
@@ -84,11 +97,15 @@ export default async function PatternDetailPage({
         <div className="rounded-lg overflow-hidden bg-green-950/20 border border-green-900/30">
           <div className="px-4 py-2 border-b border-green-900/30 flex items-center gap-2">
             <span className="text-xs font-mono text-green-400">safer alternative</span>
-            <span className="text-xs font-mono text-zinc-600 ml-auto">{pattern.fix.language}</span>
+            <span className="text-xs font-mono text-zinc-400 ml-auto">{pattern.fix.language}</span>
           </div>
-          <pre className="p-4 text-sm font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap">
+          <CodeBlock
+            label={`Code: safer alternative (${pattern.fix.language})`}
+            className="p-4 text-sm font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap"
+            insetFocus
+          >
             {pattern.fix.code}
-          </pre>
+          </CodeBlock>
         </div>
       </section>
 
@@ -100,7 +117,7 @@ export default async function PatternDetailPage({
         <p className="text-zinc-400 mb-4 text-sm">Add this to your eval suite to prevent regression.</p>
         <div className="rounded-lg overflow-hidden border border-zinc-700 bg-zinc-900">
           <div className="p-4 border-b border-zinc-700">
-            <p className="text-xs font-mono text-zinc-500 mb-1">INPUT</p>
+            <p className="text-xs font-mono text-zinc-400 mb-1">INPUT</p>
             <p className="text-sm text-zinc-300">{pattern.evalCase.input}</p>
           </div>
           <div className="p-4 border-b border-zinc-700 bg-green-950/10">

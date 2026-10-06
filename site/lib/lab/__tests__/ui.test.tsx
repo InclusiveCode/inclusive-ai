@@ -9,7 +9,7 @@ import { findingKey } from "../../../app/lab/components/findings";
 import { BASELINE_LIVE_HELP_ID, BaselineLiveHelp, LIVE_NOTICE, LivePanel } from "../../../app/lab/components/live-panel";
 import { Limitations } from "../../../app/lab/components/reference";
 import { RunDetails, RunMeta } from "../../../app/lab/components/run-details";
-import { liveAlertText, ModeBadge, RESPONSE_STATUS_TEXT, StatusBadge, statusLabel } from "../../../app/lab/components/status";
+import { liveAlertText, ModeBadge, RESPONSE_STATUS_TEXT, runLabel, StatusBadge, statusLabel, withRunLabel } from "../../../app/lab/components/status";
 import { findModel, LIVE_RESPONDER_VERSION } from "../models";
 import { renderInputs } from "../render";
 import { liveConfig } from "../run";
@@ -613,8 +613,9 @@ describe("D34: one-sided provider refusal note", () => {
     const [, s2, s3] = await baselines();
     const html = renderToStaticMarkup(<LabClient baselineRuns={[run, s2, s3]} />);
     const findings = html.slice(html.indexOf('id="findings"'), html.indexOf('id="edit"'));
-    expect(findings).toMatch(/role="alert"[^>]*>Only Version B was declined/);
-    expect(textContent(findings)).toContain(NOTE("B"));
+    // F2: the note names its run.
+    expect(findings).toMatch(/role="alert"[^>]*>Baseline run: Only Version B was declined/);
+    expect(textContent(findings)).toContain(`Baseline run: ${NOTE("B")}`);
     expect(textContent(findings)).toContain("Incomplete — not a pass");
   });
 });
@@ -799,5 +800,40 @@ describe("a latest live run that is not comparable on its own (A/B model ids dif
   it("the lab shows it for a not-comparable plan, before any comparison", () => {
     const src = readFileSync(join(SITE, "app/lab/lab-client.tsx"), "utf8");
     expect(src).toContain('if ("notComparable" in plan) return <LatestNotComparable latest={latestRun} reason={plan.notComparable} />;');
+  });
+});
+
+describe("F2: each run alert names its run", () => {
+  const rec = (status: ResponseRecord["status"], error?: string): ResponseRecord => ({ status, error, durationMs: 1 });
+
+  it("labels runs by the number the status announcements use", () => {
+    expect(runLabel({ id: "spouse-parity-run-2" })).toBe("Run 2");
+    expect(runLabel({ id: "disclosure-boundary-run-17" })).toBe("Run 17");
+    expect(runLabel({ id: "spouse-parity-baseline" })).toBe("Baseline run");
+    expect(runLabel({ id: "something-else" })).toBe("something-else");
+  });
+
+  it("prefixes the live alert, keeping its fixed, allowlisted detail", () => {
+    const run = { id: "spouse-parity-run-2", responses: { a: rec("credentials_unavailable", "The provider rejected the API key"), b: rec("credentials_unavailable", "The provider rejected the API key") } };
+    expect(withRunLabel(run, liveAlertText(run))).toBe("Run 2: Credentials unavailable — not evaluated (The provider rejected the API key)");
+    // Text outside the allowlist is still never shown.
+    const leaky = { id: "spouse-parity-run-3", responses: { a: rec("model_error", "raw upstream text"), b: rec("ok") } };
+    expect(withRunLabel(leaky, liveAlertText(leaky))).toBe("Run 3: Live request failed — not evaluated");
+    expect(withRunLabel({ id: "spouse-parity-run-4" }, null)).toBeNull();
+  });
+
+  it("the lab renders the status alert, the D34 note, and a failed run's error with the run label, keeping role=alert", () => {
+    const src = readFileSync(join(SITE, "app/lab/lab-client.tsx"), "utf8");
+    expect(src).toContain('const statusAlert = !running && shown?.mode === "live" ? withRunLabel(shown, liveAlertText(shown)) : null;');
+    expect(src).toContain("const asymmetryNote = !running && shown ? withRunLabel(shown, providerRefusalAsymmetryNote(shown)) : null;");
+    expect(src).toContain("text: `Run ${n}: The run could not be completed. This is not an evaluation result.`");
+    expect(src).toMatch(/<p key=\{shown\.id\} ref=\{statusAlertRef\} tabIndex=\{-1\} role="alert"[^>]*>\s*\{statusAlert\}/);
+  });
+
+  it("a displayed live run with a failed version shows the labelled alert on the page", async () => {
+    const run = await liveRun({ status: "credentials_unavailable", error: "The provider rejected the API key", text: undefined }, { status: "credentials_unavailable", error: "The provider rejected the API key", text: undefined }, getScenario("spouse-parity").baselineInstruction, "spouse-parity-baseline");
+    const [, s2, s3] = await baselines();
+    const html = renderToStaticMarkup(<LabClient baselineRuns={[run, s2, s3]} />);
+    expect(html).toMatch(/role="alert"[^>]*>Baseline run: Credentials unavailable — not evaluated \(The provider rejected the API key\)</);
   });
 });

@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Harm Registry" };
+
 const cases = [
   {
     id: "HC-001",
@@ -85,7 +89,7 @@ export default function RegistryPage() {
         <p className="text-zinc-400 mb-4">
           Documented cases of LLMs harming LGBTQIA+ users. Entries are anonymized but reproducible — each includes the failure, the impact, and a concrete mitigation.
         </p>
-        <p className="text-zinc-500 text-sm">
+        <p className="text-zinc-400 text-sm">
           All cases are illustrative of real documented patterns.{" "}
           <a
             href="https://github.com/InclusiveCode/inclusive-ai/issues/new?template=registry_case.md"
@@ -103,12 +107,12 @@ export default function RegistryPage() {
           <div key={c.id} className="border border-zinc-800 rounded-xl overflow-hidden">
             <div className="p-6">
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-xs font-mono text-zinc-600">{c.id}</span>
+                <span className="text-xs font-mono text-zinc-400">{c.id}</span>
                 <span className={`text-xs font-mono px-2 py-0.5 rounded border ${severityColor[c.severity]}`}>
                   {c.severity}
                 </span>
-                <span className="text-xs text-zinc-500 font-mono">{c.category}</span>
-                <span className="text-xs text-zinc-600 font-mono ml-auto">{c.date}</span>
+                <span className="text-xs text-zinc-400 font-mono">{c.category}</span>
+                <span className="text-xs text-zinc-400 font-mono ml-auto">{c.date}</span>
               </div>
               <h2 className="font-semibold text-lg mb-3">{c.title}</h2>
               <p className="text-zinc-400 text-sm mb-4">{c.summary}</p>
@@ -126,7 +130,7 @@ export default function RegistryPage() {
 
               <div className="flex gap-2 mt-4 flex-wrap">
                 {c.tags.map((t) => (
-                  <span key={t} className="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-500 rounded font-mono">
+                  <span key={t} className="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded font-mono">
                     {t}
                   </span>
                 ))}

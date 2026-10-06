@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { patterns } from "@/lib/patterns";
+
+export const metadata: Metadata = { title: "Anti-Pattern Library" };
 
 const severityColor: Record<string, string> = {
   critical: "text-rose-400 bg-rose-400/10",
@@ -37,14 +40,14 @@ export default function PatternsPage() {
                 <span className={`text-xs font-mono px-2 py-0.5 rounded ${severityColor[p.severity]}`}>
                   {p.severity}
                 </span>
-                <span className="text-xs text-zinc-500 font-mono">{p.category}</span>
+                <span className="text-xs text-zinc-400 font-mono">{p.category}</span>
               </div>
             </div>
             <h2 className="font-semibold mb-1 group-hover:text-zinc-100">{p.title}</h2>
             <p className="text-sm text-zinc-400">{p.description}</p>
             <div className="flex gap-2 mt-3 flex-wrap">
               {p.tags.map((t) => (
-                <span key={t} className="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-500 rounded font-mono">
+                <span key={t} className="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded font-mono">
                   {t}
                 </span>
               ))}
