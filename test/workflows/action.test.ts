@@ -198,10 +198,12 @@ describe("action definition", () => {
     for (const word of ["FAIL", "NEEDS_WORK", "VULNERABLE", "PARTIAL", "red-team"]) expect(text).toContain(word);
   });
 
-  it("sets up Node 20 with setup-node v4 and no dependency cache in the caller's workspace", () => {
+  // D43: setup-node v7. From v5 it can turn npm caching on by itself (when the caller's package.json
+  // names npm as its package manager), so "no dependency cache" is now stated explicitly.
+  it("sets up Node 20 with setup-node v7 and no dependency cache in the caller's workspace", () => {
     const setup = stepNamed(steps, "Setup Node.js");
-    expect(setup.uses).toBe("actions/setup-node@v4");
-    expect(setup.with).toEqual({ "node-version": 20 });
+    expect(setup.uses).toBe("actions/setup-node@v7");
+    expect(setup.with).toEqual({ "node-version": 20, "package-manager-cache": false });
   });
 
   it("only exposes the API key to the step that runs the eval", () => {
