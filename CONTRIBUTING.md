@@ -203,6 +203,10 @@ Prefix with the component when relevant: `eval`, `site`, `plugin`, `action`, `ho
    - How you tested it
    - If adding a harm registry entry: link to evidence or reproduction steps
 
+## Releases
+
+The `@inclusive-ai` npm packages are released from [MichaelVacirca/inclusive-eval-lab](https://github.com/MichaelVacirca/inclusive-eval-lab), which publishes all of them together through npm trusted publishing, with no npm token (see its [`docs/releasing.md`](https://github.com/MichaelVacirca/inclusive-eval-lab/blob/main/docs/releasing.md)). This repository has no publish workflow, so a change to the packages reaches npm only once it is in that repository and released from there.
+
 ## Code of Conduct
 
 This project exists to protect LGBTQIA+ communities. Contributors are expected to:
