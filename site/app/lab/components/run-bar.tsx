@@ -6,20 +6,30 @@ import { FOCUS } from "./status";
 /**
  * D49: on screens narrower than the two-column workbench, a bar fixed to the bottom of the
  * viewport keeps the displayed run's verdict in view and one tap from the editor. While the
- * editor is on screen it points back to the findings instead. Hidden from `lg` up, where the
+ * editor is on screen (EDIT_IN_VIEW) it points back to the findings instead. Hidden from `lg` up, where the
  * editor sits beside the results.
  *
  * WCAG 2.2 SC 2.4.11: globals.css adds scroll-padding-bottom (focused and anchored elements stop
  * above the bar) and body padding (the page end scrolls clear of it) while this bar exists.
  * Not a live region: the edit section's polite status line announces runs.
  */
+/**
+ * The editor counts as on screen while it crosses a band through the middle of the viewport (the
+ * middle 10 %, roughly midway between the site bar and this bar). A ratio threshold can't express
+ * that: engines differ on whether an entry below the threshold reports isIntersecting, and an
+ * editor more than five screens tall never reaches a 20 % ratio. A sliver at the bottom, under or
+ * just above this bar, or at the top, under the site bar, does not count. rootMargin takes only px
+ * and %.
+ */
+export const EDIT_IN_VIEW: IntersectionObserverInit = { rootMargin: "-45% 0px -45% 0px", threshold: 0 };
+
 export function RunBar({ label, headline, running }: { label: string; headline: string; running: boolean }) {
   const [editInView, setEditInView] = useState(false);
 
   useEffect(() => {
     const edit = document.querySelector("section[aria-labelledby=edit]");
     if (!edit || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(([entry]) => setEditInView(entry.isIntersecting), { threshold: 0.2 });
+    const io = new IntersectionObserver(([entry]) => setEditInView(entry.isIntersecting), EDIT_IN_VIEW);
     io.observe(edit);
     return () => io.disconnect();
   }, []);

@@ -9,7 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Findings, findingAnchor } from "../../../app/lab/components/findings";
 import { comparisonLine, countLine, ResultCard } from "../../../app/lab/components/result-card";
-import { RunBar } from "../../../app/lab/components/run-bar";
+import { EDIT_IN_VIEW, RunBar } from "../../../app/lab/components/run-bar";
 import { RunMeta } from "../../../app/lab/components/run-details";
 import { BUTTON } from "../../../app/lab/components/status";
 import { focusKeepingScroll, fullyVisible } from "../../../app/lab/focus";
@@ -240,6 +240,13 @@ describe("D49 phone run bar", () => {
     expect(bar![0]).not.toMatch(/role="(status|alert)"|aria-live|bg-zinc-50/);
     // After all lab content, so it is the last stop in the lab's Tab order.
     expect(html.indexOf('id="lab-run-bar"')).toBeGreaterThan(html.indexOf('aria-labelledby="limitations"'));
+  });
+
+  it("counts the editor as on screen only while it crosses the middle of the viewport", () => {
+    // A band through the middle, not a ratio: a sliver under or above the bar must not flip the link,
+    // and an editor taller than five screens must still count. rootMargin takes only px and %.
+    expect(EDIT_IN_VIEW).toEqual({ rootMargin: "-45% 0px -45% 0px", threshold: 0 });
+    expect(read("app/lab/components/run-bar.tsx")).toContain("new IntersectionObserver(([entry]) => setEditInView(entry.isIntersecting), EDIT_IN_VIEW)");
   });
 
   it("says Running… while a run is in flight", () => {

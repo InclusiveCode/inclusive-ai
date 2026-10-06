@@ -50,6 +50,24 @@ async function rerun(page, n) {
   await page.waitForFunction((k) => (document.querySelector("[role=status]")?.textContent ?? "").includes(`Run ${k} complete`), n, { timeout: 30000 });
 }
 const rectOf = (page, sel) => page.locator(sel).first().evaluate((e) => { const r = e.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height }; });
+// Scrolls so the edit section sits as described, then reads the bar link once the observer has run.
+async function barLinkAt(page, where) {
+  await page.evaluate((where) => {
+    const e = document.querySelector("section[aria-labelledby=edit]").getBoundingClientRect();
+    const bar = document.getElementById("lab-run-bar").getBoundingClientRect();
+    const nav = document.querySelector("body > nav").getBoundingClientRect();
+    const delta = {
+      "top 30 px from the bottom, under the bar": e.top - (innerHeight - 30),
+      "top 40 px above the bar": e.top - (bar.top - 40),
+      "top at 30 % of the screen": e.top - innerHeight * 0.3,
+      "bottom 40 px below the site bar": e.bottom - (nav.bottom + 40),
+      "filling the screen": e.top - (nav.bottom - 200),
+    }[where];
+    window.scrollTo(0, window.scrollY + delta);
+  }, where);
+  await page.waitForTimeout(250);
+  return page.locator("#lab-run-bar a").getAttribute("href");
+}
 const navBottom = (page) => page.evaluate(() => document.querySelector("body > nav").getBoundingClientRect().bottom);
 
 // 1. Desktop workbench: the editor stays on screen next to the findings, and the result shows there.
@@ -103,6 +121,12 @@ for (const [w, h] of [[320, 640], [375, 812], [768, 1024]]) {
   const head = await rectOf(page, "#edit");
   check(`D49 ${w}×${h}: "Edit and run" lands on the editor heading, clear of the site bar`, head.top >= nb - 1 && head.bottom <= h, JSON.stringify({ head, nb }));
   check(`D49 ${w}×${h}: with the editor on screen, the bar links back to the findings`, (await page.locator("#lab-run-bar a").getAttribute("href")) === "#findings");
+  // The link follows what you can see: a sliver of the editor at the bottom (under or just above the
+  // bar) or at the top (under the site bar) is not "on screen"; an editor across the middle is.
+  for (const [where, want] of [["top 30 px from the bottom, under the bar", "#edit"], ["top 40 px above the bar", "#edit"], ["top at 30 % of the screen", "#findings"], ["bottom 40 px below the site bar", "#edit"]]) {
+    const href = await barLinkAt(page, where);
+    check(`D49 ${w}×${h}: editor ${where}: the bar links to ${want}`, href === want, href);
+  }
   await rerun(page, 1);
   const barText = await page.locator("#lab-run-bar").innerText();
   check(`D49 ${w}×${h}: after a run, the bar names it and shows its verdict`, /^Run 1\n/.test(barText), barText.replace(/\n/g, " | "));
@@ -152,6 +176,21 @@ for (const [w, h] of [[320, 640], [375, 812], [768, 1024]]) {
     return { bottom: l.getBoundingClientRect().bottom, barTop: document.getElementById("lab-run-bar").getBoundingClientRect().top };
   });
   check(`D49 ${w}×${h}: scrolled to the end, the last footer link sits above the bar`, lastLink.bottom <= lastLink.barTop, JSON.stringify(lastLink));
+  await context.close();
+}
+
+// 2b. Live mode on a narrow phone and at 400 % zoom (320×256): the editor is taller than the screen
+// (about 7 screens at 320×256, where a 20 % ratio threshold never fires), and the bar still knows it is on screen.
+for (const [w, h] of [[320, 640], [320, 256]]) {
+  const { page, context } = await open(w, h);
+  await page.locator("input[name=response-source][value=live]").check();
+  await page.waitForTimeout(100);
+  const href = await barLinkAt(page, "filling the screen");
+  const size = await page.evaluate(() => {
+    const e = document.querySelector("section[aria-labelledby=edit]").getBoundingClientRect();
+    return { top: Math.round(e.top), bottom: Math.round(e.bottom), height: Math.round(e.height), vh: innerHeight };
+  });
+  check(`D49 ${w}×${h} live: with the editor taller than the screen and filling it, the bar links to the findings`, size.top < 0 && size.bottom > size.vh && href === "#findings", JSON.stringify({ href, ...size }));
   await context.close();
 }
 
