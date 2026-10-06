@@ -1,8 +1,13 @@
 import Link from "next/link";
+import { CHECKLIST_COUNT } from "@/lib/checklist";
+import { patterns } from "@/lib/patterns";
 import { reports } from "@/lib/reports";
-import { overallVerdict, VERDICT_RULE } from "@/lib/verdict";
+import { verdictFor, VERDICT_RULE } from "@/lib/verdict";
 import { CopyButton } from "./copy-button";
 import { Arrow, button, cx, ISSUE_PATTERN_URL, ISSUE_REGISTRY_URL, NewTab, PrideMark, REPO_URL, textLink, VERDICT_BAR, VerdictBadge } from "./ui";
+
+// Counts come from the data, not from hand-written numbers.
+const SCENARIOS = Math.max(...reports.map((r) => r.totalScenarios));
 
 const INSTALL = "npm install --save-dev @inclusive-ai/eval";
 
@@ -19,21 +24,21 @@ const steps = [
   {
     n: "02",
     title: "Fix the pattern",
-    body: "43 anti-patterns in prompts, data models, and product flows, each with the harmful code, a safer alternative, and a regression test.",
+    body: `${patterns.length} anti-patterns in prompts, data models, and product flows, each with the harmful code, a safer alternative, and a regression test.`,
     href: "/patterns",
     cta: "Browse patterns",
   },
   {
     n: "03",
     title: "Gate the release",
-    body: "200 scenarios as an npm package and a GitHub Action that fails the build on any critical failure. In your own tests, assertSafe also stops on high-severity ones.",
+    body: `${SCENARIOS} scenarios as an npm package and a GitHub Action that fails the build on any critical failure. In your own tests, assertSafe also stops on high-severity ones.`,
     href: "/tools#quick-start",
     cta: "Add to CI",
   },
   {
     n: "04",
     title: "Review before launch",
-    body: "Sixteen checks across identity, moderation, crisis flows, privacy, and eval coverage. Copy it into your PR template.",
+    body: `${CHECKLIST_COUNT} checks across identity, moderation, crisis flows, privacy, and eval coverage. Copy it into your PR template.`,
     href: "/checklist",
     cta: "Run the checklist",
   },
@@ -47,8 +52,6 @@ const failureModes = [
   { text: "Prompt templates that treat heterosexuality as the default relationship context", href: "/patterns/heterosexual-default" },
   { text: "Pipelines with no eval coverage for LGBTQIA+-specific failures", href: "/patterns/eval-gap" },
 ];
-
-const pride = ["bg-pride-1", "bg-pride-2", "bg-pride-3", "bg-pride-4", "bg-pride-5", "bg-pride-6"];
 
 export default function HomePage() {
   const failRates = reports.map((r) => 100 - r.totalRate);
@@ -103,7 +106,7 @@ export default function HomePage() {
           </p>
           <ul className="mt-6 space-y-5">
             {reports.map((r) => {
-              const verdict = overallVerdict(r.totalRate);
+              const verdict = verdictFor(r.failures);
               return (
                 <li key={r.slug}>
                   <div className="flex items-baseline justify-between gap-3">
@@ -116,14 +119,14 @@ export default function HomePage() {
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800" aria-hidden="true">
                     <div className={cx("h-full rounded-full", VERDICT_BAR[verdict])} style={{ width: `${r.totalRate}%` }} />
                   </div>
-                  <p className="mt-1.5 text-xs text-zinc-400">
+                  <p className="mt-1.5 text-sm text-zinc-400">
                     {r.totalPassed} of {r.totalScenarios} scenarios passed · {r.date}
                   </p>
                 </li>
               );
             })}
           </ul>
-          <p className="mt-6 border-t border-zinc-800 pt-4 text-xs leading-relaxed text-zinc-400">{VERDICT_RULE}</p>
+          <p className="mt-6 border-t border-zinc-800 pt-4 text-sm leading-relaxed text-zinc-400">{VERDICT_RULE}</p>
           <Link href="/research" className={cx(textLink, "mt-3 text-sm")}>
             Read the reports
             <Arrow />
@@ -167,7 +170,9 @@ export default function HomePage() {
           {failureModes.map((m, i) => (
             <li key={m.href}>
               <Link href={m.href} className="group flex min-h-14 items-center gap-4 py-4 pr-1 transition-colors hover:bg-zinc-900/50">
-                <span aria-hidden="true" className={cx("h-8 w-1 shrink-0 rounded-full", pride[i % pride.length])} />
+                <span aria-hidden="true" className="w-6 shrink-0 font-mono text-sm text-zinc-400">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
                 <span className="flex-1 text-[0.9375rem] leading-snug text-zinc-200 group-hover:text-zinc-50">{m.text}</span>
                 <Arrow className="text-zinc-400 group-hover:text-zinc-100" />
               </Link>

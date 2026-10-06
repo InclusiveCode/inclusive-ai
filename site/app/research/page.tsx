@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { reports } from "@/lib/reports";
-import { overallVerdict, VERDICT_RULE } from "@/lib/verdict";
+import { verdictFor, VERDICT_RULE } from "@/lib/verdict";
 import { Arrow, button, cx, NewTab, PageHeader, REPO_URL, VERDICT_BAR, VerdictBadge } from "../ui";
 
 export const metadata: Metadata = { title: "Evaluation Reports" };
 
-/** Domain bar colour by the domain's own verdict field. */
-const domainBar = (rate: number) => VERDICT_BAR[overallVerdict(rate)];
+const SCENARIOS = Math.max(...reports.map((r) => r.totalScenarios));
 
 export default function ResearchPage() {
   return (
@@ -21,22 +20,22 @@ export default function ResearchPage() {
 
       <ul className="space-y-5">
         {reports.map((report) => {
-          const verdict = overallVerdict(report.totalRate);
+          const verdict = verdictFor(report.failures);
           return (
             <li key={report.slug}>
               <Link
                 href={`/research/${report.slug}`}
                 className="group block rounded-2xl border border-zinc-800 p-5 transition-colors hover:border-zinc-600 hover:bg-zinc-900/40 active:bg-zinc-900 sm:p-6"
               >
-                <span className="flex items-start justify-between gap-4">
-                  <span>
-                    <span className="block text-xl font-semibold leading-snug text-zinc-50">{report.title}</span>
-                    <span className="mt-1 block text-sm text-zinc-400">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold leading-snug text-zinc-50">{report.title}</h2>
+                    <p className="mt-1 text-sm text-zinc-400">
                       {report.date} &middot; {report.model}
-                    </span>
-                  </span>
+                    </p>
+                  </div>
                   <VerdictBadge verdict={verdict} />
-                </span>
+                </div>
 
                 {/* Overall */}
                 <span className="mt-5 block">
@@ -57,7 +56,7 @@ export default function ResearchPage() {
                     <span key={r.domain} className="flex items-center gap-2">
                       <span className="w-24 shrink-0 text-zinc-400">{r.domain}</span>
                       <span className="block h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800" aria-hidden="true">
-                        <span className={cx("block h-full rounded-full", domainBar(r.rate))} style={{ width: `${r.rate}%` }} />
+                        <span className={cx("block h-full rounded-full", VERDICT_BAR[r.verdict])} style={{ width: `${r.rate}%` }} />
                       </span>
                       <span className="w-10 text-right font-mono text-zinc-300">{r.rate}%</span>
                     </span>
@@ -77,7 +76,7 @@ export default function ResearchPage() {
       <div className="mt-12 flex flex-col items-start gap-4 rounded-2xl border border-zinc-800 p-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="font-semibold text-zinc-50">Run the suite against your model</h2>
-          <p className="mt-1 text-sm text-zinc-400">Same 200 scenarios, your system prompt, your API key.</p>
+          <p className="mt-1 text-sm text-zinc-400">The same {SCENARIOS} scenarios, your system prompt, your API key.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link href="/tools#quick-start" className={button.primary}>

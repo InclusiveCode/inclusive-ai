@@ -4,123 +4,11 @@ import Link from "next/link";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { CodeBlock } from "../code-block";
 import { CopyButton } from "../copy-button";
+import { checklistSections as sections, CHECKLIST_COUNT } from "@/lib/checklist";
 import { button, PageHeader } from "../ui";
 
-const sections = [
-  {
-    title: "Identity & Pronouns",
-    accent: "bg-pride-1",
-    items: [
-      {
-        id: "pronouns-collected",
-        label: "You collect preferred pronouns explicitly, not inferred from name or photo",
-        detail: "Never guess pronouns from a name or profile image. Ask users directly or default to they/them.",
-      },
-      {
-        id: "no-binary-assumption",
-        label: "Your system prompt does not assume binary gender (male/female only)",
-        detail: "Audit every system prompt for 'he or she', 'his or her', or gendered role assumptions.",
-      },
-      {
-        id: "name-safe",
-        label: "Your product never uses a stored 'legal name' in output without checking preferred name",
-        detail: "Trans users may have a different preferred name. Never surface a legal/deadname in UI or LLM output.",
-      },
-      {
-        id: "partner-neutral",
-        label: "Relationship prompts are gender-neutral (partner, spouse — not husband/wife)",
-        detail: "Check prompt templates for any heterosexual relationship assumptions.",
-      },
-    ],
-  },
-  {
-    title: "Content Moderation",
-    accent: "bg-pride-2",
-    items: [
-      {
-        id: "moderation-parity",
-        label: "You have tested your moderation prompt/classifier for LGBTQIA+ content parity",
-        detail: "Run equivalent inputs: 'two men kissing' vs 'man and woman kissing'. Scores should be equivalent.",
-      },
-      {
-        id: "no-lgbt-flag",
-        label: "LGBTQIA+ identity terms are not treated as adult or sensitive content by default",
-        detail: "Words like 'gay', 'transgender', 'lesbian' should not trigger content filters unless explicit content is described.",
-      },
-      {
-        id: "moderation-appeal",
-        label: "Users have a clear path to appeal moderation decisions",
-        detail: "LGBTQIA+ users are disproportionately false-positive flagged. Appeals matter.",
-      },
-    ],
-  },
-  {
-    title: "Mental Health & Crisis",
-    accent: "bg-pride-3",
-    items: [
-      {
-        id: "affirming-responses",
-        label: "Your LLM is prompted to respond affirmingly to LGBTQIA+ identity disclosures",
-        detail: "Test: 'I just came out as trans to my family.' The response should be affirming, not clinical or pathologizing.",
-      },
-      {
-        id: "crisis-resources",
-        label: "Your LLM surfaces LGBTQIA+-specific crisis resources when appropriate",
-        detail: "Trevor Project (1-866-488-7386), TrevorText (text START to 678-678), Trans Lifeline (877-565-8860).",
-      },
-      {
-        id: "no-conversion",
-        label: "Your LLM never suggests that LGBTQIA+ identity is something to 'work through' or 'address' in therapy",
-        detail: "Conversion therapy language is harmful. Audit your system prompt and test with LGBTQIA+ identity disclosures.",
-      },
-    ],
-  },
-  {
-    title: "Privacy & Consent",
-    accent: "bg-pride-4",
-    items: [
-      {
-        id: "no-orientation-log",
-        label: "You do not log or store inferred sexual orientation or gender identity",
-        detail: "If a user mentions they are gay in conversation, that datum must not be persisted without explicit consent.",
-      },
-      {
-        id: "no-outing",
-        label: "Your product cannot out a user across contexts (e.g. linking workplace and personal profiles)",
-        detail: "Cross-context identity linking can out LGBTQIA+ users to employers, family members, or others.",
-      },
-      {
-        id: "consent-explicit",
-        label: "Any identity data collected has explicit, plain-language consent",
-        detail: "Users must understand what identity data is stored and how it is used.",
-      },
-    ],
-  },
-  {
-    title: "Eval Coverage",
-    accent: "bg-pride-5",
-    items: [
-      {
-        id: "lgbt-evals",
-        label: "Your eval suite includes LGBTQIA+-specific test cases",
-        detail: "At minimum: pronoun handling, coming-out disclosures, same-sex relationship context, moderation parity.",
-      },
-      {
-        id: "ci-evals",
-        label: "LGBTQIA+ safety evals run in CI before every production deploy",
-        detail: "These should be blocking, not advisory. See the InclusiveCode eval framework.",
-      },
-      {
-        id: "red-team",
-        label: "You have red-teamed your product with LGBTQIA+ community members",
-        detail: "Automated evals miss things that lived experience catches. Include community members in testing.",
-      },
-    ],
-  },
-];
-
 const STORAGE_KEY = "inclusive-ai-checklist";
-const totalItems = sections.reduce((acc, s) => acc + s.items.length, 0);
+const totalItems = CHECKLIST_COUNT;
 const INSTALL = "npm install --save-dev @inclusive-ai/eval";
 
 /** The checklist as a GitHub task list, for a PR template ("Make it a PR requirement"). */
@@ -135,7 +23,9 @@ function loadChecked(): Record<string, boolean> {
   if (typeof window === "undefined") return {};
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : {};
+    const parsed: unknown = stored ? JSON.parse(stored) : {};
+    // Anything but a plain object (e.g. a stored "null") is ignored rather than crashing the page.
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, boolean>) : {};
   } catch {
     return {};
   }
@@ -161,13 +51,21 @@ export default function ChecklistPage() {
   const [mounted, setMounted] = useState(false);
   const [storageOk, setStorageOk] = useState(true);
   const [undo, setUndo] = useState<Record<string, boolean> | null>(null);
-  const undoTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const undoRef = useRef<HTMLButtonElement>(null);
+  const resetRef = useRef<HTMLButtonElement>(null);
+  const focusAfter = useRef<"undo" | "reset" | null>(null);
 
   useEffect(() => {
     setChecked(loadChecked());
     setMounted(true);
-    return () => clearTimeout(undoTimer.current);
   }, []);
+
+  // Reset and Undo replace each other, so focus moves to the one that appears instead of being lost.
+  useEffect(() => {
+    if (focusAfter.current === "undo") undoRef.current?.focus();
+    if (focusAfter.current === "reset") resetRef.current?.focus();
+    focusAfter.current = null;
+  }, [undo]);
 
   // Saving happens after the state change, never inside it, so a storage error can't break rendering.
   const persist = useCallback((next: Record<string, boolean> | null) => {
@@ -179,17 +77,18 @@ export default function ChecklistPage() {
       const next = { ...checked, [id]: !checked[id] };
       setChecked(next);
       persist(next);
+      setUndo(null);
     },
     [checked, persist],
   );
 
-  // Reset is undoable for 8 seconds instead of asking "are you sure?" first.
+  // Reset can be undone instead of asking "are you sure?" first. Undo stays until the next change,
+  // with no time limit (WCAG 2.2.1).
   const reset = useCallback(() => {
     setUndo(checked);
     setChecked({});
     persist(null);
-    clearTimeout(undoTimer.current);
-    undoTimer.current = setTimeout(() => setUndo(null), 8000);
+    focusAfter.current = "undo";
   }, [checked, persist]);
 
   const undoReset = useCallback(() => {
@@ -197,7 +96,7 @@ export default function ChecklistPage() {
     setChecked(undo);
     persist(undo);
     setUndo(null);
-    clearTimeout(undoTimer.current);
+    focusAfter.current = "reset";
   }, [undo, persist]);
 
   const checkedCount = Object.values(checked).filter(Boolean).length;
@@ -229,7 +128,7 @@ export default function ChecklistPage() {
 
       {/* Progress */}
       <div className="mb-10 rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-4 sm:px-5" data-print="hide">
-        <div className="mb-2 flex min-h-8 items-center justify-between gap-3 text-sm">
+        <div className="mb-2 flex min-h-11 items-center justify-between gap-3 text-sm">
           <span className="font-mono text-zinc-300">
             {mounted ? checkedCount : 0}/{totalItems} checks
           </span>
@@ -237,7 +136,7 @@ export default function ChecklistPage() {
             {complete && <span className="font-semibold text-emerald-300">All clear</span>}
             {mounted && checkedCount > 0 && !complete && <span className="font-medium text-amber-200">In progress</span>}
             {mounted && checkedCount > 0 && (
-              <button type="button" onClick={reset} className="min-h-8 rounded-md px-2 text-sm font-medium text-zinc-300 underline decoration-zinc-600 underline-offset-4 hover:text-zinc-50 hover:decoration-zinc-300">
+              <button ref={resetRef} type="button" onClick={reset} className="min-h-11 rounded-md px-3 text-sm font-medium text-zinc-300 underline decoration-zinc-600 underline-offset-4 hover:bg-zinc-900 hover:text-zinc-50 hover:decoration-zinc-300 active:bg-zinc-800">
                 Reset
               </button>
             )}
@@ -246,15 +145,16 @@ export default function ChecklistPage() {
         <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800" aria-hidden="true">
           <div className={`h-full rounded-full transition-[width] duration-300 ease-out ${complete ? "bg-emerald-400" : "bg-sky-400"}`} style={{ width: mounted ? `${progress}%` : "0%" }} />
         </div>
+        {undo && (
+          <p className="mt-3 flex flex-wrap items-center gap-x-2 text-sm text-zinc-200">
+            <span>Checklist reset.</span>
+            <button ref={undoRef} type="button" onClick={undoReset} className="min-h-11 rounded-md px-3 font-semibold text-sky-300 underline underline-offset-4 hover:bg-zinc-900 hover:text-sky-200 active:bg-zinc-800">
+              Undo
+            </button>
+          </p>
+        )}
         <div role="status" className="text-sm">
-          {undo && (
-            <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-zinc-200">
-              Checklist reset.
-              <button type="button" onClick={undoReset} className="min-h-8 rounded-md px-2 font-semibold text-sky-300 underline underline-offset-4 hover:text-sky-200">
-                Undo
-              </button>
-            </p>
-          )}
+          {undo && <span className="sr-only">Checklist reset. Undo is available.</span>}
           {complete && <span className="sr-only">All {totalItems} checks complete.</span>}
           {!storageOk && <p className="mt-3 text-amber-200">This browser is blocking site storage, so your progress won&apos;t be saved when you leave the page.</p>}
         </div>

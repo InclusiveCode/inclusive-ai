@@ -42,6 +42,8 @@ export function CopyButton({
   }
 
   async function copy() {
+    // Clear the status first, so a second copy is announced again (a live region only speaks changes).
+    setState("idle");
     try {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(text);
@@ -57,19 +59,24 @@ export function CopyButton({
         const sel = window.getSelection();
         sel?.removeAllRanges();
         sel?.addRange(range);
+        // The text may be far from the button (the checklist's Markdown preview is at the bottom).
+        target.scrollIntoView({ block: "nearest" });
       }
       settle("failed");
     }
   }
 
   const word = state === "copied" ? "Copied" : state === "failed" ? "Copy failed" : (label ?? "Copy");
+  // Only read after a click (state "failed"), so server and client render the same markup.
+  const touch = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
   const shortcut = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘C" : "Ctrl+C";
+  const how = touch ? "use your browser's Copy" : `press ${shortcut}`;
 
   return (
     <span className="inline-flex items-center gap-2" data-print="hide">
       {state === "failed" && (
         <span className={`text-xs text-amber-200 ${compact ? "hidden sm:inline" : ""}`} aria-hidden="true">
-          {selectId ? `Selected — press ${shortcut}` : "Select the text to copy"}
+          {selectId ? `Selected — ${how}` : "Select the text to copy"}
         </span>
       )}
       <button
@@ -99,7 +106,7 @@ export function CopyButton({
         {!label && <span className="sr-only"> {what}</span>}
       </button>
       <span role="status" className="sr-only">
-        {state === "copied" ? `Copied ${what} to the clipboard.` : state === "failed" ? `Couldn't copy ${what}.${selectId ? ` The text is selected; press ${shortcut} to copy it.` : " Select the text and copy it."}` : ""}
+        {state === "copied" ? `Copied ${what} to the clipboard.` : state === "failed" ? `Couldn't copy ${what}.${selectId ? ` The text is selected; ${how} to copy it.` : " Select the text and copy it."}` : ""}
       </span>
     </span>
   );

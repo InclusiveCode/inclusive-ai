@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Inclusive AI — pre-commit hook
 # Scans staged files for common LGBT safety anti-patterns
-# Install: curl -fsSL https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main/hooks/pre-commit -o .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
-# With husky: save it as .husky/inclusive-ai-pre-commit and add "bash .husky/inclusive-ai-pre-commit" to .husky/pre-commit
+# Install: HOOK="$(git rev-parse --git-path hooks)/pre-commit" && curl -fsSL https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main/hooks/pre-commit -o "$HOOK" && chmod +x "$HOOK"
+# With husky: save it as .husky/inclusive-ai-pre-commit and add the line "bash .husky/inclusive-ai-pre-commit" to .husky/pre-commit
 
 set -euo pipefail
 
@@ -72,7 +72,7 @@ echo ""
 if [ $ISSUES -gt 0 ]; then
   echo -e "${RED}Found $ISSUES critical LGBT safety issue(s). Commit blocked.${NC}"
   echo "Fix these issues or use --no-verify to bypass (not recommended)."
-  echo "Run '/lgbt-audit' in Claude Code for a full audit with fixes."
+  echo "Run '/inclusive-ai:lgbt-audit' in Claude Code for a full audit with fixes."
   echo "Docs: https://inclusive-ai.vercel.app/patterns"
   exit 1
 fi

@@ -3,6 +3,7 @@ import { Atkinson_Hyperlegible_Mono, Atkinson_Hyperlegible_Next, Instrument_Seri
 import Link from "next/link";
 import "./globals.css";
 import { MobileNav } from "./mobile-nav";
+import { QuickStartLink } from "./quick-start-link";
 import { SiteNav } from "./site-nav";
 import { button, ExternalIcon, ISSUE_PATTERN_URL, ISSUE_REGISTRY_URL, NewTab, PrideMark, REPO_URL } from "./ui";
 
@@ -73,6 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Off-screen until focused (not clipped), so it is never "hidden text" to a reflow check. */}
         <a
           href="#main"
+          data-print="hide"
           className="fixed left-4 top-[76px] z-50 -translate-y-[300%] rounded-md bg-zinc-50 px-4 py-3 font-semibold text-zinc-950 focus:translate-y-0"
         >
           Skip to content
@@ -98,11 +100,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <NewTab />
                 <ExternalIcon />
               </a>
-              {/* Hidden below 360 px, where it would crowd the logo; Tools is in the menu there. */}
+              {/* Hidden below 360 px, where it would crowd the logo; Tools is in the menu there. Outlined, so
+                  each page keeps a single solid primary button of its own. */}
               <span className="hidden min-[360px]:block">
-                <Link href="/tools#quick-start" className={`${button.primary} min-h-10 whitespace-nowrap px-4 py-2 text-sm`}>
-                  Add to CI
-                </Link>
+                <QuickStartLink className={`${button.secondary} whitespace-nowrap px-4 py-2 text-sm`}>Add to CI</QuickStartLink>
               </span>
               <MobileNav />
             </div>
@@ -131,7 +132,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   {col.links.map((l) =>
                     "external" in l ? (
                       <li key={l.href}>
-                        <a href={l.href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-1.5 text-sm text-zinc-300 transition-colors hover:text-zinc-50">
+                        <a href={l.href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-zinc-300 transition-colors hover:text-zinc-50 sm:min-h-10">
                           {l.label}
                           <NewTab />
                           <ExternalIcon />
@@ -139,7 +140,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                       </li>
                     ) : (
                       <li key={l.href}>
-                        <Link href={l.href} className="inline-flex min-h-10 items-center text-sm text-zinc-300 transition-colors hover:text-zinc-50">
+                        <Link href={l.href} className="inline-flex min-h-11 items-center text-sm text-zinc-300 transition-colors hover:text-zinc-50 sm:min-h-10">
                           {l.label}
                         </Link>
                       </li>

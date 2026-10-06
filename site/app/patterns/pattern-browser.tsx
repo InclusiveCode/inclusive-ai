@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useDeferredValue, useId, useMemo, useState } from "react";
+import { useDeferredValue, useId, useMemo, useRef, useState } from "react";
 import { cx, SEVERITY_EDGE, SeverityBadge, type Severity } from "../ui";
 
 export type PatternCard = {
@@ -27,6 +27,7 @@ export function PatternBrowser({ items, domains }: { items: PatternCard[]; domai
   const [domain, setDomain] = useState("all");
   const deferredQuery = useDeferredValue(query);
   const searchId = useId();
+  const searchRef = useRef<HTMLInputElement>(null);
   const domainId = useId();
 
   const counts = useMemo(() => {
@@ -46,10 +47,12 @@ export function PatternBrowser({ items, domains }: { items: PatternCard[]; domai
   }, [items, severity, domain, deferredQuery]);
 
   const filtered = severity !== "all" || domain !== "all" || query.trim() !== "";
+  // The Clear buttons disappear once nothing is filtered, so focus moves to the search box.
   const clear = () => {
     setQuery("");
     setSeverity("all");
     setDomain("all");
+    searchRef.current?.focus();
   };
 
   const chip = (active: boolean) =>
@@ -72,6 +75,7 @@ export function PatternBrowser({ items, domains }: { items: PatternCard[]; domai
                 <path d="m10.5 10.5 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
               <input
+                ref={searchRef}
                 id={searchId}
                 type="search"
                 value={query}
@@ -106,10 +110,12 @@ export function PatternBrowser({ items, domains }: { items: PatternCard[]; domai
           <div className="flex flex-wrap gap-2">
             <button type="button" aria-pressed={severity === "all"} onClick={() => setSeverity("all")} className={chip(severity === "all")}>
               All <span className="font-mono text-xs opacity-80">{items.length}</span>
+              <span className="sr-only"> patterns</span>
             </button>
             {SEVERITIES.map((s) => (
               <button key={s} type="button" aria-pressed={severity === s} onClick={() => setSeverity(s)} className={chip(severity === s)}>
                 <span className="capitalize">{s}</span> <span className="font-mono text-xs opacity-80">{counts[s] ?? 0}</span>
+                <span className="sr-only"> patterns</span>
               </button>
             ))}
           </div>
@@ -146,12 +152,12 @@ export function PatternBrowser({ items, domains }: { items: PatternCard[]; domai
                   SEVERITY_EDGE[p.severity],
                 )}
               >
-                <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                   <SeverityBadge severity={p.severity} />
                   <span className="text-xs text-zinc-400">{p.category}</span>
-                </span>
-                <span className="mt-3 text-[1.0625rem] font-semibold leading-snug text-zinc-50">{p.title}</span>
-                <span className="mt-1.5 flex-1 text-sm leading-relaxed text-zinc-300">{p.description}</span>
+                </div>
+                <h2 className="mt-3 text-[1.0625rem] font-semibold leading-snug text-zinc-50">{p.title}</h2>
+                <p className="mt-1.5 flex-1 text-sm leading-relaxed text-zinc-300">{p.description}</p>
                 <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-zinc-200 group-hover:text-zinc-50">
                   Problem, fix, and test
                   <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" className="transition-transform group-hover:translate-x-0.5">

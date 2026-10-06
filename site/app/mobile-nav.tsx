@@ -27,14 +27,21 @@ export function menuOwnsEscape(
  * closes it.
  *
  * D44: 44 px toggle and 48 px rows for thumbs, the current section marked, a backdrop that closes
- * the menu when tapped, and the page behind it held still while it is open.
+ * the menu when tapped (focus returns to the toggle), the page behind it held still while it is
+ * open, and the menu closes when focus leaves it.
  */
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
-  const dismiss = () => setOpen(false);
+  // A backdrop tap closes the menu and puts focus back on the toggle, so it isn't lost to <body>.
+  // preventScroll: the toggle is always on screen, and scroll-padding-top would otherwise scroll a
+  // focused element in the sticky bar (the whole page) back to the top.
+  const dismiss = () => {
+    setOpen(false);
+    toggleRef.current?.focus({ preventScroll: true });
+  };
 
   // Close on navigation, including Back/Forward and links outside the menu.
   useEffect(() => {
@@ -47,10 +54,21 @@ export function MobileNav() {
       if (e.key !== "Escape") return;
       if (!menuOwnsEscape(document.activeElement, toggleRef.current, menuRef.current)) return;
       setOpen(false);
-      toggleRef.current?.focus();
+      toggleRef.current?.focus({ preventScroll: true });
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  // Tabbing out of the open menu closes it, so the menu never covers the focused element (WCAG 2.4.11).
+  useEffect(() => {
+    if (!open) return;
+    const onFocusIn = (e: FocusEvent) => {
+      const t = e.target as Node | null;
+      if (t && !menuRef.current?.contains(t) && t !== toggleRef.current) setOpen(false);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
   }, [open]);
 
   // Hold the page still behind the open menu.
@@ -85,12 +103,12 @@ export function MobileNav() {
           </svg>
         )}
       </button>
-      {open && <div aria-hidden="true" onClick={dismiss} className="fixed inset-x-0 bottom-0 top-[67px] bg-zinc-950/80" />}
+      {open && <div aria-hidden="true" onClick={dismiss} className="fixed inset-x-0 bottom-0 top-[68px] bg-zinc-950/80" />}
       <div
         ref={menuRef}
         id={MOBILE_MENU_ID}
         hidden={!open}
-        className="absolute inset-x-0 top-full max-h-[calc(100dvh-67px)] overflow-y-auto border-b border-zinc-800 bg-zinc-950 px-2 pb-4 pt-2 shadow-2xl shadow-black/60"
+        className="absolute inset-x-0 top-full max-h-[calc(100dvh-68px)] overflow-y-auto border-b border-zinc-800 bg-zinc-950 px-2 pb-4 pt-2 shadow-2xl shadow-black/60"
       >
         <ul>
           {NAV_LINKS.map((l) => {

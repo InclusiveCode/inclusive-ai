@@ -13,7 +13,9 @@ const RAW = "https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main";
  * repo. Files come from raw.githubusercontent.com; nothing overwrites a user's CLAUDE.md.
  */
 const snippets = {
-  tryIt: `ANTHROPIC_API_KEY=sk-ant-... npx @inclusive-ai/eval --system "$(cat system-prompt.txt)"`,
+  // The CLI calls the model through its SDK, an optional peer dependency, so the one-off run adds it.
+  tryIt: `ANTHROPIC_API_KEY=sk-ant-... npx -y -p @inclusive-ai/eval -p @anthropic-ai/sdk \\
+  inclusive-eval --severity critical --system "Your system prompt here"`,
   workflow: `# .github/workflows/lgbtqia-safety.yml
 name: LGBTQIA+ Safety
 on: [push, pull_request]
@@ -37,22 +39,25 @@ const summary = await runEval({
 
 printSummary(summary);
 assertSafe(summary); // throws on CRITICAL or HIGH failures`,
-  cli: `# Run all 200 scenarios (or set OPENAI_API_KEY instead)
-ANTHROPIC_API_KEY=sk-ant-... npx @inclusive-ai/eval
+  cliInstall: "npm install --save-dev @inclusive-ai/eval @anthropic-ai/sdk",
+  cli: `# Run all 200 scenarios (with OpenAI: install openai and set OPENAI_API_KEY)
+ANTHROPIC_API_KEY=sk-ant-... npx --no-install inclusive-eval
 
 # Filter by category or severity
-npx @inclusive-ai/eval --category identity,moderation
-npx @inclusive-ai/eval --severity critical
+npx --no-install inclusive-eval --category identity,moderation
+npx --no-install inclusive-eval --severity critical
 
 # Run by domain
-npx @inclusive-ai/eval --domain education
-npx @inclusive-ai/eval --domain content
+npx --no-install inclusive-eval --domain education
+
+# Also save the JSON report, with each model reply, to a file
+npx --no-install inclusive-eval --output results.json
 
 # Run 30 adversarial jailbreak scenarios
-npx @inclusive-ai/eval --adversarial
+npx --no-install inclusive-eval --adversarial
 
 # Red-team healthcare scenarios with 15 attack templates
-npx @inclusive-ai/eval --red-team --domain healthcare`,
+npx --no-install inclusive-eval --red-team --domain healthcare`,
   pluginInstall: `/plugin marketplace add InclusiveCode/inclusive-ai
 /plugin install inclusive-ai@inclusive-ai`,
   pluginUsage: `# Run a full audit
@@ -61,11 +66,13 @@ npx @inclusive-ai/eval --red-team --domain healthcare`,
 # Audit specific files
 /inclusive-ai:lgbt-audit src/prompts/
 /inclusive-ai:lgbt-audit src/models/user.ts`,
-  hookInstall: `curl -fsSL ${RAW}/hooks/pre-commit -o .git/hooks/pre-commit
-chmod +x .git/hooks/pre-commit`,
+  // git rev-parse finds the hooks folder in worktrees and submodules too, where .git is a file.
+  hookInstall: `HOOK="$(git rev-parse --git-path hooks)/pre-commit"
+curl -fsSL ${RAW}/hooks/pre-commit -o "$HOOK" && chmod +x "$HOOK"`,
+  // Appends start with a newline, so a file without a trailing newline isn't corrupted.
   hookHusky: `curl -fsSL ${RAW}/hooks/pre-commit -o .husky/inclusive-ai-pre-commit
-echo "bash .husky/inclusive-ai-pre-commit" >> .husky/pre-commit`,
-  claudeMd: `curl -fsSL ${RAW}/templates/CLAUDE.md >> CLAUDE.md`,
+printf '\\nbash .husky/inclusive-ai-pre-commit\\n' >> .husky/pre-commit`,
+  claudeMd: `{ echo; curl -fsSL ${RAW}/templates/CLAUDE.md; } >> CLAUDE.md`,
 };
 
 const categories = [
@@ -103,8 +110,10 @@ const actionInputs = [
   { name: "domain", what: "identity, healthcare, employment, education, or content.", def: "all" },
   { name: "severity", what: "Comma-separated: critical, high, medium.", def: "all" },
   { name: "category", what: "Comma-separated scenario categories.", def: "all" },
+  { name: "fail-on", what: "FAIL fails the job on critical failures; NEEDS_WORK also fails it on high-severity ones.", def: "FAIL" },
   { name: "adversarial", what: "Run the 30 standalone adversarial scenarios.", def: "false" },
   { name: "red-team", what: "Wrap scenarios with 15 attack templates and score bypasses.", def: "false" },
+  { name: "eval-version", what: "Version, range, or tag of @inclusive-ai/eval to install.", def: "3" },
 ];
 
 const hookDetects = [
@@ -128,13 +137,13 @@ const toc = [
 ];
 
 /** A titled code block with a copy button. The block keeps the F9 region semantics. */
-function Snippet({ id, title, label, what, code, note }: { id: string; title: string; label: string; what: string; code: string; note?: string }) {
+function Snippet({ id, title, label, what, code, note, copy = true }: { id: string; title: string; label: string; what: string; code: string; note?: string; copy?: boolean }) {
   return (
     <div>
       <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/70">
         <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-zinc-800 py-1.5 pl-4 pr-2">
           <Label>{title}</Label>
-          <CopyButton text={code} what={what} selectId={id} />
+          {copy && <CopyButton text={code} what={what} selectId={id} />}
         </div>
         <CodeBlock id={id} label={label} className="overflow-x-auto p-4 text-sm leading-relaxed" codeClassName="text-zinc-100" insetFocus>
           {code}
@@ -214,7 +223,7 @@ export default function ToolsPage() {
                 </span>
                 <div className="min-w-0 space-y-3">
                   <h3 className="text-lg font-semibold text-zinc-50">Try it on your system prompt</h3>
-                  <Snippet id="code-try" title="Terminal" label="Code: try Eval Suite on a system prompt" what="trial command" code={snippets.tryIt} note="Uses your own Anthropic key (or set OPENAI_API_KEY). Calls are billed by your provider." />
+                  <Snippet id="code-try" title="Terminal" label="Code: try Eval Suite on a system prompt" what="trial command" code={snippets.tryIt} note="Runs the critical scenarios with your own Anthropic key; your provider bills the calls. Using OpenAI? Replace @anthropic-ai/sdk with openai and set OPENAI_API_KEY." />
                 </div>
               </li>
               <li className="grid gap-3 sm:grid-cols-[2.25rem_1fr]">
@@ -256,7 +265,8 @@ export default function ToolsPage() {
             </p>
             <Snippet id="code-install" title="Install" label="Code: install Eval Suite" what="install command" code={snippets.install} />
             <Snippet id="code-usage" title="Use in your tests" label="Code: use Eval Suite" what="test code" code={snippets.usage} />
-            <Snippet id="code-cli" title="Command line" label="Code: Eval Suite command line" what="command-line examples" code={snippets.cli} />
+            <Snippet id="code-cli-install" title="Command line: install" label="Code: install Eval Suite command line" what="command-line install command" code={snippets.cliInstall} note="The CLI calls your model through its SDK, so install one next to the eval suite (or openai instead)." />
+            <Snippet id="code-cli" title="Command line: examples" label="Code: Eval Suite command line" what="command-line examples" code={snippets.cli} copy={false} note="A reference list: run the line you need, not the whole block." />
             <details className="group rounded-xl border border-zinc-800">
               <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 font-medium text-zinc-100 transition-colors hover:bg-zinc-900 [&::-webkit-details-marker]:hidden">
                 <span>
@@ -282,7 +292,7 @@ export default function ToolsPage() {
 
           <Section id="action" title="GitHub Action" tagline="LGBTQIA+ safety checks on every push and pull request.">
             <p className="max-w-3xl text-[0.9375rem] leading-relaxed text-zinc-300">
-              The workflow in the quick start is all you need. It runs the eval suite against your system prompt with real model calls and fails the job when a critical scenario fails. These inputs narrow or extend the run:
+              The workflow in the quick start is all you need. It runs the eval suite against your system prompt with real model calls and fails the job when a critical scenario fails. For the safest setup, pin the action to a commit SHA instead of <code className="rounded bg-zinc-800 px-1 py-0.5 text-sm text-zinc-100">@main</code>. These inputs narrow or extend the run:
             </p>
             <div role="region" aria-label="GitHub Action inputs" tabIndex={0} className="overflow-x-auto rounded-xl border border-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
               <table className="w-full min-w-[34rem] text-left text-sm">

@@ -14,11 +14,10 @@ export function cx(...parts: Array<string | false | null | undefined>): string {
 const BUTTON_BASE =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-[0.9375rem] font-semibold leading-tight transition-[background-color,border-color,color,transform] duration-150 active:translate-y-px focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:pointer-events-none disabled:opacity-50";
 
-/** One primary action per view; secondary for the alternative; quiet for low-stakes tools. */
+/** One solid primary action per view; outlined secondary for everything else. */
 export const button = {
   primary: `${BUTTON_BASE} bg-zinc-50 text-zinc-950 hover:bg-white active:bg-zinc-200`,
   secondary: `${BUTTON_BASE} border border-zinc-700 bg-zinc-900/60 text-zinc-100 hover:border-zinc-400 hover:bg-zinc-900 active:bg-zinc-800`,
-  quiet: "inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-zinc-50 active:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400",
 } as const;
 
 /** Text link with a visible affordance: underlined on hover, arrow nudges. */
@@ -110,7 +109,6 @@ export function SeverityBadge({ severity }: { severity: Severity }) {
     <span className={cx("inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold capitalize ring-1 ring-inset", SEVERITY_STYLE[severity])}>
       <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
       {severity}
-      <span className="sr-only"> severity</span>
     </span>
   );
 }

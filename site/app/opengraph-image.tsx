@@ -22,7 +22,7 @@ export default async function Image() {
           overflow: "hidden",
         }}
       >
-        {/* Rainbow stripe at top */}
+        {/* The flag as discrete stripes (D44), at top */}
         <div
           style={{
             position: "absolute",
@@ -30,21 +30,7 @@ export default async function Image() {
             left: 0,
             right: 0,
             height: "6px",
-            background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE, #DDA0DD)",
-          }}
-        />
-
-        {/* Subtle rainbow glow behind text */}
-        <div
-          style={{
-            position: "absolute",
-            width: "600px",
-            height: "600px",
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(116,185,255,0.08) 0%, transparent 70%)",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
+            background: "linear-gradient(90deg, #FF6B9D 0 16.667%, #FF9B71 16.667% 33.333%, #FECF6A 33.333% 50%, #63E6BE 50% 66.667%, #74B9FF 66.667% 83.333%, #A29BFE 83.333% 100%)",
           }}
         />
 
@@ -71,9 +57,7 @@ export default async function Image() {
               fontSize: "72px",
               fontWeight: 700,
               letterSpacing: "-2px",
-              background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)",
-              backgroundClip: "text",
-              color: "transparent",
+              color: "#a1a1aa",
             }}
           >
             Code
@@ -102,24 +86,24 @@ export default async function Image() {
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <span style={{ fontSize: "40px", fontWeight: 700, color: "#FF6B9D" }}>200</span>
-            <span style={{ fontSize: "16px", color: "#71717a" }}>scenarios</span>
+            <span style={{ fontSize: "40px", fontWeight: 700, color: "#fafafa" }}>200</span>
+            <span style={{ fontSize: "16px", color: "#a1a1aa" }}>scenarios</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <span style={{ fontSize: "40px", fontWeight: 700, color: "#FECF6A" }}>43</span>
-            <span style={{ fontSize: "16px", color: "#71717a" }}>anti-patterns</span>
+            <span style={{ fontSize: "40px", fontWeight: 700, color: "#fafafa" }}>43</span>
+            <span style={{ fontSize: "16px", color: "#a1a1aa" }}>anti-patterns</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <span style={{ fontSize: "40px", fontWeight: 700, color: "#63E6BE" }}>5</span>
-            <span style={{ fontSize: "16px", color: "#71717a" }}>domains</span>
+            <span style={{ fontSize: "40px", fontWeight: 700, color: "#fafafa" }}>5</span>
+            <span style={{ fontSize: "16px", color: "#a1a1aa" }}>domains</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <span style={{ fontSize: "40px", fontWeight: 700, color: "#74B9FF" }}>15</span>
-            <span style={{ fontSize: "16px", color: "#71717a" }}>attack templates</span>
+            <span style={{ fontSize: "40px", fontWeight: 700, color: "#fafafa" }}>15</span>
+            <span style={{ fontSize: "16px", color: "#a1a1aa" }}>attack templates</span>
           </div>
         </div>
 
-        {/* Rainbow stripe at bottom */}
+        {/* and at bottom */}
         <div
           style={{
             position: "absolute",
@@ -127,7 +111,7 @@ export default async function Image() {
             left: 0,
             right: 0,
             height: "6px",
-            background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE, #DDA0DD)",
+            background: "linear-gradient(90deg, #FF6B9D 0 16.667%, #FF9B71 16.667% 33.333%, #FECF6A 33.333% 50%, #63E6BE 50% 66.667%, #74B9FF 66.667% 83.333%, #A29BFE 83.333% 100%)",
           }}
         />
 
