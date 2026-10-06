@@ -12,6 +12,7 @@ import { comparisonLine, countLine, ResultCard } from "../../../app/lab/componen
 import { RunBar } from "../../../app/lab/components/run-bar";
 import { RunMeta } from "../../../app/lab/components/run-details";
 import { BUTTON } from "../../../app/lab/components/status";
+import { focusKeepingScroll, fullyVisible } from "../../../app/lab/focus";
 import { LabClient } from "../../../app/lab/lab-client";
 import { scenarioVerdict } from "../evaluate";
 import { findModel, LIVE_RESPONDER_VERSION } from "../models";
@@ -112,6 +113,64 @@ describe("D49 workbench layout", () => {
     const html = renderToStaticMarkup(<LabClient baselineRuns={await baselines()} />);
     const ta = /<textarea[^>]*id="lab-instruction"[^>]*>/.exec(html)![0];
     for (const c of ["field-sizing-content", "min-h-36", "max-h-[45vh]", "lg:max-h-[30vh]", "border-zinc-500"]) expect(ta).toContain(c);
+  });
+
+  it("restores focus after a run without scrolling when the target is already fully on screen", () => {
+    const src = read("app/lab/lab-client.tsx");
+    expect(src).toContain("if (running && cancellable && cancelButtonRef.current) focusKeepingScroll(cancelButtonRef.current, document);");
+    expect(src).toContain("if (target) focusKeepingScroll(target, document);");
+    // The only other focus() call is the key field's (no key / bad key), which scrolls as before.
+    expect((src.match(/\.focus\(/g) ?? []).length).toBe(1);
+  });
+
+  it("focusKeepingScroll: no scroll for a fully visible, uncovered element; a normal focus otherwise", () => {
+    const doc = (hit: (x: number, y: number) => unknown) => ({ documentElement: { clientWidth: 1280, clientHeight: 900 }, elementFromPoint: hit });
+    const button = (rect: { top: number; left: number; bottom: number; right: number }) => {
+      const calls: unknown[] = [];
+      const el = {
+        isConnected: true,
+        focus: (o?: FocusOptions) => void calls.push(o),
+        getBoundingClientRect: () => ({ ...rect, width: rect.right - rect.left, height: rect.bottom - rect.top }),
+        contains: (other: unknown) => other === el || other === label,
+      };
+      return { el, calls };
+    };
+    const label = {};
+    const nav = {};
+    const inRow = { top: 820, left: 900, bottom: 860, right: 990 };
+
+    // Pinned run row, on screen: hit-tests land on the button or its text.
+    let b = button(inRow);
+    focusKeepingScroll(b.el, doc(() => label));
+    expect(b.calls).toEqual([{ preventScroll: true }]);
+    expect(fullyVisible(b.el, doc(() => b.el))).toBe(true);
+
+    // Partly below the viewport, partly above it, or covered at a corner (the site bar, the phone run bar): scroll.
+    for (const [rect, hit] of [
+      [{ top: 880, left: 900, bottom: 920, right: 990 }, () => label],
+      [{ top: -10, left: 900, bottom: 30, right: 990 }, () => label],
+      [inRow, (_x: number, y: number) => (y < 830 ? nav : label)],
+    ] as const) {
+      b = button(rect);
+      focusKeepingScroll(b.el, doc(hit));
+      expect(b.calls).toEqual([undefined]);
+    }
+
+    // Not laid out (zero size, as in a test DOM) or not measurable: a normal focus.
+    b = button({ top: 0, left: 0, bottom: 0, right: 0 });
+    focusKeepingScroll(b.el, doc(() => b.el));
+    expect(b.calls).toEqual([undefined]);
+    const plain: unknown[] = [];
+    focusKeepingScroll({ isConnected: true, focus: (o?: FocusOptions) => void plain.push(o) }, doc(() => null));
+    expect(plain).toEqual([undefined]);
+  });
+
+  it("the site bar covers the strip under the pride stripe, so checks that cannot see the stripe see it covered", () => {
+    const layout = read("app/layout.tsx");
+    const nav = /<nav aria-label="Main"[^>]*className="([^"]*)"/.exec(layout)?.[1] ?? "";
+    for (const c of ["sticky", "top-0", "border-t-[3px]", "border-t-transparent", "border-b", "border-b-zinc-800", "bg-zinc-950"]) expect(nav.split(" ")).toContain(c);
+    expect(nav).not.toContain("top-[3px]");
+    expect(read("app/globals.css")).toMatch(/body::before \{[^}]*position: fixed;[^}]*top: 0;[^}]*height: 3px;[^}]*z-index: 100;/);
   });
 
   it("after a run of the displayed scenario, scrolls its result card into view without moving focus or (on desktop) the page", () => {

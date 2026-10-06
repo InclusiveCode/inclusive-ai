@@ -15,7 +15,7 @@ import { LiveSelectedNote, RunBanner } from "./components/banner";
 import { CompareView, LatestNotComparable } from "./components/compare-view";
 import { Findings } from "./components/findings";
 import { BASELINE_LIVE_HELP_ID, BaselineLiveHelp, clearKeyForProviderSwitch, LivePanel } from "./components/live-panel";
-import { pickFocusAfterRun } from "./focus";
+import { focusKeepingScroll, pickFocusAfterRun } from "./focus";
 import { forceLabControls, readPreHydrationChoices, type LabControlState } from "./form-sync";
 import { completionAnnouncement } from "./announce";
 import { abortInFlight } from "./inflight";
@@ -113,7 +113,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
 
   // While a live run is in flight the run buttons are disabled, so focus moves to Cancel.
   useEffect(() => {
-    if (running && cancellable) cancelButtonRef.current?.focus();
+    if (running && cancellable && cancelButtonRef.current) focusKeepingScroll(cancelButtonRef.current, document);
   }, [running, cancellable]);
 
   // When a run ends, focus that was dropped (Cancel or a disabled button disappearing) returns to the
@@ -122,12 +122,13 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
     if (running || !restoreFocusRef.current) return;
     const trigger = restoreFocusRef.current;
     restoreFocusRef.current = null;
-    pickFocusAfterRun({
+    const target = pickFocusAfterRun({
       active: document.activeElement,
       body: document.body,
       trigger,
       fallbacks: [statusAlertRef.current, runErrorRef.current, statusRef.current],
-    })?.focus();
+    });
+    if (target) focusKeepingScroll(target, document);
   }, [running]);
 
   const scenario = scenarios.find((s) => s.id === scenarioId) ?? scenarios[0];

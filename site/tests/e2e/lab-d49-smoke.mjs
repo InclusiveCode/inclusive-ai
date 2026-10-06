@@ -66,12 +66,14 @@ for (const [w, h] of [[1024, 768], [1280, 900], [1440, 900]]) {
   check(`D49 ${w}×${h}: … and so is the findings verdict`, fr.top >= nb - 1 && fr.bottom <= h, JSON.stringify(fr));
   await page.getByRole("button", { name: /FIX-VERIFY/ }).click();
   await page.locator("section[aria-labelledby=edit] button:text-is('Rerun')").evaluate((b) => b.focus());
-  const scrollBefore = await page.evaluate(() => scrollY);
+  // What the reader sees, not scrollY: the "Show run" list above the findings grows by a row, and
+  // the browser's scroll anchoring changes scrollY to keep the findings where they were.
+  const verdictBefore = (await rectOf(page, "section[aria-labelledby=findings] p.text-xl")).top;
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => (document.querySelector("[role=status]")?.textContent ?? "").includes("Run 1 complete"), null, { timeout: 30000 });
   await page.waitForTimeout(200);
-  const scrollAfter = await page.evaluate(() => scrollY);
-  check(`D49 ${w}×${h}: a Rerun doesn't move the page you are reading (only the editor column scrolls)`, Math.abs(scrollAfter - scrollBefore) <= 1, `${scrollBefore} -> ${scrollAfter}`);
+  const verdictAfter = (await rectOf(page, "section[aria-labelledby=findings] p.text-xl")).top;
+  check(`D49 ${w}×${h}: a Rerun doesn't move the findings you are reading (only the editor column scrolls)`, Math.abs(verdictAfter - verdictBefore) <= 1, `verdict top ${verdictBefore} -> ${verdictAfter}`);
   const card = await rectOf(page, "#lab-result");
   const aside = await rectOf(page, "section[aria-labelledby=edit]");
   check(`D49 ${w}×${h}: after Rerun, the result card is fully visible inside the editor column`, card.top >= Math.max(nb, aside.top) - 1 && card.bottom <= Math.min(h, aside.bottom) + 1, JSON.stringify({ card, aside }));
@@ -263,6 +265,38 @@ for (const mode of ["simulated", "live"]) {
   const key = await rectOf(page, "#lab-live-key");
   const aside = await rectOf(page, "section[aria-labelledby=edit]");
   check("D49 1280×640 live: Tab reaches the key field and it is visible inside the editor column", (await page.evaluate(() => document.activeElement?.id)) === "lab-live-key" && key.top >= aside.top && key.bottom <= aside.bottom && key.bottom <= 640, JSON.stringify({ key, aside }));
+  await context.close();
+}
+
+// 7. Live run from the findings: focus moves to Cancel and back to Rerun without moving the page or
+// jumping the editor column (a plain focus() in the pinned row scrolls to the row's in-flow position).
+{
+  const { page, context } = await open(1280, 900);
+  await page.route("**/api/lab/run", async (route) => {
+    await new Promise((r) => setTimeout(r, 800));
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "ok", text: "Happy to help.", returnedModel: "claude-haiku-4-5-20251001", durationMs: 800 }) });
+  });
+  await page.locator("input[name=response-source][value=live]").check();
+  await page.locator("#lab-live-key").fill("sk-ant-test-not-a-real-key-000000");
+  await page.locator("#findings").evaluate((e) => e.scrollIntoView());
+  await page.waitForTimeout(100);
+  const state = () =>
+    page.evaluate(() => ({
+      y: scrollY,
+      col: document.querySelector("section[aria-labelledby=edit]").scrollTop,
+      verdict: Math.round(document.querySelector("section[aria-labelledby=findings] p.text-xl").getBoundingClientRect().top),
+      focused: document.activeElement?.textContent?.trim(),
+    }));
+  await page.locator("section[aria-labelledby=edit] button:text-is('Run baseline live')").evaluate((b) => b.focus({ preventScroll: true }));
+  const before = await state();
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => document.activeElement?.textContent?.trim() === "Cancel", null, { timeout: 5000 });
+  const during = await state();
+  check("D49 1280×900 live: focus moves to Cancel without scrolling the page or the editor column", during.y === before.y && during.col === before.col, JSON.stringify({ before, during }));
+  await page.waitForFunction(() => (document.querySelector("[role=status]")?.textContent ?? "").includes("Run 1 complete"), null, { timeout: 30000 });
+  await page.waitForTimeout(200);
+  const after = await state();
+  check("D49 1280×900 live: after the run, focus is back on Run baseline live and the findings have not moved", after.focused === "Run baseline live" && Math.abs(after.verdict - before.verdict) <= 1, JSON.stringify({ before, after }));
   await context.close();
 }
 

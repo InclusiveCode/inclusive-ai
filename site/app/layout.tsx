@@ -79,8 +79,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to content
         </a>
-        {/* The site bar is the main navigation landmark, as before D44 (body > nav). */}
-        <nav aria-label="Main" data-print="hide" className="sticky top-[3px] z-20 border-b border-zinc-800 bg-zinc-950">
+        {/* The site bar is the main navigation landmark, as before D44 (body > nav). D49: it starts at
+            the very top, its transparent 3 px top border under the pride stripe, so the bar itself
+            covers that strip. axe cannot see the stripe (a pseudo-element), so with the bar at
+            top-[3px] it counted controls scrolled under the bar as uncovered. It looks the same. */}
+        <nav aria-label="Main" data-print="hide" className="sticky top-0 z-20 border-t-[3px] border-b border-t-transparent border-b-zinc-800 bg-zinc-950">
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
             <Link href="/" className="-ml-1 inline-flex min-h-11 items-center gap-2.5 rounded-md px-1">
               <PrideMark className="size-[18px]" />
