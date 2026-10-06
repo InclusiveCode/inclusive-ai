@@ -16,13 +16,28 @@ const links = [
 export const MOBILE_MENU_ID = "mobile-menu";
 
 /**
+ * Escape belongs to the menu only while focus is on the toggle or inside the menu. Elsewhere (for
+ * example the lab's instruction textarea or its review form, which handle Escape themselves) the
+ * key is left alone.
+ */
+export function menuOwnsEscape(
+  active: Element | null,
+  toggle: Element | null,
+  menu: Pick<Element, "contains"> | null,
+): boolean {
+  return active !== null && (active === toggle || !!menu?.contains(active));
+}
+
+/**
  * F8: a disclosure button with one constant name ("Menu"). aria-expanded carries the state, and
- * aria-controls points at the menu, which is always in the DOM (hidden when closed). Escape
- * closes it and returns focus to the toggle; any navigation closes it.
+ * aria-controls points at the menu, which is always in the DOM (hidden when closed). Escape with
+ * focus on the toggle or in the menu closes it and returns focus to the toggle; any navigation
+ * closes it.
  */
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
   // Close on navigation, including Back/Forward and links outside the menu.
@@ -34,6 +49,7 @@ export function MobileNav() {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      if (!menuOwnsEscape(document.activeElement, toggleRef.current, menuRef.current)) return;
       setOpen(false);
       toggleRef.current?.focus();
     };
@@ -63,6 +79,7 @@ export function MobileNav() {
         )}
       </button>
       <div
+        ref={menuRef}
         id={MOBILE_MENU_ID}
         hidden={!open}
         className="absolute top-full left-0 right-0 bg-zinc-950 border-b border-zinc-800 px-6 py-4 flex flex-col gap-4 text-sm text-zinc-400"
