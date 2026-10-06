@@ -303,14 +303,22 @@ describe("D44 R2‴, D50: /tools shows only flags the published CLI has", () => 
     expect(text(toolsTree)).toContain("--output and --judge need @inclusive-ai/eval 3.4.0 or newer; older versions ignore them without a warning.");
   });
 
-  it("the --judge-model example says the judge must come from the key's provider (3.4.0 passes the ID as-is)", () => {
-    const block = toolsBlocks.find((b) => /inclusive-eval --judge-model /.test(b)) ?? "";
-    const lines = block.split("\n");
+  /** The comment lines directly above the first `inclusive-eval --judge-model` command in `code`, joined. */
+  const commentAboveJudgeModel = (code: string) => {
+    const lines = code.split("\n");
     const at = lines.findIndex((l) => /inclusive-eval --judge-model /.test(l));
-    const comment = lines.slice(0, at).reverse().findIndex((l) => !l.startsWith("#"));
-    const above = lines.slice(at - (comment === -1 ? at : comment), at).join(" ");
-    expect(above).toMatch(/same provider as your\s*#?\s*key/);
-    expect(above).toContain("with OPENAI_API_KEY, an OpenAI model ID");
+    if (at === -1) return "";
+    const comment = lines.slice(0, at).reverse().findIndex((l) => !l.trim().startsWith("#"));
+    return lines.slice(at - (comment === -1 ? at : comment), at).join(" ");
+  };
+
+  it("the --judge-model example says the judge must come from the key's provider (3.4.0 passes the ID as-is), on /tools and in README.md", () => {
+    const tools = commentAboveJudgeModel(toolsBlocks.find((b) => /inclusive-eval --judge-model /.test(b)) ?? "");
+    const readme = commentAboveJudgeModel(read(join(REPO, "README.md")));
+    for (const above of [tools, readme]) {
+      expect(above).toMatch(/same provider as your\s*#?\s*key/);
+      expect(above).toContain("with OPENAI_API_KEY, an OpenAI model ID");
+    }
   });
 });
 

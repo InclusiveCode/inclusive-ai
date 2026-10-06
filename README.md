@@ -66,6 +66,9 @@ npx --no-install inclusive-eval --output results.json
 # per scenario; default judge claude-opus-5-5, or gpt-4.1 with OPENAI_API_KEY).
 # The Claude judge needs @anthropic-ai/sdk 0.131 or newer.
 npx --no-install inclusive-eval --judge
+
+# Pick the judge model: it must come from the same provider as your key
+# (with OPENAI_API_KEY, an OpenAI model ID)
 npx --no-install inclusive-eval --judge-model claude-sonnet-5-5
 
 # Red-team your system prompt with 15 attack templates
