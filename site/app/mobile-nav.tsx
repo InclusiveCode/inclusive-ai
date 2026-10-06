@@ -3,15 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const links = [
-  { href: "/patterns", label: "Patterns" },
-  { href: "/checklist", label: "Checklist" },
-  { href: "/registry", label: "Registry" },
-  { href: "/research", label: "Research" },
-  { href: "/tools", label: "Tools" },
-  { href: "/lab", label: "Lab" },
-];
+import { isCurrent, NAV_LINKS } from "./nav-links";
 
 export const MOBILE_MENU_ID = "mobile-menu";
 
@@ -33,12 +25,23 @@ export function menuOwnsEscape(
  * aria-controls points at the menu, which is always in the DOM (hidden when closed). Escape with
  * focus on the toggle or in the menu closes it and returns focus to the toggle; any navigation
  * closes it.
+ *
+ * D44: 44 px toggle and 48 px rows for thumbs, the current section marked, a backdrop that closes
+ * the menu when tapped (focus returns to the toggle), the page behind it held still while it is
+ * open, and the menu closes when focus leaves it.
  */
 export function MobileNav() {
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  // A backdrop tap closes the menu and puts focus back on the toggle, so it isn't lost to <body>.
+  // preventScroll: the toggle is always on screen, and scroll-padding-top would otherwise scroll a
+  // focused element in the sticky bar (the whole page) back to the top.
+  const dismiss = () => {
+    setOpen(false);
+    toggleRef.current?.focus({ preventScroll: true });
+  };
 
   // Close on navigation, including Back/Forward and links outside the menu.
   useEffect(() => {
@@ -51,47 +54,98 @@ export function MobileNav() {
       if (e.key !== "Escape") return;
       if (!menuOwnsEscape(document.activeElement, toggleRef.current, menuRef.current)) return;
       setOpen(false);
-      toggleRef.current?.focus();
+      toggleRef.current?.focus({ preventScroll: true });
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
+  // Tabbing out of the open menu closes it, so the menu never covers the focused element (WCAG 2.4.11).
+  useEffect(() => {
+    if (!open) return;
+    const onFocusIn = (e: FocusEvent) => {
+      const t = e.target as Node | null;
+      if (t && !menuRef.current?.contains(t) && t !== toggleRef.current) setOpen(false);
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, [open]);
+
+  // Hold the page still behind the open menu. scroll-padding-top goes too while it is open: the
+  // first menu row sits inside that padding, and focusing it would otherwise nudge the page.
+  useEffect(() => {
+    if (!open) return;
+    const root = document.documentElement;
+    const previous = { overflow: root.style.overflow, scrollPaddingTop: root.style.scrollPaddingTop };
+    root.style.overflow = "hidden";
+    root.style.scrollPaddingTop = "0px";
+    return () => {
+      root.style.overflow = previous.overflow;
+      root.style.scrollPaddingTop = previous.scrollPaddingTop;
+    };
+  }, [open]);
+
   return (
-    <div className="sm:hidden">
+    <div className="lg:hidden">
       <button
         ref={toggleRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="p-2 text-zinc-400 hover:text-zinc-100 transition-colors"
+        className="-mr-2 inline-flex size-11 items-center justify-center rounded-md text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-zinc-50 active:bg-zinc-800"
         aria-label="Menu"
         aria-expanded={open}
         aria-controls={MOBILE_MENU_ID}
       >
         {open ? (
-          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M4 4l12 12M16 4L4 16" />
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M4.5 4.5l11 11M15.5 4.5l-11 11" />
           </svg>
         ) : (
-          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M3 5h14M3 10h14M3 15h14" />
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <path d="M3 6h14M3 10h14M3 14h14" />
           </svg>
         )}
       </button>
+      {open && <div aria-hidden="true" onClick={dismiss} className="fixed inset-x-0 bottom-0 top-[68px] bg-zinc-950/80" />}
       <div
         ref={menuRef}
         id={MOBILE_MENU_ID}
         hidden={!open}
-        className="absolute top-full left-0 right-0 bg-zinc-950 border-b border-zinc-800 px-6 py-4 flex flex-col gap-4 text-sm text-zinc-400"
+        className="absolute inset-x-0 top-full max-h-[calc(100dvh-68px)] overflow-y-auto border-b border-zinc-800 bg-zinc-950 px-2 pb-4 pt-2 shadow-2xl shadow-black/60"
       >
-        {links.map((l) => (
-          <Link key={l.href} href={l.href} onClick={() => setOpen(false)} className="hover:text-zinc-100 transition-colors">
-            {l.label}
-          </Link>
-        ))}
-        <a href="https://github.com/InclusiveCode" target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className="hover:text-zinc-100 transition-colors">
-          GitHub
-        </a>
+        <ul>
+          {NAV_LINKS.map((l) => {
+            const current = isCurrent(pathname, l.href);
+            return (
+              <li key={l.href}>
+                <Link
+                  href={l.href}
+                  onClick={() => setOpen(false)}
+                  aria-current={current ? "page" : undefined}
+                  className={`flex min-h-12 items-center justify-between rounded-md px-4 text-base font-medium transition-colors hover:bg-zinc-900 active:bg-zinc-800 ${current ? "bg-zinc-900 text-zinc-50" : "text-zinc-300"}`}
+                >
+                  {l.label}
+                  {current && <span aria-hidden="true" className="size-1.5 rounded-full bg-zinc-50" />}
+                </Link>
+              </li>
+            );
+          })}
+          <li className="mt-2 border-t border-zinc-800 pt-2">
+            <a
+              href="https://github.com/InclusiveCode"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="flex min-h-12 items-center justify-between rounded-md px-4 text-base font-medium text-zinc-300 transition-colors hover:bg-zinc-900 active:bg-zinc-800"
+            >
+              GitHub
+              <span className="sr-only"> (opens in a new tab)</span>
+              <svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M5.5 3H3v8h8V8.5M8 3h3v3M11 3 6.5 7.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </a>
+          </li>
+        </ul>
       </div>
     </div>
   );

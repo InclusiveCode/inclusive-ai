@@ -1,123 +1,213 @@
 import Link from "next/link";
+import { CHECKLIST_COUNT } from "@/lib/checklist";
+import { patterns } from "@/lib/patterns";
+import { reports } from "@/lib/reports";
+import { verdictFor, VERDICT_RULE } from "@/lib/verdict";
+import { CopyButton } from "./copy-button";
+import { Arrow, button, cx, ISSUE_PATTERN_URL, ISSUE_REGISTRY_URL, NewTab, PrideMark, REPO_URL, textLink, VERDICT_BAR, VerdictBadge } from "./ui";
 
-const features: Array<{ title: string; description: string; href: string; icon: string; className?: string }> = [
+// Counts come from the data, not from hand-written numbers.
+const SCENARIOS = Math.max(...reports.map((r) => r.totalScenarios));
+
+const INSTALL = "npm install --save-dev @inclusive-ai/eval";
+
+// D44: the home page tells one story — see the failure, fix it, gate it, review it — and every step
+// ends in an action. The feature grid it replaces gave five products equal weight and no order.
+const steps = [
   {
-    title: "Anti-Pattern Library",
-    description: "Common LLM prompt and code patterns that harm LGBTQIA+ users — with safer alternatives.",
-    href: "/patterns",
-    icon: "⚠️",
-  },
-  {
-    title: "Pre-Ship Checklist",
-    description: "A structured review checklist for LLM engineers before launching any user-facing product.",
-    href: "/checklist",
-    icon: "✅",
-  },
-  {
-    title: "Harm Registry",
-    description: "Documented, reproducible cases of LLMs failing LGBTQIA+ communities. Evidence for advocates and engineers alike.",
-    href: "/registry",
-    icon: "📋",
-  },
-  {
-    title: "Evaluation Lab",
-    description: "Inspect paired LGBTQIA+ scenarios, edit a system instruction, rerun, and compare what improved or regressed. The simulated demo runs in your browser with no setup; optional live mode uses your own API key.",
+    n: "01",
+    title: "See it fail",
+    body: "Paired inputs that differ in one detail. Edit the system instruction, rerun, and compare what improved or regressed. Runs in your browser, no setup.",
     href: "/lab",
-    icon: "🧪",
-    className: "lg:col-span-2",
+    cta: "Open the lab",
   },
   {
-    title: "Developer Tools",
-    description: "Eval suite, Claude Code plugin, GitHub Action, and pre-commit hook — drop into your pipeline.",
-    href: "/tools",
-    icon: "🛠️",
-    className: "sm:col-span-2 lg:col-span-1",
+    n: "02",
+    title: "Fix the pattern",
+    body: `${patterns.length} anti-patterns in prompts, data models, and product flows, each with the harmful code, a safer alternative, and a regression test.`,
+    href: "/patterns",
+    cta: "Browse patterns",
+  },
+  {
+    n: "03",
+    title: "Gate the release",
+    body: `${SCENARIOS} scenarios as an npm package and a GitHub Action that fails the build on any critical failure. In your own tests, assertSafe also stops on high-severity ones.`,
+    href: "/tools#quick-start",
+    cta: "Add to CI",
+  },
+  {
+    n: "04",
+    title: "Review before launch",
+    body: `${CHECKLIST_COUNT} checks across identity, moderation, crisis flows, privacy, and eval coverage. Copy it into your PR template.`,
+    href: "/checklist",
+    cta: "Run the checklist",
   },
 ];
 
 const failureModes = [
-  "System prompts that assume binary gender, deadname users, or misgender trans people",
-  "Mental health and companion AI that gives non-affirming responses to LGBTQIA+ youth in crisis",
-  "Content moderation prompts that flag LGBTQIA+ content at higher rates than equivalent straight content",
-  "LLM applications that infer or store sexual orientation without user consent",
-  "Prompt templates that treat heterosexuality as the default relationship context",
-  "Output pipelines with no eval coverage for LGBTQIA+-specific failure scenarios",
+  { text: "System prompts that assume binary gender, deadname users, or misgender trans people", href: "/patterns/binary-gender-assumption" },
+  { text: "Mental health and companion AI that gives non-affirming responses to LGBTQIA+ youth in crisis", href: "/patterns/crisis-mishandling" },
+  { text: "Content moderation that flags LGBTQIA+ content at higher rates than equivalent straight content", href: "/patterns/moderation-parity" },
+  { text: "Applications that infer or store sexual orientation without consent", href: "/patterns/identity-inference" },
+  { text: "Prompt templates that treat heterosexuality as the default relationship context", href: "/patterns/heterosexual-default" },
+  { text: "Pipelines with no eval coverage for LGBTQIA+-specific failures", href: "/patterns/eval-gap" },
 ];
 
-const prideColors = ["#FF6B9D", "#FF9B71", "#FECF6A", "#63E6BE", "#74B9FF", "#A29BFE"];
-
 export default function HomePage() {
+  const failRates = reports.map((r) => 100 - r.totalRate);
+  const lowestFail = Math.min(...failRates);
+  const highestFail = Math.max(...failRates);
+
   return (
-    <div className="max-w-4xl mx-auto px-6 py-20">
-      {/* Hero */}
-      <div className="text-center mb-16">
-        <div className="inline-block px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono mb-6">
-          for llm engineers
+    <div className="mx-auto max-w-6xl px-4 pt-10 sm:px-6 sm:pt-20">
+      {/* Hero: one promise, one primary action, the install command right there. */}
+      <section aria-labelledby="hero-title" className="grid gap-12 lg:grid-cols-[1.25fr_1fr] lg:items-start lg:gap-16">
+        <div>
+          <h1 id="hero-title" className="font-display text-[2.75rem] leading-[1.02] tracking-[-0.015em] text-zinc-50 sm:text-7xl">
+            Catch LGBTQIA+ harms before your users do.
+          </h1>
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-zinc-300 sm:text-xl">
+            Misgendering, outing, non-affirming crisis replies, biased moderation: predictable failures you can test for. Open-source eval scenarios, fixes, and a CI gate for LLM products.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Link href="/tools#quick-start" className={button.primary}>
+              Add the eval suite
+              <Arrow />
+            </Link>
+            <Link href="/lab" className={button.secondary}>
+              Try the lab — no setup
+            </Link>
+          </div>
+          <div className="mt-6 flex max-w-xl items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 py-2 pl-4 pr-2">
+            <span aria-hidden="true" className="select-none font-mono text-sm text-zinc-400">
+              $
+            </span>
+            <code id="hero-install" className="min-w-0 flex-1 wrap-anywhere font-mono text-[0.8125rem] text-zinc-100 sm:text-sm">
+              {INSTALL}
+            </code>
+            <CopyButton text={INSTALL} what="install command" selectId="hero-install" compact />
+          </div>
+          <p className="mt-4 text-sm text-zinc-400">
+            MIT licensed · TypeScript · works with any model{" "}
+            <span aria-hidden="true">·</span>{" "}
+            <Link href="/checklist" className="text-zinc-300 underline decoration-zinc-600 underline-offset-4 hover:text-zinc-50 hover:decoration-zinc-300">
+              or start with the checklist
+            </Link>
+          </p>
         </div>
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-6 leading-tight">
-          Build LLM Products That{" "}
-          <span style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE, #DDA0DD)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-            Don&apos;t Harm LGBTQIA+ People
-          </span>
-        </h1>
-        <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-8">
-          Patterns, checklists, an interactive evaluation lab, an eval suite, CI pipeline tools, and a Claude Code plugin — everything LLM engineers need to protect LGBTQIA+ communities before they ship.
-        </p>
-        <div className="flex gap-4 justify-center flex-wrap">
-          <Link
-            href="/checklist"
-            className="px-6 py-3 rounded-lg font-medium text-zinc-950 transition-opacity hover:opacity-90"
-            style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)" }}
-          >
-            Start with the Checklist
+
+        {/* Proof: the published baselines, straight from the report data. */}
+        <aside aria-labelledby="proof-title" className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 sm:p-7">
+          <p id="proof-title" className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-zinc-400">
+            Published baselines
+          </p>
+          <p className="mt-3 text-2xl font-semibold leading-snug text-zinc-50">
+            Every model we have published misses {lowestFail === highestFail ? `${lowestFail}%` : `${lowestFail}–${highestFail}%`} of these scenarios.
+          </p>
+          <ul className="mt-6 space-y-5">
+            {reports.map((r) => {
+              const verdict = verdictFor(r.failures);
+              return (
+                <li key={r.slug}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-medium text-zinc-100">{r.model}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="font-mono text-sm text-zinc-300">{r.totalRate}%</span>
+                      <VerdictBadge verdict={verdict} />
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800" aria-hidden="true">
+                    <div className={cx("h-full rounded-full", VERDICT_BAR[verdict])} style={{ width: `${r.totalRate}%` }} />
+                  </div>
+                  <p className="mt-1.5 text-sm text-zinc-400">
+                    {r.totalPassed} of {r.totalScenarios} scenarios passed · {r.date}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-6 border-t border-zinc-800 pt-4 text-sm leading-relaxed text-zinc-400">{VERDICT_RULE}</p>
+          <Link href="/research" className={cx(textLink, "mt-3 text-sm")}>
+            Read the reports
+            <Arrow />
           </Link>
-          <Link href="/patterns" className="px-6 py-3 border border-zinc-700 rounded-lg font-medium hover:border-zinc-500 transition-colors">
-            Browse Patterns
-          </Link>
-          <Link href="/lab" className="px-6 py-3 border border-zinc-700 rounded-lg font-medium hover:border-zinc-500 transition-colors">
-            Try the Evaluation Lab
-          </Link>
+        </aside>
+      </section>
+
+      {/* The journey, as numbered steps that each end in an action. */}
+      <section aria-labelledby="how-title" className="mt-24 sm:mt-32">
+        <h2 id="how-title" className="font-display text-4xl leading-tight text-zinc-50 sm:text-5xl">
+          From first failure to release gate
+        </h2>
+        <ol className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-800 sm:grid-cols-2 lg:grid-cols-4">
+          {steps.map((s) => (
+            <li key={s.n} className="flex flex-col bg-zinc-950 p-6">
+              <span className="font-mono text-sm text-zinc-400" aria-hidden="true">
+                {s.n}
+              </span>
+              <h3 className="mt-3 text-lg font-semibold text-zinc-50">{s.title}</h3>
+              <p className="mt-2 flex-1 text-[0.9375rem] leading-relaxed text-zinc-300">{s.body}</p>
+              <Link href={s.href} className={cx(textLink, "mt-5 self-start text-[0.9375rem]")}>
+                {s.cta}
+                <Arrow />
+              </Link>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* Why: each failure mode links to the pattern that fixes it. */}
+      <section aria-labelledby="why-title" className="mt-24 grid gap-10 sm:mt-32 lg:grid-cols-[1fr_1.5fr] lg:gap-16">
+        <div>
+          <h2 id="why-title" className="font-display text-4xl leading-tight text-zinc-50 sm:text-5xl">
+            Not edge cases.
+          </h2>
+          <p className="mt-4 max-w-md text-lg leading-relaxed text-zinc-300">
+            Most teams evaluate accuracy, latency, and general safety. Almost none test the failures LGBTQIA+ users hit — and they are predictable, reproducible, and preventable.
+          </p>
         </div>
-      </div>
-
-      {/* Feature Cards */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-20">
-        {features.map((f) => (
-          <Link key={f.href} href={f.href} className={`card-rainbow-hover group p-6 border border-zinc-800 rounded-xl transition-colors ${f.className ?? ""}`}>
-            <div className="text-2xl mb-3" aria-hidden="true">{f.icon}</div>
-            <h2 className="font-semibold mb-2 group-hover:text-zinc-100">{f.title}</h2>
-            <p className="text-sm text-zinc-400">{f.description}</p>
-          </Link>
-        ))}
-      </div>
-
-      {/* Why This Matters */}
-      <div className="mb-20">
-        <h2 className="text-2xl font-bold mb-2">Why this matters</h2>
-        <p className="text-zinc-400 mb-6">
-          LLM engineers are shipping products at speed. Most teams run evals for accuracy, latency, and safety — but almost none test for LGBTQIA+-specific failure modes. These aren&apos;t edge cases. They&apos;re predictable, reproducible, and preventable.
-        </p>
-        <ul className="space-y-3">
-          {failureModes.map((mode, i) => (
-            <li key={i} className="flex gap-3 text-zinc-300">
-              <span className="mt-0.5 shrink-0 font-bold" style={{ color: prideColors[i % prideColors.length] }}>→</span>
-              <span>{mode}</span>
+        <ul className="divide-y divide-zinc-800 border-y border-zinc-800">
+          {failureModes.map((m, i) => (
+            <li key={m.href}>
+              <Link href={m.href} className="group flex min-h-14 items-center gap-4 py-4 pr-1 transition-colors hover:bg-zinc-900/50">
+                <span aria-hidden="true" className="w-6 shrink-0 font-mono text-sm text-zinc-400">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className="flex-1 text-[0.9375rem] leading-snug text-zinc-200 group-hover:text-zinc-50">{m.text}</span>
+                <Arrow className="text-zinc-400 group-hover:text-zinc-100" />
+              </Link>
             </li>
           ))}
         </ul>
-      </div>
+      </section>
 
-      {/* Get Started */}
-      <div className="p-8 border border-zinc-800 rounded-xl bg-zinc-900/50" style={{ borderImage: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE, #DDA0DD) 1" }}>
-        <h2 className="text-xl font-bold mb-2">Contribute</h2>
-        <p className="text-zinc-400 mb-4">
-          This is a community resource. If you&apos;ve seen an LLM fail an LGBTQIA+ user — or built a mitigation that works — open a PR. Patterns and registry entries are plain MDX files.
+      {/* Contribute */}
+      <section aria-labelledby="contribute-title" className="mt-24 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 sm:mt-32 sm:p-10">
+        <div className="flex items-center gap-3">
+          <PrideMark className="size-5" />
+          <h2 id="contribute-title" className="font-display text-3xl text-zinc-50 sm:text-4xl">
+            Seen an LLM fail someone?
+          </h2>
+        </div>
+        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-zinc-300">
+          This is a community resource. Report a harm you have seen, or a mitigation that works. Patterns and registry entries are plain data files anyone can improve.
         </p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <a href={ISSUE_REGISTRY_URL} target="_blank" rel="noopener noreferrer" className={button.secondary}>
+            Report a harm
+            <NewTab />
+          </a>
+          <a href={ISSUE_PATTERN_URL} target="_blank" rel="noopener noreferrer" className={button.secondary}>
+            Propose a pattern
+            <NewTab />
+          </a>
+        </div>
         {/* F7 (WCAG 1.4.10): the URL wraps instead of widening the page at 320 px. */}
-        <a href="https://github.com/InclusiveCode/inclusive-ai" target="_blank" rel="noopener noreferrer" className="inline-block max-w-full wrap-anywhere text-sm font-mono text-zinc-300 hover:text-white transition-colors">
-          github.com/InclusiveCode/inclusive-ai →
+        <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block max-w-full wrap-anywhere py-3 font-mono text-sm text-zinc-300 underline decoration-zinc-700 underline-offset-4 transition-colors hover:text-zinc-50 hover:decoration-zinc-300">
+          github.com/InclusiveCode/inclusive-ai
+          <NewTab />
         </a>
-      </div>
+      </section>
     </div>
   );
 }

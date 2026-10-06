@@ -317,9 +317,9 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
   }
 
   return (
-    <div ref={rootRef} className="mx-auto max-w-6xl px-6 py-16 text-zinc-300">
+    <div ref={rootRef} className="mx-auto max-w-6xl px-4 pt-10 text-zinc-300 sm:px-6 sm:pt-16">
       <header className="mb-8">
-        <h1 className="scroll-mt-24 text-3xl font-bold tracking-tight text-zinc-100 sm:text-4xl">Evaluation Lab</h1>
+        <h1 className="scroll-mt-24 font-display text-[2.625rem] leading-[1.05] tracking-[-0.01em] text-zinc-50 sm:text-6xl">Evaluation Lab</h1>
         <p className="mt-4 max-w-3xl text-lg text-zinc-300">
           Inspect how an assistant handles LGBTQIA+-specific situations, change its system instruction, rerun, and compare. Each scenario
           sends two inputs that differ in exactly one detail. Checks are deterministic word-matching rules; every failure shows its evidence: the exact words that triggered it,

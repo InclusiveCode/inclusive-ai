@@ -1,11 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Atkinson_Hyperlegible_Mono, Atkinson_Hyperlegible_Next, Instrument_Serif } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { MobileNav } from "./mobile-nav";
+import { QuickStartLink } from "./quick-start-link";
+import { SiteNav } from "./site-nav";
+import { button, ExternalIcon, ISSUE_PATTERN_URL, ISSUE_REGISTRY_URL, NewTab, PrideMark, REPO_URL } from "./ui";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// D44: type chosen on purpose. Atkinson Hyperlegible was designed for low-vision readers, which suits
+// a site about inclusion; Instrument Serif gives page titles a human, editorial voice.
+// A late font swap reflows the page (measured CLS 0.09 on a throttled phone; next/font has no
+// metrics to size-match a fallback for Atkinson). "optional" keeps the fallback on a slow first
+// visit instead of shifting text; the fonts are cached for the next page.
+const body = Atkinson_Hyperlegible_Next({ variable: "--font-body", subsets: ["latin"], display: "optional", adjustFontFallback: false });
+const code = Atkinson_Hyperlegible_Mono({ variable: "--font-code", subsets: ["latin"], display: "optional", adjustFontFallback: false });
+const serif = Instrument_Serif({ variable: "--font-serif", subsets: ["latin"], weight: "400", display: "optional" });
 
 export const metadata: Metadata = {
   // Each route sets its own title (WCAG 2.4.2); the home page uses the default.
@@ -31,28 +40,116 @@ export const metadata: Metadata = {
   },
 };
 
+const footerColumns = [
+  {
+    title: "Use it",
+    links: [
+      { href: "/lab", label: "Evaluation lab" },
+      { href: "/tools", label: "Developer tools" },
+      { href: "/checklist", label: "Pre-ship checklist" },
+    ],
+  },
+  {
+    title: "Learn",
+    links: [
+      { href: "/patterns", label: "Anti-pattern library" },
+      { href: "/research", label: "Evaluation reports" },
+      { href: "/registry", label: "Harm registry" },
+    ],
+  },
+  {
+    title: "Contribute",
+    links: [
+      { href: REPO_URL, label: "Source on GitHub", external: true },
+      { href: ISSUE_REGISTRY_URL, label: "Report a harm", external: true },
+      { href: ISSUE_PATTERN_URL, label: "Propose a pattern", external: true },
+    ],
+  },
+];
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-950 text-zinc-100 min-h-screen flex flex-col`}>
-        <nav className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between sticky top-[3px] bg-zinc-950/90 backdrop-blur-sm z-10">
-          <Link href="/" className="text-lg font-semibold">
-            Inclusive<span style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Code</span>
-          </Link>
-          <div className="hidden sm:flex items-center gap-6 text-sm text-zinc-400">
-            <Link href="/patterns" className="hover:text-zinc-100 transition-colors">Patterns</Link>
-            <Link href="/checklist" className="hover:text-zinc-100 transition-colors">Checklist</Link>
-            <Link href="/registry" className="hover:text-zinc-100 transition-colors">Registry</Link>
-            <Link href="/research" className="hover:text-zinc-100 transition-colors">Research</Link>
-            <Link href="/tools" className="hover:text-zinc-100 transition-colors">Tools</Link>
-            <Link href="/lab" className="hover:text-zinc-100 transition-colors">Lab</Link>
-            <a href="https://github.com/InclusiveCode" target="_blank" rel="noopener noreferrer" className="hover:text-zinc-100 transition-colors">GitHub</a>
+    <html lang="en" className={`dark ${body.variable} ${code.variable} ${serif.variable}`}>
+      <body className="flex min-h-screen flex-col bg-zinc-950 font-sans text-base text-zinc-100 antialiased">
+        {/* Off-screen until focused (not clipped), so it is never "hidden text" to a reflow check. */}
+        <a
+          href="#main"
+          data-print="hide"
+          className="fixed left-4 top-[76px] z-50 -translate-y-[300%] rounded-md bg-zinc-50 px-4 py-3 font-semibold text-zinc-950 focus:translate-y-0"
+        >
+          Skip to content
+        </a>
+        {/* The site bar is the main navigation landmark, as before D44 (body > nav). */}
+        <nav aria-label="Main" data-print="hide" className="sticky top-[3px] z-20 border-b border-zinc-800 bg-zinc-950">
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+            <Link href="/" className="-ml-1 inline-flex min-h-11 items-center gap-2.5 rounded-md px-1">
+              <PrideMark className="size-[18px]" />
+              <span className="font-display text-[1.625rem] leading-none tracking-tight text-zinc-50">
+                Inclusive<span className="text-zinc-400">Code</span>
+              </span>
+            </Link>
+            <SiteNav />
+            <div className="flex items-center gap-1 sm:gap-2">
+              <a
+                href="https://github.com/InclusiveCode"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden min-h-10 items-center gap-1.5 rounded-md px-3 text-[0.9375rem] font-medium text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-zinc-50 lg:inline-flex"
+              >
+                GitHub
+                <NewTab />
+                <ExternalIcon />
+              </a>
+              {/* Hidden below 360 px, where it would crowd the logo; Tools is in the menu there. Outlined, so
+                  each page keeps a single solid primary button of its own. */}
+              <span className="hidden min-[360px]:block">
+                <QuickStartLink className={`${button.secondary} whitespace-nowrap px-4 py-2 text-sm`}>Add to CI</QuickStartLink>
+              </span>
+              <MobileNav />
+            </div>
           </div>
-          <MobileNav />
         </nav>
-        <main className="flex-1">{children}</main>
-        <footer className="border-t border-zinc-800 px-6 py-6 text-center text-sm text-zinc-400">
-          Built for the community, by the community. MIT License.
+        <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
+          {children}
+        </main>
+        <footer data-print="hide" className="mt-20 border-t border-zinc-800">
+          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+            <div className="max-w-xs">
+              <p className="inline-flex items-center gap-2.5">
+                <PrideMark className="size-4" />
+                <span className="font-display text-xl text-zinc-50">
+                  Inclusive<span className="text-zinc-400">Code</span>
+                </span>
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                Open-source safety tools for LLM engineers. Built for the community, by the community. MIT License.
+              </p>
+            </div>
+            {footerColumns.map((col) => (
+              <nav key={col.title} aria-label={`Footer: ${col.title}`}>
+                <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-zinc-400">{col.title}</p>
+                <ul className="mt-3 space-y-1">
+                  {col.links.map((l) =>
+                    "external" in l ? (
+                      <li key={l.href}>
+                        <a href={l.href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-zinc-300 transition-colors hover:text-zinc-50 sm:min-h-10">
+                          {l.label}
+                          <NewTab />
+                          <ExternalIcon />
+                        </a>
+                      </li>
+                    ) : (
+                      <li key={l.href}>
+                        <Link href={l.href} className="inline-flex min-h-11 items-center text-sm text-zinc-300 transition-colors hover:text-zinc-50 sm:min-h-10">
+                          {l.label}
+                        </Link>
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </nav>
+            ))}
+          </div>
         </footer>
       </body>
     </html>

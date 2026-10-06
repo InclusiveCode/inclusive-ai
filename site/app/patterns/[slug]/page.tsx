@@ -3,6 +3,8 @@ import Link from "next/link";
 import { CodeBlock } from "../../code-block";
 import { notFound } from "next/navigation";
 import { patterns } from "@/lib/patterns";
+import { CopyButton } from "../../copy-button";
+import { Arrow, button, cx, Label, NewTab, SeverityBadge, textLink } from "../../ui";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -14,65 +16,60 @@ export async function generateStaticParams() {
   return patterns.map((p) => ({ slug: p.slug }));
 }
 
-const severityColor: Record<string, string> = {
-  critical: "text-rose-400 bg-rose-400/10",
-  high: "text-red-400 bg-red-400/10",
-  medium: "text-yellow-400 bg-yellow-400/10",
-  low: "text-green-400 bg-green-400/10",
-};
-
 export default async function PatternDetailPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const pattern = patterns.find((p) => p.slug === slug);
+  const index = patterns.findIndex((p) => p.slug === slug);
+  const pattern = patterns[index];
   if (!pattern) notFound();
+  const prev = patterns[index - 1];
+  const next = patterns[index + 1];
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-20">
-      <Link
-        href="/patterns"
-        className="text-sm text-zinc-400 hover:text-zinc-300 transition-colors mb-8 inline-block"
-      >
-        ← Back to patterns
-      </Link>
+    <div className="mx-auto max-w-3xl px-4 pt-8 sm:px-6 sm:pt-12">
+      <nav aria-label="Breadcrumb" className="mb-8">
+        <Link href="/patterns" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100">
+          <Arrow className="rotate-180" />
+          All patterns
+        </Link>
+      </nav>
 
       {/* Header */}
-      <div className="mb-10">
-        <div className="flex items-center gap-3 mb-4">
-          <span className={`text-xs font-mono px-2 py-0.5 rounded ${severityColor[pattern.severity]}`}>
-            {pattern.severity}
-          </span>
-          <span className="text-xs text-zinc-400 font-mono">{pattern.category}</span>
+      <header className="mb-12">
+        <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <SeverityBadge severity={pattern.severity} />
+          <span className="text-sm text-zinc-400">{pattern.category}</span>
         </div>
         {/* F12 (WCAG 1.4.10): long words such as "Housing/Employment" break rather than widen the page. */}
-        <h1 className="text-3xl font-bold mb-3 wrap-anywhere">{pattern.title}</h1>
-        <p className="text-zinc-400">{pattern.description}</p>
-        <div className="flex gap-2 mt-4 flex-wrap">
+        <h1 className="font-display text-[2.5rem] leading-[1.05] tracking-[-0.01em] text-zinc-50 wrap-anywhere sm:text-5xl">{pattern.title}</h1>
+        <p className="mt-4 text-lg leading-relaxed text-zinc-300">{pattern.description}</p>
+        <ul className="mt-5 flex flex-wrap gap-2" aria-label="Tags">
           {pattern.tags.map((t) => (
-            <span key={t} className="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded font-mono">
+            <li key={t} className="rounded-md bg-zinc-800/80 px-2 py-0.5 font-mono text-xs text-zinc-300">
               {t}
-            </span>
+            </li>
           ))}
-        </div>
-      </div>
+        </ul>
+      </header>
 
       {/* The Problem */}
-      <section className="mb-10">
-        <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
-          <span className="text-red-400">⚠</span> The Problem
+      <section aria-labelledby="problem" className="mb-12">
+        <h2 id="problem" className="mb-3 flex items-center gap-2.5 text-xl font-semibold text-zinc-50">
+          <span aria-hidden="true" className="flex size-6 items-center justify-center rounded-full bg-rose-500/15 text-sm text-rose-300">!</span>
+          The problem
         </h2>
-        <p className="text-zinc-400 mb-4">{pattern.problem.explanation}</p>
-        <div className="rounded-lg overflow-hidden bg-red-950/20 border border-red-900/30">
-          <div className="px-4 py-2 border-b border-red-900/30 flex items-center gap-2">
-            <span className="text-xs font-mono text-red-400">harmful pattern</span>
-            <span className="text-xs font-mono text-zinc-400 ml-auto">{pattern.problem.language}</span>
+        <p className="mb-4 leading-relaxed text-zinc-300">{pattern.problem.explanation}</p>
+        <div className="overflow-hidden rounded-xl border border-rose-900/50 bg-rose-950/20">
+          <div className="flex min-h-11 flex-wrap items-center gap-x-2 border-b border-rose-900/50 px-4">
+            <span className="text-xs font-semibold uppercase tracking-[0.06em] text-rose-300">Harmful pattern</span>
+            <span className="ml-auto font-mono text-xs text-zinc-400">{pattern.problem.language}</span>
           </div>
           <CodeBlock
             label={`Code: harmful pattern (${pattern.problem.language})`}
-            className="p-4 text-sm font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap"
+            className="p-4 text-sm leading-relaxed text-zinc-200 overflow-x-auto whitespace-pre-wrap"
             insetFocus
           >
             {pattern.problem.code}
@@ -81,27 +78,32 @@ export default async function PatternDetailPage({
       </section>
 
       {/* Why It Harms */}
-      <section className="mb-10">
-        <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
-          <span className="text-orange-400">→</span> Why It Harms LGBTQIA+ Users
+      <section aria-labelledby="harm" className="mb-12">
+        <h2 id="harm" className="mb-3 flex items-center gap-2.5 text-xl font-semibold text-zinc-50">
+          <span aria-hidden="true" className="flex size-6 items-center justify-center rounded-full bg-orange-500/15 text-sm text-orange-300">?</span>
+          Why it harms LGBTQIA+ users
         </h2>
-        <p className="text-zinc-300 leading-relaxed">{pattern.harm}</p>
+        <p className="leading-relaxed text-zinc-200">{pattern.harm}</p>
       </section>
 
       {/* The Fix */}
-      <section className="mb-10">
-        <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
-          <span className="text-green-400">✓</span> The Fix
+      <section aria-labelledby="fix" className="mb-12">
+        <h2 id="fix" className="mb-3 flex items-center gap-2.5 text-xl font-semibold text-zinc-50">
+          <span aria-hidden="true" className="flex size-6 items-center justify-center rounded-full bg-emerald-500/15 text-sm text-emerald-300">✓</span>
+          The fix
         </h2>
-        <p className="text-zinc-400 mb-4">{pattern.fix.explanation}</p>
-        <div className="rounded-lg overflow-hidden bg-green-950/20 border border-green-900/30">
-          <div className="px-4 py-2 border-b border-green-900/30 flex items-center gap-2">
-            <span className="text-xs font-mono text-green-400">safer alternative</span>
-            <span className="text-xs font-mono text-zinc-400 ml-auto">{pattern.fix.language}</span>
+        <p className="mb-4 leading-relaxed text-zinc-300">{pattern.fix.explanation}</p>
+        <div className="overflow-hidden rounded-xl border border-emerald-900/50 bg-emerald-950/20">
+          {/* Wraps at 320 px rather than being clipped by the card (WCAG 1.4.10). */}
+          <div className="flex min-h-12 flex-wrap items-center gap-x-2 gap-y-1 border-b border-emerald-900/50 py-1.5 pl-4 pr-2">
+            <span className="text-xs font-semibold uppercase tracking-[0.06em] text-emerald-300">Safer alternative</span>
+            <span className="ml-auto mr-1 font-mono text-xs text-zinc-400">{pattern.fix.language}</span>
+            <CopyButton text={pattern.fix.code} what="safer alternative" selectId="fix-code" compact />
           </div>
           <CodeBlock
+            id="fix-code"
             label={`Code: safer alternative (${pattern.fix.language})`}
-            className="p-4 text-sm font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap"
+            className="p-4 text-sm leading-relaxed text-zinc-200 overflow-x-auto whitespace-pre-wrap"
             insetFocus
           >
             {pattern.fix.code}
@@ -110,43 +112,69 @@ export default async function PatternDetailPage({
       </section>
 
       {/* Eval Test Case */}
-      <section className="mb-10">
-        <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
-          <span className="text-blue-400">🧪</span> Eval Test Case
+      <section aria-labelledby="test" className="mb-12">
+        <h2 id="test" className="mb-3 flex items-center gap-2.5 text-xl font-semibold text-zinc-50">
+          <span aria-hidden="true" className="flex size-6 items-center justify-center rounded-full bg-sky-500/15 text-sm text-sky-300">✱</span>
+          Eval test case
         </h2>
-        <p className="text-zinc-400 mb-4 text-sm">Add this to your eval suite to prevent regression.</p>
-        <div className="rounded-lg overflow-hidden border border-zinc-700 bg-zinc-900">
-          <div className="p-4 border-b border-zinc-700">
-            <p className="text-xs font-mono text-zinc-400 mb-1">INPUT</p>
-            <p className="text-sm text-zinc-300">{pattern.evalCase.input}</p>
+        <p className="mb-4 text-zinc-300">Add this to your eval suite so the fix stays fixed.</p>
+        <dl className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900/60">
+          <div className="border-b border-zinc-800 p-4">
+            <dt>
+              <Label>Input</Label>
+            </dt>
+            <dd className="mt-1.5 text-[0.9375rem] leading-relaxed text-zinc-100">{pattern.evalCase.input}</dd>
           </div>
-          <div className="p-4 border-b border-zinc-700 bg-green-950/10">
-            <p className="text-xs font-mono text-green-400 mb-1">EXPECTED BEHAVIOR</p>
-            <p className="text-sm text-zinc-300">{pattern.evalCase.expectedBehavior}</p>
+          <div className="border-b border-zinc-800 p-4">
+            <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-emerald-300">Expected behavior</dt>
+            <dd className="mt-1.5 text-[0.9375rem] leading-relaxed text-zinc-200">{pattern.evalCase.expectedBehavior}</dd>
           </div>
-          <div className="p-4 bg-red-950/10">
-            <p className="text-xs font-mono text-red-400 mb-1">RED FLAG</p>
-            <p className="text-sm text-zinc-300">{pattern.evalCase.redFlag}</p>
+          <div className="p-4">
+            <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-rose-300">Red flag</dt>
+            <dd className="mt-1.5 text-[0.9375rem] leading-relaxed text-zinc-200">{pattern.evalCase.redFlag}</dd>
           </div>
+        </dl>
+        <div className="mt-6 flex flex-col gap-3 rounded-xl border border-zinc-800 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[0.9375rem] text-zinc-300">Catch this automatically on every pull request.</p>
+          <Link href="/tools#quick-start" className={cx(button.secondary, "shrink-0")}>
+            Add the eval suite to CI
+          </Link>
         </div>
       </section>
 
+      {/* Keep reading: the next pattern is one tap away instead of back-and-forth through the list. */}
+      <nav aria-label="More patterns" className="mb-12 grid gap-3 sm:grid-cols-2">
+        {prev ? (
+          <Link href={`/patterns/${prev.slug}`} className="group rounded-xl border border-zinc-800 p-4 transition-colors hover:border-zinc-600 hover:bg-zinc-900/50">
+            <span className="text-xs text-zinc-400">Previous</span>
+            <span className="mt-1 block font-medium leading-snug text-zinc-100 group-hover:text-zinc-50">{prev.title}</span>
+          </Link>
+        ) : (
+          <span />
+        )}
+        {next && (
+          <Link href={`/patterns/${next.slug}`} className="group rounded-xl border border-zinc-800 p-4 text-right transition-colors hover:border-zinc-600 hover:bg-zinc-900/50">
+            <span className="text-xs text-zinc-400">Next</span>
+            <span className="mt-1 block font-medium leading-snug text-zinc-100 group-hover:text-zinc-50">{next.title}</span>
+          </Link>
+        )}
+      </nav>
+
       {/* Contribute */}
-      <div className="p-6 border border-zinc-800 rounded-xl">
-        <h3 className="font-semibold mb-2">Improve this pattern</h3>
-        <p className="text-zinc-400 text-sm mb-3">
+      <div className="rounded-xl border border-zinc-800 p-6">
+        <h2 className="font-semibold text-zinc-50">Improve this pattern</h2>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-400">
           Better example? Real-world case? Open a PR — pattern data is in{" "}
-          <code className="text-zinc-300 bg-zinc-800 px-1 py-0.5 rounded text-xs">
-            site/lib/patterns.ts
-          </code>
+          <code className="rounded bg-zinc-800 px-1 py-0.5 text-xs text-zinc-200">site/lib/patterns.ts</code>.
         </p>
         <a
           href="https://github.com/InclusiveCode/inclusive-ai/blob/main/site/lib/patterns.ts"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm font-mono text-zinc-300 hover:text-white transition-colors"
+          className={cx(textLink, "mt-3 text-sm")}
         >
-          Edit on GitHub →
+          Edit on GitHub
+          <NewTab />
         </a>
       </div>
     </div>

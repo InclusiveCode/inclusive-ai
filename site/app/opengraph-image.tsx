@@ -5,6 +5,8 @@ export const alt = "InclusiveCode — LGBTQIA+ Safety Tools for LLM Engineers";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+const PRIDE = ["#FF6B9D", "#FF9B71", "#FECF6A", "#63E6BE", "#74B9FF", "#A29BFE"];
+
 export default async function Image() {
   return new ImageResponse(
     (
@@ -22,7 +24,7 @@ export default async function Image() {
           overflow: "hidden",
         }}
       >
-        {/* Rainbow stripe at top */}
+        {/* The flag as six discrete stripes (D44; the image renderer ignores hard gradient stops), at top */}
         <div
           style={{
             position: "absolute",
@@ -30,23 +32,13 @@ export default async function Image() {
             left: 0,
             right: 0,
             height: "6px",
-            background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE, #DDA0DD)",
+            display: "flex",
           }}
-        />
-
-        {/* Subtle rainbow glow behind text */}
-        <div
-          style={{
-            position: "absolute",
-            width: "600px",
-            height: "600px",
-            borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(116,185,255,0.08) 0%, transparent 70%)",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-          }}
-        />
+        >
+          {PRIDE.map((c) => (
+            <div key={c} style={{ flex: 1, background: c }} />
+          ))}
+        </div>
 
         {/* Logo / Brand */}
         <div
@@ -71,9 +63,7 @@ export default async function Image() {
               fontSize: "72px",
               fontWeight: 700,
               letterSpacing: "-2px",
-              background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)",
-              backgroundClip: "text",
-              color: "transparent",
+              color: "#a1a1aa",
             }}
           >
             Code
@@ -102,24 +92,24 @@ export default async function Image() {
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <span style={{ fontSize: "40px", fontWeight: 700, color: "#FF6B9D" }}>200</span>
-            <span style={{ fontSize: "16px", color: "#71717a" }}>scenarios</span>
+            <span style={{ fontSize: "40px", fontWeight: 700, color: "#fafafa" }}>200</span>
+            <span style={{ fontSize: "16px", color: "#a1a1aa" }}>scenarios</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <span style={{ fontSize: "40px", fontWeight: 700, color: "#FECF6A" }}>43</span>
-            <span style={{ fontSize: "16px", color: "#71717a" }}>anti-patterns</span>
+            <span style={{ fontSize: "40px", fontWeight: 700, color: "#fafafa" }}>43</span>
+            <span style={{ fontSize: "16px", color: "#a1a1aa" }}>anti-patterns</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <span style={{ fontSize: "40px", fontWeight: 700, color: "#63E6BE" }}>5</span>
-            <span style={{ fontSize: "16px", color: "#71717a" }}>domains</span>
+            <span style={{ fontSize: "40px", fontWeight: 700, color: "#fafafa" }}>5</span>
+            <span style={{ fontSize: "16px", color: "#a1a1aa" }}>domains</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <span style={{ fontSize: "40px", fontWeight: 700, color: "#74B9FF" }}>15</span>
-            <span style={{ fontSize: "16px", color: "#71717a" }}>attack templates</span>
+            <span style={{ fontSize: "40px", fontWeight: 700, color: "#fafafa" }}>15</span>
+            <span style={{ fontSize: "16px", color: "#a1a1aa" }}>attack templates</span>
           </div>
         </div>
 
-        {/* Rainbow stripe at bottom */}
+        {/* and at bottom */}
         <div
           style={{
             position: "absolute",
@@ -127,9 +117,13 @@ export default async function Image() {
             left: 0,
             right: 0,
             height: "6px",
-            background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE, #DDA0DD)",
+            display: "flex",
           }}
-        />
+        >
+          {PRIDE.map((c) => (
+            <div key={c} style={{ flex: 1, background: c }} />
+          ))}
+        </div>
 
         {/* URL */}
         <div

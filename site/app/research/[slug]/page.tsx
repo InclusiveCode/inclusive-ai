@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { reports, type Report, type ReportFailure } from "@/lib/reports";
+import { verdictFor, VERDICT_RULE } from "@/lib/verdict";
+import { Arrow, SeverityBadge, VERDICT_BAR, VerdictBadge, type Severity } from "../../ui";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -13,28 +15,12 @@ export async function generateStaticParams() {
   return reports.map((r) => ({ slug: r.slug }));
 }
 
-const severityColor: Record<string, string> = {
-  critical: "bg-rose-900/50 text-rose-300 border-rose-700",
-  high: "bg-red-900/50 text-red-300 border-red-700",
-  medium: "bg-yellow-900/50 text-yellow-300 border-yellow-700",
-};
-
+// D44: pass/fail colours are semantic (emerald, amber, rose), the same as on /research and the
+// home page, and never the pride palette. Badges come from the shared VerdictBadge/SeverityBadge.
 const verdictColor: Record<string, string> = {
-  PASS: "text-emerald-400",
-  NEEDS_WORK: "text-yellow-400",
-  FAIL: "text-rose-400",
-};
-
-const verdictBg: Record<string, string> = {
-  PASS: "bg-emerald-900/50 text-emerald-300 border-emerald-700",
-  NEEDS_WORK: "bg-yellow-900/50 text-yellow-300 border-yellow-700",
-  FAIL: "bg-rose-900/50 text-rose-300 border-rose-700",
-};
-
-const barColor: Record<string, string> = {
-  PASS: "#63E6BE",
-  NEEDS_WORK: "#FECF6A",
-  FAIL: "#FF6B9D",
+  PASS: "text-emerald-300",
+  NEEDS_WORK: "text-amber-200",
+  FAIL: "text-rose-300",
 };
 
 function groupFailuresByDomain(failures: ReportFailure[]): Record<string, ReportFailure[]> {
@@ -57,60 +43,42 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
   const nonAdversarialDomains = report.results.filter((r) => r.domain !== "Adversarial");
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-20">
-      <Link
-        href="/research"
-        className="text-sm text-zinc-400 hover:text-zinc-300 transition-colors mb-8 inline-block"
-      >
-        &larr; Back to all reports
-      </Link>
+    <div className="mx-auto max-w-4xl px-4 pt-8 sm:px-6 sm:pt-12">
+      <nav aria-label="Breadcrumb" className="mb-8">
+        <Link href="/research" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100">
+          <Arrow className="rotate-180" />
+          All reports
+        </Link>
+      </nav>
 
       {/* Header */}
       <div className="mb-12">
-        <div className="inline-block px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono mb-6">
-          research report
-        </div>
-        <h1
-          className="text-3xl sm:text-4xl font-bold tracking-tight mb-4 wrap-anywhere"
-          style={{
-            background:
-              "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          {report.title}
-        </h1>
-        <p className="text-sm text-zinc-400 mb-6">
+        <h1 className="font-display text-[2.375rem] leading-[1.08] tracking-[-0.01em] text-zinc-50 wrap-anywhere sm:text-5xl">{report.title}</h1>
+        <p className="mt-4 text-sm text-zinc-400">
           Published {report.date} &middot; Model: {report.model} ({report.modelVersion}) &middot;
           Author: {report.author}
         </p>
 
         {/* Overall scorecard */}
-        <div className="border border-zinc-800 rounded-xl p-6 bg-zinc-900/50">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-zinc-400 text-sm">Overall result</span>
+        <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 sm:p-6">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <span className="flex items-center gap-3 text-sm text-zinc-300">
+              Overall result <VerdictBadge verdict={verdictFor(report.failures)} />
+            </span>
             <span className="font-mono text-lg text-zinc-100">
               {report.totalPassed}/{report.totalScenarios} passed ({report.totalRate}%)
             </span>
           </div>
-          <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${report.totalRate}%`,
-                background:
-                  "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)",
-              }}
-            />
+          <div className="h-2.5 overflow-hidden rounded-full bg-zinc-800" aria-hidden="true">
+            <div className={`h-full rounded-full ${VERDICT_BAR[verdictFor(report.failures)]}`} style={{ width: `${report.totalRate}%` }} />
           </div>
-          <p className="mt-2 text-xs text-zinc-400">
+          <p className="mt-3 text-sm text-zinc-400">
             {report.failures.length} failures across {report.results.length} domains &middot;{" "}
             {report.failures.filter((f) => f.severity === "critical").length} critical,{" "}
             {report.failures.filter((f) => f.severity === "high").length} high,{" "}
             {report.failures.filter((f) => f.severity === "medium").length} medium
           </p>
+          <p className="mt-1 text-xs text-zinc-400">{VERDICT_RULE}</p>
         </div>
       </div>
 
@@ -119,7 +87,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
         <h2 className="text-xl font-semibold mb-4 text-zinc-200">Abstract</h2>
         <div
           className="pl-6 text-zinc-300 leading-relaxed"
-          style={{ borderLeft: "3px solid #A29BFE" }}
+          style={{ borderLeft: "3px solid #52525b" }}
         >
           {report.abstract}
         </div>
@@ -132,6 +100,11 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
           {report.methodology.map((p, i) => (
             <p key={i}>{p}</p>
           ))}
+          {/* D44: the published wording described 90%/85% thresholds the verdicts never followed. */}
+          <p className="rounded-lg border border-zinc-800 px-4 py-3 text-sm">
+            <span className="font-semibold text-zinc-200">Corrected 2026-10-06:</span> this section said each domain had a 90% pass and 85% needs-work
+            threshold. The verdicts were always produced by the severity rule above (the raw CLI output confirms it); only the description changed.
+          </p>
         </div>
       </section>
 
@@ -164,13 +137,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full"
-                          style={{
-                            width: `${r.rate}%`,
-                            backgroundColor: barColor[r.verdict],
-                          }}
-                        />
+                        <div className={`h-full rounded-full ${VERDICT_BAR[r.verdict]}`} style={{ width: `${r.rate}%` }} />
                       </div>
                       <span className={`font-mono text-xs ${verdictColor[r.verdict]}`}>
                         {r.rate}%
@@ -178,11 +145,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-block px-2 py-0.5 text-xs font-mono rounded border ${verdictBg[r.verdict]}`}
-                    >
-                      {r.verdict}
-                    </span>
+                    <VerdictBadge verdict={r.verdict} />
                   </td>
                 </tr>
               ))}
@@ -208,11 +171,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
                     <span className={`text-xs font-mono ${verdictColor[r.verdict]}`}>
                       {r.passed}/{r.total} ({r.rate}%)
                     </span>
-                    <span
-                      className={`px-2 py-0.5 text-xs font-mono rounded border ${verdictBg[r.verdict]}`}
-                    >
-                      {r.verdict}
-                    </span>
+                    <VerdictBadge verdict={r.verdict} />
                   </div>
                   <span className="text-zinc-400 text-sm">
                     {domainFailures.length} failure{domainFailures.length !== 1 ? "s" : ""}{" "}
@@ -245,47 +204,41 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
                 <span className="font-mono text-zinc-200">
                   {adversarialResult.passed}/{adversarialResult.total} ({adversarialResult.rate}%)
                 </span>
-                <span
-                  className={`px-2 py-0.5 text-xs font-mono rounded border ${verdictBg[adversarialResult.verdict]}`}
-                >
-                  {adversarialResult.verdict}
-                </span>
+                <VerdictBadge verdict={adversarialResult.verdict} />
               </div>
             </div>
             <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full"
-                style={{
-                  width: `${adversarialResult.rate}%`,
-                  backgroundColor: barColor[adversarialResult.verdict],
-                }}
-              />
+              <div className={`h-full rounded-full ${VERDICT_BAR[adversarialResult.verdict]}`} style={{ width: `${adversarialResult.rate}%` }} />
             </div>
           </div>
           <p className="text-zinc-400 text-sm leading-relaxed mb-4">
-            The model demonstrated strong resistance to adversarial attacks, passing 29 of 30
-            scenarios. Prompt injection, jailbreak, role-play exploitation, and social engineering
-            attempts were all successfully rejected. The single failure involved a JSON-structured
-            output escape technique.
+            The model passed {adversarialResult.passed} of {adversarialResult.total} adversarial scenarios
+            {adversarialFailures.length === 0
+              ? "."
+              : adversarialFailures.length === 1
+                ? ". The one failure is below."
+                : `. The ${adversarialFailures.length} failures are below.`}
           </p>
           {adversarialFailures.length > 0 && (
             <div className="space-y-3">
-              <p className="text-sm text-zinc-400 font-medium">Failure:</p>
+              <p className="text-sm text-zinc-400 font-medium">{adversarialFailures.length === 1 ? "Failure:" : "Failures:"}</p>
               {adversarialFailures.map((f) => (
                 <FailureCard key={f.id} failure={f} />
               ))}
             </div>
           )}
+          {adversarialFailures.some((f) => f.title.includes("JSON escape")) && (
           <div
             className="mt-4 p-4 rounded-lg bg-zinc-900/80 text-sm text-zinc-400 leading-relaxed"
-            style={{ borderLeft: "3px solid #FECF6A" }}
+            style={{ borderLeft: "3px solid #fcd34d" }}
           >
-            <strong className="text-yellow-300">Note on JSON escape bypass:</strong> The model
+            <strong className="text-amber-200">Note on JSON escape bypass:</strong> The model
             produced structured orientation predictions when the request was framed as JSON output
             generation. This suggests that structured output modes may receive less safety oversight
             than natural language responses — a pattern worth investigating across other model
             families.
           </div>
+          )}
         </section>
       )}
 
@@ -304,7 +257,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
         <h2 className="text-xl font-semibold mb-4 text-zinc-200">6. Conclusion</h2>
         <div
           className="pl-6 text-zinc-300 leading-relaxed"
-          style={{ borderLeft: "3px solid #63E6BE" }}
+          style={{ borderLeft: "3px solid #52525b" }}
         >
           {report.conclusion}
         </div>
@@ -332,22 +285,22 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
             intentionally conservative — a scenario only fails when the response contains a clear,
             unambiguous violation of the safety requirement.
           </p>
+          {/* D44: the CLI needs its provider SDK alongside it, and each report reproduces its own model. */}
           <p>
-            To reproduce these results, install the eval package and run:{" "}
-            <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-300">
-              npx @inclusive-ai/eval --model claude-haiku-4-5-20250315
-            </code>
+            To reproduce these results, run the domain scenarios with this report&apos;s model, then the
+            adversarial set by adding <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-300">--adversarial</code>:
           </p>
+          <code className="block rounded-lg bg-zinc-800 px-3 py-2 font-mono text-zinc-200 wrap-anywhere">
+            ANTHROPIC_API_KEY=sk-ant-... npx -y -p @inclusive-ai/eval -p @anthropic-ai/sdk inclusive-eval --model {report.modelVersion}
+          </code>
         </div>
       </section>
 
       {/* Back link */}
       <div className="pt-6 border-t border-zinc-800">
-        <Link
-          href="/research"
-          className="text-sm text-zinc-400 hover:text-zinc-300 transition-colors"
-        >
-          &larr; Back to all reports
+        <Link href="/research" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-zinc-300 transition-colors hover:text-zinc-50">
+          <Arrow className="rotate-180" />
+          All reports
         </Link>
       </div>
     </div>
@@ -358,10 +311,8 @@ function FailureCard({ failure }: { failure: ReportFailure }) {
   return (
     <div className="border border-zinc-800 rounded-lg p-4 bg-zinc-900/30">
       <div className="flex items-start gap-3 mb-2">
-        <span
-          className={`shrink-0 px-2 py-0.5 text-xs font-mono rounded border ${severityColor[failure.severity]}`}
-        >
-          {failure.severity}
+        <span className="shrink-0">
+          <SeverityBadge severity={failure.severity as Severity} />
         </span>
         {/* N1 (WCAG 1.4.10): long words such as "Military/authoritarian" break inside the card. */}
         <div className="min-w-0 wrap-anywhere">

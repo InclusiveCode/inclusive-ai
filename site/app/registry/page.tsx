@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { button, ISSUE_REGISTRY_URL, NewTab, PageHeader, SeverityBadge, type Severity } from "../ui";
 
 export const metadata: Metadata = { title: "Harm Registry" };
 
@@ -65,90 +66,68 @@ const cases = [
       "An LLM-powered crisis support tool, when presented with an LGBTQIA+ youth in distress, routed to a general crisis line that has publicly opposed LGBTQIA+ rights. The system had no instruction to prioritize LGBTQIA+-specific resources.",
     impact: "Potential to cause direct harm to LGBTQIA+ youth in crisis by routing to a non-affirming service.",
     mitigation:
-      "Explicitly list affirming crisis resources in system prompt. Trevor Project: 1-866-488-7386. Trans Lifeline: 877-565-8860. Crisis Text Line: text START to 678-678. Add blocking eval: any crisis scenario involving LGBTQIA+ identity → must include Trevor Project or Trans Lifeline.",
+      "Explicitly list affirming crisis resources in system prompt. Trevor Project: 1-866-488-7386. TrevorText: text START to 678-678. Trans Lifeline: 877-565-8860. Add blocking eval: any crisis scenario involving LGBTQIA+ identity → must include Trevor Project or Trans Lifeline.",
     tags: ["mental-health", "crisis", "youth", "routing"],
   },
 ];
 
-const severityColor: Record<string, string> = {
-  high: "text-red-400 bg-red-400/10 border-red-400/20",
-  medium: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
-  low: "text-green-400 bg-green-400/10 border-green-400/20",
-};
-
 export default function RegistryPage() {
   return (
-    <div className="max-w-4xl mx-auto px-6 py-20">
-      <div className="mb-10">
-        <div className="inline-block px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono mb-6">
-          harm registry
-        </div>
-        <h1 className="text-3xl font-bold mb-3">
-          <span style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Harm Registry</span>
-        </h1>
-        <p className="text-zinc-400 mb-4">
-          Documented cases of LLMs harming LGBTQIA+ users. Entries are anonymized but reproducible — each includes the failure, the impact, and a concrete mitigation.
+    <div className="mx-auto max-w-3xl px-4 pt-10 sm:px-6 sm:pt-16">
+      <PageHeader
+        title="Harm Registry"
+        lead="How LLM products fail LGBTQIA+ people, case by case: what happened, the impact, and a concrete mitigation you can test for."
+      >
+        {/* D44: the cases are illustrative composites, and the page says so before the first case, not after. */}
+        <p className="mt-5 max-w-2xl rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3 text-sm leading-relaxed text-zinc-300">
+          <span className="font-semibold text-zinc-100">About these cases:</span> each is an anonymized, illustrative composite of a failure pattern that has been documented in practice — not a report about a specific product.
         </p>
-        <p className="text-zinc-400 text-sm">
-          All cases are illustrative of real documented patterns.{" "}
-          <a
-            href="https://github.com/InclusiveCode/inclusive-ai/issues/new?template=registry_case.md"
-            className="text-zinc-400 hover:text-white underline"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Submit a case →
-          </a>
-        </p>
-      </div>
+      </PageHeader>
 
-      <div className="space-y-6">
+      <ol className="space-y-6">
         {cases.map((c) => (
-          <div key={c.id} className="border border-zinc-800 rounded-xl overflow-hidden">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-xs font-mono text-zinc-400">{c.id}</span>
-                <span className={`text-xs font-mono px-2 py-0.5 rounded border ${severityColor[c.severity]}`}>
-                  {c.severity}
-                </span>
-                <span className="text-xs text-zinc-400 font-mono">{c.category}</span>
-                <span className="text-xs text-zinc-400 font-mono ml-auto">{c.date}</span>
+          <li key={c.id}>
+            <article aria-labelledby={`${c.id}-title`} className="rounded-2xl border border-zinc-800 p-5 sm:p-7">
+              <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="font-mono text-xs text-zinc-400">{c.id}</span>
+                <SeverityBadge severity={c.severity as Severity} />
+                <span className="text-sm text-zinc-400">{c.category}</span>
+                <span className="ml-auto font-mono text-xs text-zinc-400">{c.date}</span>
               </div>
-              <h2 className="font-semibold text-lg mb-3">{c.title}</h2>
-              <p className="text-zinc-400 text-sm mb-4">{c.summary}</p>
-
-              <div className="space-y-3">
-                <div className="p-3 bg-red-950/30 border border-red-900/30 rounded-lg">
-                  <p className="text-xs font-mono text-red-400 mb-1">IMPACT</p>
-                  <p className="text-sm text-zinc-300">{c.impact}</p>
+              <h2 id={`${c.id}-title`} className="text-xl font-semibold leading-snug text-zinc-50">
+                {c.title}
+              </h2>
+              <p className="mt-3 leading-relaxed text-zinc-300">{c.summary}</p>
+              <dl className="mt-5 grid gap-3">
+                <div className="rounded-xl border border-rose-900/50 bg-rose-950/20 p-4">
+                  <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-rose-300">Impact</dt>
+                  <dd className="mt-1.5 text-[0.9375rem] leading-relaxed text-zinc-200">{c.impact}</dd>
                 </div>
-                <div className="p-3 bg-green-950/30 border border-green-900/30 rounded-lg">
-                  <p className="text-xs font-mono text-green-400 mb-1">MITIGATION</p>
-                  <p className="text-sm text-zinc-300">{c.mitigation}</p>
+                <div className="rounded-xl border border-emerald-900/50 bg-emerald-950/20 p-4">
+                  <dt className="text-xs font-semibold uppercase tracking-[0.06em] text-emerald-300">Mitigation</dt>
+                  <dd className="mt-1.5 text-[0.9375rem] leading-relaxed text-zinc-200">{c.mitigation}</dd>
                 </div>
-              </div>
-
-              <div className="flex gap-2 mt-4 flex-wrap">
+              </dl>
+              <ul className="mt-4 flex flex-wrap gap-2" aria-label="Tags">
                 {c.tags.map((t) => (
-                  <span key={t} className="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded font-mono">
+                  <li key={t} className="rounded-md bg-zinc-800/80 px-2 py-0.5 font-mono text-xs text-zinc-300">
                     {t}
-                  </span>
+                  </li>
                 ))}
-              </div>
-            </div>
-          </div>
+              </ul>
+            </article>
+          </li>
         ))}
-      </div>
+      </ol>
 
-      <div className="mt-10 p-6 border border-zinc-800 rounded-xl text-center">
-        <p className="text-zinc-400 text-sm mb-3">Witnessed or documented a case?</p>
-        <a
-          href="https://github.com/InclusiveCode/inclusive-ai/issues/new?template=registry_case.md"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-mono text-zinc-300 hover:text-white transition-colors"
-        >
-          Submit to the registry →
+      <div className="mt-12 flex flex-col items-start gap-4 rounded-2xl border border-zinc-800 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-semibold text-zinc-50">Witnessed or documented a case?</h2>
+          <p className="mt-1 text-sm text-zinc-400">Leave out names and anything that could identify the person harmed.</p>
+        </div>
+        <a href={ISSUE_REGISTRY_URL} target="_blank" rel="noopener noreferrer" className={button.secondary}>
+          Submit a case
+          <NewTab />
         </a>
       </div>
     </div>

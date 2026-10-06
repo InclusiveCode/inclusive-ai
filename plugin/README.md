@@ -4,24 +4,25 @@ LGBTQIA+ safety tools for LLM engineers. Audit prompts, review code, and catch h
 
 ## Install
 
-```bash
-# From the official marketplace (when available)
-/plugin install inclusive-ai@claude-code-marketplace
+In Claude Code, add this repository as a plugin marketplace, then install the plugin from it:
 
-# Or from GitHub
-/plugin install inclusive-ai@https://github.com/InclusiveCode/inclusive-ai
+```bash
+/plugin marketplace add InclusiveCode/inclusive-ai
+/plugin install inclusive-ai@inclusive-ai
 ```
+
+Plugin commands are namespaced: run `/inclusive-ai:lgbt-audit` and `/inclusive-ai:lgbt-red-team`.
 
 ## What's included
 
-### `/lgbt-audit` command
+### `/inclusive-ai:lgbt-audit` command
 
 Run a full LGBTQIA+ safety audit on any project:
 
 ```
-/lgbt-audit
-/lgbt-audit src/prompts/
-/lgbt-audit src/models/user.ts
+/inclusive-ai:lgbt-audit
+/inclusive-ai:lgbt-audit src/prompts/
+/inclusive-ai:lgbt-audit src/models/user.ts
 ```
 
 Scans for 43 anti-patterns across system prompts, user identity models, mental health flows, content moderation, form fields, healthcare systems, employment/HR tools, education platforms, content platforms, and eval coverage. Outputs a scored report with paste-ready fixes.
@@ -49,7 +50,7 @@ Claude will flag anti-patterns in real-time and suggest fixes as you code.
 ## Companion tools
 
 - **Eval suite:** `npm install @inclusive-ai/eval` — 200 safety scenarios (170 domain + 30 adversarial) across 5 domains (identity, healthcare, employment, education, content)
-- **CLAUDE.md template:** Drop `templates/CLAUDE.md` into your project for always-on safety context
+- **CLAUDE.md template:** `{ echo; curl -fsSL https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main/templates/CLAUDE.md; } >> CLAUDE.md` for always-on safety context
 - **Pattern library:** https://inclusive-ai.vercel.app/patterns
 - **Pre-ship checklist:** https://inclusive-ai.vercel.app/checklist
 
