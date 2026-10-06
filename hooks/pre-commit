@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Inclusive AI — pre-commit hook
 # Scans staged files for common LGBT safety anti-patterns
-# Install: cp hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
-# Or with husky: npx husky add .husky/pre-commit "bash node_modules/@inclusive-ai/eval/hooks/pre-commit"
+# Install: curl -fsSL https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main/hooks/pre-commit -o .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+# With husky: save it as .husky/inclusive-ai-pre-commit and add "bash .husky/inclusive-ai-pre-commit" to .husky/pre-commit
 
 set -euo pipefail
 

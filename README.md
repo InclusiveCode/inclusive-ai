@@ -47,13 +47,13 @@ assertSafe(summary); // throws on CRITICAL or HIGH failures
 Or run from the CLI:
 
 ```bash
-ANTHROPIC_API_KEY=sk-... npx inclusive-eval
-inclusive-eval --category identity,moderation
-inclusive-eval --domain healthcare
-inclusive-eval --domain employment
-inclusive-eval --domain education
-inclusive-eval --domain content
-inclusive-eval --severity critical
+ANTHROPIC_API_KEY=sk-... npx @inclusive-ai/eval
+npx @inclusive-ai/eval --category identity,moderation
+npx @inclusive-ai/eval --domain healthcare
+npx @inclusive-ai/eval --domain employment
+npx @inclusive-ai/eval --domain education
+npx @inclusive-ai/eval --domain content
+npx @inclusive-ai/eval --severity critical
 
 # Also save the JSON report, with each scenario's model reply, to a file
 inclusive-eval --output results.json
@@ -64,23 +64,22 @@ inclusive-eval --judge
 inclusive-eval --judge-model claude-sonnet-5-5
 
 # Red-team your system prompt with 15 attack templates
-ANTHROPIC_API_KEY=sk-... npx inclusive-eval --red-team
+ANTHROPIC_API_KEY=sk-... npx @inclusive-ai/eval --red-team
 
 # Run 30 adversarial jailbreak scenarios
-ANTHROPIC_API_KEY=sk-... npx inclusive-eval --adversarial
+ANTHROPIC_API_KEY=sk-... npx @inclusive-ai/eval --adversarial
 ```
 
 ### 2. Install the Claude Code plugin
 
-```bash
-# From marketplace (when available)
-/plugin install inclusive-ai@claude-code-marketplace
+In Claude Code:
 
-# Or copy the command manually
-cp plugin/commands/lgbt-audit.md .claude/commands/
+```bash
+/plugin marketplace add InclusiveCode/inclusive-ai
+/plugin install inclusive-ai@inclusive-ai
 ```
 
-Then run `/lgbt-audit` in any project to get a full scored audit.
+Then run `/inclusive-ai:lgbt-audit` in any project to get a full scored audit.
 
 ### 3. Add to CI with GitHub Actions
 
@@ -107,22 +106,23 @@ The action installs the published `@inclusive-ai/eval` CLI into the runner's tem
 ### 4. Add the pre-commit hook
 
 ```bash
-cp hooks/pre-commit .git/hooks/pre-commit
+curl -fsSL https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main/hooks/pre-commit -o .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 
-Or with husky:
+This replaces any existing `.git/hooks/pre-commit`. With husky, add it to your existing hook instead:
 
 ```bash
-npx husky add .husky/pre-commit "bash hooks/pre-commit"
+curl -fsSL https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main/hooks/pre-commit -o .husky/inclusive-ai-pre-commit
+echo "bash .husky/inclusive-ai-pre-commit" >> .husky/pre-commit
 ```
 
 ### 5. Add always-on Claude context
 
-Drop the template into your project:
+Append the template to your project's `CLAUDE.md` (it is created if missing; existing instructions stay):
 
 ```bash
-cp templates/CLAUDE.md .claude/CLAUDE.md
+curl -fsSL https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main/templates/CLAUDE.md >> CLAUDE.md
 ```
 
 Claude will automatically apply LGBTQIA+ safety rules when writing or reviewing code.
