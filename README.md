@@ -58,6 +58,11 @@ inclusive-eval --severity critical
 # Also save the JSON report, with each scenario's model reply, to a file
 inclusive-eval --output results.json
 
+# Grade replies with an LLM judge instead of keyword checks (one extra API call
+# per scenario; default judge claude-opus-5-5, or gpt-4.1 with OPENAI_API_KEY)
+inclusive-eval --judge
+inclusive-eval --judge-model claude-sonnet-5-5
+
 # Red-team your system prompt with 15 attack templates
 ANTHROPIC_API_KEY=sk-... npx inclusive-eval --red-team
 

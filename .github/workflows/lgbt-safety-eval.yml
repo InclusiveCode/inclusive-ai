@@ -54,6 +54,9 @@ jobs:
 
       # Inputs reach the shell only as environment variables and are passed
       # to the CLI as separate arguments, never re-parsed by the shell.
+      # --judge grades each reply with an LLM judge (one extra API call per
+      # scenario) instead of the scenario's keyword check; the JSON report
+      # keeps both verdicts.
       - name: Run eval suite
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -61,7 +64,7 @@ jobs:
           EVAL_CATEGORY: ${{ inputs.category }}
           EVAL_SEVERITY: ${{ inputs.severity }}
         run: |
-          ARGS=(--output "$RUNNER_TEMP/eval-results.json")
+          ARGS=(--judge --output "$RUNNER_TEMP/eval-results.json")
           if [ -n "$EVAL_SYSTEM_PROMPT" ]; then
             ARGS+=(--system "$EVAL_SYSTEM_PROMPT")
           fi
