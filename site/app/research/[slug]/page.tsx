@@ -363,13 +363,14 @@ function FailureCard({ failure }: { failure: ReportFailure }) {
         >
           {failure.severity}
         </span>
-        <div>
+        {/* N1 (WCAG 1.4.10): long words such as "Military/authoritarian" break inside the card. */}
+        <div className="min-w-0 wrap-anywhere">
           <span className="font-mono text-xs text-zinc-400 mr-2">{failure.id}</span>
           <span className="text-sm text-zinc-200">{failure.title}</span>
         </div>
       </div>
-      <p className="text-sm text-zinc-400 leading-relaxed ml-0 sm:ml-16">{failure.failMessage}</p>
-      <div className="mt-2 ml-0 sm:ml-16">
+      <p className="text-sm text-zinc-400 leading-relaxed ml-0 sm:ml-16 wrap-anywhere">{failure.failMessage}</p>
+      <div className="mt-2 ml-0 sm:ml-16 wrap-anywhere">
         <span className="text-xs text-zinc-400 font-mono">{failure.category}</span>
       </div>
     </div>
