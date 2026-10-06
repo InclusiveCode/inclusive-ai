@@ -2,6 +2,12 @@
   "name": "@inclusive-ai/eval",
   "version": "3.2.0",
   "description": "LGBT safety eval suite for LLM engineers — catch harms before you ship",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/InclusiveCode/inclusive-ai.git",
+    "directory": "packages/eval"
+  },
+  "homepage": "https://github.com/InclusiveCode/inclusive-ai#readme",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
