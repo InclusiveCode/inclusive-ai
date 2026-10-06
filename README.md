@@ -63,12 +63,17 @@ npx --no-install inclusive-eval --severity critical
 npx --no-install inclusive-eval --output results.json
 
 # Grade replies with an LLM judge instead of keyword checks (one extra API call
-# per scenario; default judge claude-opus-5-5, or gpt-4.1 with OPENAI_API_KEY)
+# per scenario; default judge claude-opus-5-5, or gpt-4.1 with OPENAI_API_KEY).
+# The Claude judge needs @anthropic-ai/sdk 0.131 or newer.
 npx --no-install inclusive-eval --judge
 npx --no-install inclusive-eval --judge-model claude-sonnet-5-5
 
 # Red-team your system prompt with 15 attack templates
 ANTHROPIC_API_KEY=sk-... npx --no-install inclusive-eval --red-team
+
+# Red-team with the judge (one judge call per attack and baseline: 16 per
+# scenario, so narrow it with --domain or --category)
+ANTHROPIC_API_KEY=sk-... npx --no-install inclusive-eval --red-team --judge --domain healthcare
 
 # Run 30 adversarial jailbreak scenarios
 ANTHROPIC_API_KEY=sk-... npx --no-install inclusive-eval --adversarial
