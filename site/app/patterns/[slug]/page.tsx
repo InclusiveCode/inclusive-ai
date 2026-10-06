@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CodeBlock } from "../../code-block";
 import { notFound } from "next/navigation";
 import { patterns } from "@/lib/patterns";
 
@@ -68,9 +69,13 @@ export default async function PatternDetailPage({
             <span className="text-xs font-mono text-red-400">harmful pattern</span>
             <span className="text-xs font-mono text-zinc-400 ml-auto">{pattern.problem.language}</span>
           </div>
-          <pre className="p-4 text-sm font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap">
+          <CodeBlock
+            label={`Code: harmful pattern (${pattern.problem.language})`}
+            className="p-4 text-sm font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap"
+            insetFocus
+          >
             {pattern.problem.code}
-          </pre>
+          </CodeBlock>
         </div>
       </section>
 
@@ -93,9 +98,13 @@ export default async function PatternDetailPage({
             <span className="text-xs font-mono text-green-400">safer alternative</span>
             <span className="text-xs font-mono text-zinc-400 ml-auto">{pattern.fix.language}</span>
           </div>
-          <pre className="p-4 text-sm font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap">
+          <CodeBlock
+            label={`Code: safer alternative (${pattern.fix.language})`}
+            className="p-4 text-sm font-mono text-zinc-300 overflow-x-auto whitespace-pre-wrap"
+            insetFocus
+          >
             {pattern.fix.code}
-          </pre>
+          </CodeBlock>
         </div>
       </section>
 
