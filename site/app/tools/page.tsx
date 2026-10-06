@@ -17,7 +17,7 @@ const noteCode = "rounded bg-zinc-800 px-1 py-0.5 font-mono text-[0.8125rem] tex
  */
 const snippets = {
   // D47: `inclusive-eval` on npm is this project's alias for @inclusive-ai/eval with the Anthropic SDK as a
-  // dependency, so the one-off run needs nothing else; it is pinned (lib/cli.ts). OpenAI users add the SDK
+  // dependency, so the one-off run needs nothing else; its version is pinned (lib/cli.ts). OpenAI users add the SDK
   // themselves (see the note).
   tryIt: `ANTHROPIC_API_KEY=sk-ant-... npx -y ${EVAL_ALIAS} \\
   --severity critical --system "Your system prompt here"`,
