@@ -113,7 +113,8 @@ export default function HomePage() {
         <p className="text-zinc-400 mb-4">
           This is a community resource. If you&apos;ve seen an LLM fail an LGBTQIA+ user — or built a mitigation that works — open a PR. Patterns and registry entries are plain MDX files.
         </p>
-        <a href="https://github.com/InclusiveCode/inclusive-ai" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm font-mono text-zinc-300 hover:text-white transition-colors">
+        {/* F7 (WCAG 1.4.10): the URL wraps instead of widening the page at 320 px. */}
+        <a href="https://github.com/InclusiveCode/inclusive-ai" target="_blank" rel="noopener noreferrer" className="inline-block max-w-full wrap-anywhere text-sm font-mono text-zinc-300 hover:text-white transition-colors">
           github.com/InclusiveCode/inclusive-ai →
         </a>
       </div>
