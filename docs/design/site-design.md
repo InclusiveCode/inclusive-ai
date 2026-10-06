@@ -46,7 +46,7 @@ The header carries an outlined "Add to CI" on every page from 360 px up, so each
 
 ## Interaction
 
-- **Targets.** Mobile targets are at least 44×44 px: buttons, menu rows (48 px), filter chips, Copy buttons and standalone links. Nothing outside the lab is under 24 px at any width (WCAG 2.5.8).
+- **Targets.** Mobile targets are at least 44×44 px: buttons, menu rows (48 px), filter chips, Copy buttons and standalone links. Nothing outside the lab is under 24 px at any width (WCAG 2.5.8). In the lab (D49), buttons, step links, source options and the "Checks at a glance" links are 44 px tall below `lg` and 36 px from `lg`; native radios keep their size inside a larger clickable label.
 - **Every state is visible.** Each control has hover, `active` (a 1 px press and a darker fill), and `focus-visible` styles. The current page is marked in the nav, both visually and with `aria-current="page"`.
 - **Feedback.**
   - Copy buttons say "Copied" for 2 seconds, and every copy is announced. If the clipboard is blocked, they select the text, scroll it into view, and say how to copy it (a key on desktop, the browser's Copy on touch).
@@ -55,6 +55,20 @@ The header carries an outlined "Add to CI" on every page from 360 px up, so each
   - Blocked storage shows a notice instead of crashing the page.
 - **Things that need JavaScript** (Print, Copy as Markdown) appear only once it has loaded, in space reserved for them, so the layout doesn't jump.
 - **Print.** Black on white, with no site chrome or buttons. External links print their URL.
+
+## The lab (D49)
+
+The lab's journey and its HTML order are fixed by its spec: choose, inspect, findings, edit, compare, review log. D49 changes only how those sections are laid out, so the loop of editing, running, and reading what changed fits on one screen.
+
+- **Workbench (`lg` and up).** The results (2. Inspect and 3. Review findings) fill the left column. The editor (4. Edit the instruction and rerun) sits beside them in a sticky column that starts below the site bar (`top-20`) and is never taller than the viewport; it scrolls on its own when it has to (it holds focusable controls, so it stays keyboard reachable). Reading and Tab order are unchanged: the left column, then the editor.
+- **Result card.** Under Rerun, the result of your last run: its label and mode, the verdict, the counts, and how it compares with its baseline, with links to the findings and the comparison. After a run of the scenario on screen it scrolls into view (`block: "nearest"`), without moving focus. It is not a live region; the one polite status line announces runs. Its wording differs from "5. Compare runs" on purpose.
+- **Phone run bar (below `lg`).** A bar fixed to the bottom shows the displayed run's verdict and one link: "Edit and run" (to the editor), or "See findings" while the editor is on screen. `html:has(#lab-run-bar)` gets `scroll-padding-bottom` and `body` gets bottom padding, so focused and anchored elements and the end of the page stay clear of it (WCAG 2.2 SC 2.4.11).
+- **Checks at a glance.** Above the finding rows, one line per check (status, check, version) linking to its row.
+- **Rerun is the page's one solid primary button.** Run baseline live and Cancel are outlined.
+- **Phones.** The step links and the three scenario cards are one row each that you swipe; arrow keys still move through the scenario radios. The response source is two option tiles around native radios.
+- **Run metadata** is a compact grid of label/value pairs (one column on phones, up to three when the column is wide). Every value stays visible, as the spec requires. Simulated runs say "Simulator", never "Model" (spec §7).
+- **Motion.** A new verdict and a new result card outline themselves once, only under `prefers-reduced-motion: no-preference`. Nothing else moves.
+- **Native platform only.** Sticky positioning, container queries (the editor column and the results column size their contents, not the viewport), `field-sizing: content` for the instruction box, scroll snap, and `:has()`. No component library: the spec requires native controls, and the keyboard and axe checks rely on them.
 
 ## Content rules
 
@@ -69,9 +83,8 @@ The header carries an outlined "Add to CI" on every page from 360 px up, so each
 
 ## Not done in D44 (follow-ups)
 
-- **The lab on phones.** Rerun sits about 7,000 px down at 375 px wide, because the lab's step order (inspect, then findings, then edit) is part of its design spec. The step links at the top jump straight there. A sticky "edit and rerun" control needs its own design and WCAG 2.4.11 review.
+- **The lab page is still long on phones** (about 11,700 px at 375 px wide), because its spec fixes the step order and keeps every finding's detail visible. Since D49, the run bar keeps the verdict in view and jumps between the editor and the findings in one tap.
 - **The patterns filter isn't in the URL**, so filtered views can't be shared.
 - **There is no light theme.**
 - **The CLI should explain a missing SDK.** Today it crashes with `ERR_MODULE_NOT_FOUND`; it should say which package to install.
 - **Keyboard focus on a sticky-nav link while scrolled** makes the page jump. This predates D44.
-- **Defensive npm name.** The project owner should register the unscoped `inclusive-eval` name on npm so nobody else can.

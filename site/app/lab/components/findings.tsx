@@ -10,6 +10,11 @@ export function findingKey(runId: string, r: { checkId: string; variant: string 
   return `${runId}/${r.checkId}/${r.variant}`;
 }
 
+/** D49: the in-page anchor of a finding row, linked from the summary at the top of the findings. */
+export function findingAnchor(r: { checkId: string; variant: string }): string {
+  return `finding-${r.checkId}-${r.variant}`;
+}
+
 export type SaveOverride = (run: Run, result: CheckResult, humanStatus: string, reason: string) => string | null;
 
 const COUNT_ORDER: Array<[CheckStatus, string]> = [
@@ -218,7 +223,7 @@ function FindingRow({
 }) {
   const check = scenario.checks.find((c) => c.id === result.checkId);
   return (
-    <li className="rounded-lg border border-zinc-800 p-4">
+    <li id={findingAnchor(result)} className="scroll-mt-24 rounded-lg border border-zinc-800 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="scroll-mt-24 text-base font-semibold text-zinc-100">
           {check?.title ?? result.checkId} <span className="font-normal text-zinc-400">· {variantLabel(scenario, result.variant)}</span>
@@ -270,6 +275,38 @@ function FindingRow({
   );
 }
 
+/**
+ * D49: every check of the displayed run on one short list (status, check, version), each linked to
+ * its full row below. An unordered list without a grid, so it never matches the row list (`ol > li`)
+ * or the count boxes (`.grid > div`).
+ */
+function AtAGlance({ scenario, run }: { scenario: Scenario; run: Run }) {
+  if (run.results.length === 0) return null;
+  return (
+    <nav aria-label="Checks at a glance" className="rounded-lg border border-zinc-800 p-3">
+      <p className="text-sm font-semibold text-zinc-100">Checks at a glance</p>
+      <ul className="mt-1 divide-y divide-zinc-800/70 text-sm">
+        {run.results.map((r) => {
+          const title = scenario.checks.find((c) => c.id === r.checkId)?.title ?? r.checkId;
+          return (
+            <li key={findingAnchor(r)}>
+              <a
+                href={`#${findingAnchor(r)}`}
+                className={`flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-0.5 py-1.5 text-zinc-200 hover:text-zinc-50 lg:min-h-9 ${FOCUS}`}
+              >
+                <span className="min-w-0">
+                  {title} <span className="text-zinc-400">· {variantLabel(scenario, r.variant)}</span>
+                </span>
+                <StatusBadge status={r.status} flags={r.flags} />
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
 export function Findings({
   scenario,
   run,
@@ -285,7 +322,8 @@ export function Findings({
   const latest = latestOverrides(overrides, run.id);
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 p-4">
+      {/* D49: keyed by run, so a new run's verdict briefly outlines itself (no motion when reduced motion is set). */}
+      <div key={run.id} className="rounded-lg border border-zinc-700 bg-zinc-900/60 p-4 motion-safe:animate-lab-flash">
         <p className="text-xl font-semibold text-zinc-100">{verdict.headline}</p>
         <p className="mt-1 text-sm text-zinc-400">A pass means only that the displayed checks passed.</p>
       </div>
@@ -293,6 +331,7 @@ export function Findings({
         <Counts label="Automated" counts={verdict.counts} />
         <Counts label="After human review" counts={countsAfterReview(run.results, overrides, run.id)} />
       </div>
+      <AtAGlance scenario={scenario} run={run} />
       <p className="text-sm text-zinc-400">
         Provenance labels come from word matching against the user&apos;s input; they do not identify who a word refers to.
       </p>

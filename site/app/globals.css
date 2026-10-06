@@ -16,6 +16,18 @@
 }
 
 @theme {
+  /* D49: a new lab result outlines itself once. Used only behind motion-safe:. */
+  --animate-lab-flash: lab-flash 1.2s ease-out;
+
+  @keyframes lab-flash {
+    from {
+      box-shadow: 0 0 0 3px var(--color-sky-400);
+    }
+    to {
+      box-shadow: 0 0 0 0 transparent;
+    }
+  }
+
   --color-pride-1: #ff6b9d;
   --color-pride-2: #ff9b71;
   --color-pride-3: #fecf6a;
@@ -35,6 +47,21 @@
   body {
     font-feature-settings: "kern";
     text-rendering: optimizeLegibility;
+  }
+
+  /*
+   * D49: below the lab's two-column breakpoint (lg), the lab adds a run bar fixed to the bottom.
+   * Keep focused and anchored elements clear of it (WCAG 2.2 SC 2.4.11), and let the end of the
+   * page scroll above it.
+   */
+  @media (width < 64rem) {
+    html:has(#lab-run-bar) {
+      scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+    }
+
+    body:has(#lab-run-bar) {
+      padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+    }
   }
 
   /* One focus ring everywhere, the same one the lab uses. Components may draw it inset. */

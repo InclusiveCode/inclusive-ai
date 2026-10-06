@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { renderInputs } from "../../../lib/lab/render";
 import type { Scenario } from "../../../lib/lab/scenarios";
 import type { Run, Variant } from "../../../lib/lab/types";
@@ -13,57 +14,69 @@ function list(items: string[] | undefined): string {
   return items && items.length > 0 ? items.join(", ") : "none";
 }
 
-/** Compact run metadata: mode, provider/model, config, fingerprint, timestamp. */
+/** One label/value pair; the wrapper keeps each dt directly followed by its dd. */
+function Field({ label, children, mono = false, breakAll = false }: { label: string; children: ReactNode; mono?: boolean; breakAll?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-zinc-400">{label}</dt>
+      <dd className={`min-w-0 ${breakAll ? "break-all" : "break-words"} ${mono ? "font-mono" : ""} text-zinc-300`}>{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * Compact run metadata: mode, provider/model, config, fingerprint, timestamp (spec §7: every run
+ * card and comparison column shows them). D49: the pairs flow into columns instead of one long list.
+ */
 export function RunMeta({ run, title }: { run: Run; title?: string }) {
   const rules = Array.from(new Set([...(run.responses.a.rulesMatched ?? []), ...(run.responses.b.rulesMatched ?? [])]));
+  const live = run.mode === "live";
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
+    <div className="@container rounded-lg border border-zinc-800 bg-zinc-900/40 p-4">
       {title && <p className="mb-2 text-sm font-semibold text-zinc-100">{title}</p>}
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[max-content_minmax(0,1fr)]">
-        <dt className="text-zinc-400">Mode</dt>
-        <dd className="min-w-0 break-words">
-          <ModeBadge mode={run.mode} />
-        </dd>
-        <dt className="text-zinc-400">Run ID</dt>
-        <dd className="min-w-0 break-all font-mono text-zinc-300">{run.id}</dd>
-        <dt className="text-zinc-400">Provider</dt>
-        <dd className="min-w-0 break-words text-zinc-300">{run.mode === "live" ? providerLabel(run.config.provider) : run.config.provider}</dd>
-        <dt className="text-zinc-400">{run.mode === "live" ? "Requested model" : "Model"}</dt>
-        <dd className="min-w-0 break-all font-mono text-zinc-300">{run.config.model}</dd>
-        {run.mode === "live" && (
-          <>
-            <dt className="text-zinc-400">Returned model</dt>
-            <dd className="min-w-0 break-all font-mono text-zinc-300">{returnedModelText(run)}</dd>
-          </>
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2 @3xl:grid-cols-3">
+        <div className="min-w-0">
+          <dt className="text-xs text-zinc-400">Mode</dt>
+          <dd className="min-w-0 break-words">
+            <ModeBadge mode={run.mode} />
+          </dd>
+        </div>
+        <Field label="Run ID" mono breakAll>
+          {run.id}
+        </Field>
+        <Field label="Provider">{live ? providerLabel(run.config.provider) : run.config.provider}</Field>
+        {/* Spec §7: the word "model" is never used for simulated output. */}
+        <Field label={live ? "Requested model" : "Simulator"} mono breakAll>
+          {run.config.model}
+        </Field>
+        {live && (
+          <Field label="Returned model" mono breakAll>
+            {returnedModelText(run)}
+          </Field>
         )}
-        <dt className="text-zinc-400">Temperature</dt>
-        <dd className="min-w-0 break-words text-zinc-300">{na(run.config.temperature)}</dd>
-        <dt className="text-zinc-400">Max tokens</dt>
-        <dd className="min-w-0 break-words text-zinc-300">{na(run.config.maxTokens)}</dd>
-        <dt className="text-zinc-400">Rubric version</dt>
-        <dd className="min-w-0 break-all font-mono text-zinc-300">{run.rubricVersion}</dd>
-        <dt className="text-zinc-400">Instruction fingerprint</dt>
-        <dd className="min-w-0 break-all font-mono text-zinc-300">{run.instructionFingerprint}</dd>
-        <dt className="text-zinc-400">Created at</dt>
-        <dd className="min-w-0 break-all font-mono text-zinc-300">{run.createdAt}</dd>
-        {run.mode === "live" && (
-          <>
-            <dt className="text-zinc-400">Duration</dt>
-            <dd className="min-w-0 break-words text-zinc-300">
-              A: {run.responses.a.durationMs} ms; B: {run.responses.b.durationMs} ms
-            </dd>
-          </>
+        <Field label="Temperature">{na(run.config.temperature)}</Field>
+        <Field label="Max tokens">{na(run.config.maxTokens)}</Field>
+        <Field label="Rubric version" mono breakAll>
+          {run.rubricVersion}
+        </Field>
+        <Field label="Instruction fingerprint" mono breakAll>
+          {run.instructionFingerprint}
+        </Field>
+        <Field label="Created at" mono breakAll>
+          {run.createdAt}
+        </Field>
+        {live && (
+          <Field label="Duration">
+            A: {run.responses.a.durationMs} ms; B: {run.responses.b.durationMs} ms
+          </Field>
         )}
-        {run.mode === "simulated" && (
+        {!live && (
           <>
-            <dt className="text-zinc-400">Simulator rules matched</dt>
-            <dd className="min-w-0 break-words text-zinc-300">{list(rules)}</dd>
-            <dt className="text-zinc-400">Failure modes applied</dt>
-            <dd className="min-w-0 break-words text-zinc-300">
+            <Field label="Simulator rules matched">{list(rules)}</Field>
+            <Field label="Failure modes applied">
               A: {list(run.responses.a.failureModesApplied)}; B: {list(run.responses.b.failureModesApplied)}
-            </dd>
-            <dt className="text-zinc-400">Fault injected</dt>
-            <dd className="min-w-0 break-words text-zinc-300">{run.faultInjected ?? "none"}</dd>
+            </Field>
+            <Field label="Fault injected">{run.faultInjected ?? "none"}</Field>
           </>
         )}
       </dl>
@@ -122,9 +135,12 @@ export function RunDetails({ scenario, run }: { scenario: Scenario; run: Run }) 
         The two inputs are identical except for the highlighted {scenario.variable.name}. Both versions get the same instruction and
         config in independent calls.
       </p>
-      <div className="grid gap-4 md:grid-cols-2">
-        <VariantCard scenario={scenario} run={run} v="a" />
-        <VariantCard scenario={scenario} run={run} v="b" />
+      {/* D49: side by side when the column is wide enough (the results column is narrower beside the editor). */}
+      <div className="@container">
+        <div className="grid gap-4 @2xl:grid-cols-2">
+          <VariantCard scenario={scenario} run={run} v="a" />
+          <VariantCard scenario={scenario} run={run} v="b" />
+        </div>
       </div>
       {scenario.notes.length > 0 && (
         <ul className="list-disc space-y-1 pl-5 text-sm text-zinc-400">

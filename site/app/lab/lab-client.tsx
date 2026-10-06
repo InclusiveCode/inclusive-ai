@@ -21,8 +21,11 @@ import { completionAnnouncement } from "./announce";
 import { abortInFlight } from "./inflight";
 import { afterNextPaint } from "./yield";
 import { Limitations, SimulatorRules } from "./components/reference";
+import { ResultCard } from "./components/result-card";
+import { RunBar } from "./components/run-bar";
 import { RunDetails } from "./components/run-details";
-import { BUTTON, FOCUS, liveAlertText, providerRefusalAsymmetryNote, statusLabel, withRunLabel } from "./components/status";
+import { BUTTON, BUTTON_SKIN, FOCUS, liveAlertText, providerRefusalAsymmetryNote, runLabel, statusLabel, withRunLabel } from "./components/status";
+import { button } from "../ui";
 
 const MAX_INSTRUCTION = 4000;
 const NO_MATCH =
@@ -46,6 +49,13 @@ const SECTIONS: Array<[string, string]> = [
 ];
 
 const H2 = "scroll-mt-24 text-2xl font-bold tracking-tight text-zinc-100";
+
+/** D49: the run buttons. Rerun is the page's one solid primary action (site-design: one per view). */
+const RUN_BUTTON = "min-h-11 lg:min-h-10";
+
+/** D49: the two response sources as option tiles; the native radio stays visible and focusable. */
+const SOURCE_OPTION =
+  "flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 has-[:checked]:border-sky-400 has-[:checked]:bg-sky-950/30 lg:min-h-9";
 
 const EMPTY_LIVE_COMPARE = {
   no_live_run: "No live run yet",
@@ -76,6 +86,8 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
   const [running, setRunning] = useState(false);
   const [cancellable, setCancellable] = useState(false);
   const runningRef = useRef(false);
+  // D49: after a run of the scenario on screen, bring its result card into view (no focus move).
+  const revealResultRef = useRef(false);
   const rerunRef = useRef<HTMLButtonElement>(null);
   const restoreFocusRef = useRef<HTMLButtonElement | null>(null);
   const cancelRef = useRef<AbortController | null>(null);
@@ -129,6 +141,14 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
         ? (latestRun ?? baseline)
         : (history.find((r) => r.id === view) ?? latestRun ?? baseline);
   const instruction = instructions[scenario.id] ?? "";
+
+  // D49: "nearest" scrolls only as far as needed (inside the sticky editor column on desktop, the
+  // page on phones), so the button you pressed stays in view. It never moves focus.
+  useEffect(() => {
+    if (!revealResultRef.current) return;
+    revealResultRef.current = false;
+    document.getElementById("lab-result")?.scrollIntoView({ block: "nearest" });
+  }, [latestRun?.id]);
   // The "Show run" radio that is checked: an older run, the precomputed baseline, or the latest run.
   const viewRun = view === "baseline" ? "baseline" : history.slice(0, -1).some((r) => r.id === view) ? view : "latest";
   const liveModel = findModel(liveProvider, liveModelId) ?? LIVE_MODELS.find((m) => m.provider === liveProvider) ?? LIVE_MODELS[0];
@@ -255,6 +275,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
         fault: live ? "none" : fault,
       });
       setRuns((prev) => ({ ...prev, [s.id]: [...(prev[s.id] ?? []), run] }));
+      revealResultRef.current = displayedScenarioRef.current === s.id;
       setRunCount((prev) => ({ ...prev, [s.id]: n }));
       setView("latest");
       setAnnouncement(
@@ -320,7 +341,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
     <div ref={rootRef} className="mx-auto max-w-6xl px-4 pt-10 text-zinc-300 sm:px-6 sm:pt-16">
       <header className="mb-8">
         <h1 className="scroll-mt-24 font-display text-[2.625rem] leading-[1.05] tracking-[-0.01em] text-zinc-50 sm:text-6xl">Evaluation Lab</h1>
-        <p className="mt-4 max-w-3xl text-lg text-zinc-300">
+        <p className="mt-4 max-w-3xl text-base text-zinc-300 sm:text-lg">
           Inspect how an assistant handles LGBTQIA+-specific situations, change its system instruction, rerun, and compare. Each scenario
           sends two inputs that differ in exactly one detail. Checks are deterministic word-matching rules; every failure shows its evidence: the exact words that triggered it,
           or what was missing.
@@ -330,11 +351,12 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
       {shown && <RunBanner run={shown} />}
       <LiveSelectedNote source={source} run={shown} />
 
-      <nav aria-label="Lab steps" className="mb-12">
-        <ol className="flex flex-wrap gap-2 text-sm">
+      {/* D49: one row that scrolls sideways on phones (six stacked rows before), wrapping from md up. */}
+      <nav aria-label="Lab steps" className="-mx-4 mb-12 overflow-x-auto px-4 sm:-mx-6 sm:px-6 md:mx-0 md:overflow-visible md:px-0">
+        <ol className="flex w-max gap-2 pb-1 text-sm md:w-auto md:flex-wrap md:pb-0">
           {SECTIONS.map(([id, label]) => (
-            <li key={id}>
-              <a href={`#${id}`} className={`inline-block rounded-lg border border-zinc-700 px-3 py-1.5 text-zinc-300 hover:border-zinc-500 ${FOCUS}`}>
+            <li key={id} className="shrink-0">
+              <a href={`#${id}`} className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-lg border border-zinc-700 px-3 py-1.5 text-zinc-300 hover:border-zinc-500 lg:min-h-9 ${FOCUS}`}>
                 {label}
               </a>
             </li>
@@ -347,15 +369,16 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
           <h2 id="choose" className={H2}>
             1. Choose a scenario
           </h2>
-          <fieldset className="mt-4">
+          <fieldset className="mt-4 min-w-0">
             <legend className="text-sm text-zinc-400">
               Scenario <span className="ml-2 rounded-full border border-zinc-600 px-2 py-0.5 text-xs text-zinc-300">Fictional data</span>
             </legend>
-            <div className="mt-3 grid gap-3 md:grid-cols-3">
+            {/* D49: on phones the three cards sit in one row you swipe (arrow keys move through them too). */}
+            <div className="-mx-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 md:pb-0">
               {scenarios.map((s) => (
                 <label
                   key={s.id}
-                  className={`block cursor-pointer rounded-lg border p-4 ${s.id === scenario.id ? "border-sky-400 bg-sky-950/30" : "border-zinc-800"}`}
+                  className={`block w-[82%] shrink-0 cursor-pointer snap-start rounded-lg border p-4 md:w-auto ${s.id === scenario.id ? "border-sky-400 bg-sky-950/30" : "border-zinc-800"}`}
                 >
                   <span className="flex items-start gap-2">
                     <input
@@ -379,210 +402,225 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
           </fieldset>
         </section>
 
-        <section aria-labelledby="inspect">
-          <h2 id="inspect" className={H2}>
-            2. Inspect paired inputs and responses
-          </h2>
-          {latestRun && (
-            <fieldset className="mt-4">
-              <legend className="text-sm text-zinc-400">Show run</legend>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                {[
-                  { value: "baseline", label: "Baseline run" },
-                  { value: "latest", label: `Latest run (${latestRun.id}, ${latestRun.mode})` },
-                  ...history
-                    .slice(0, -1)
-                    .reverse()
-                    .map((r) => ({ value: r.id, label: `${r.id} (${r.mode})` })),
-                ].map((o) => (
-                  <label key={o.value} className="inline-flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="view-run"
-                      value={o.value}
-                      checked={o.value === viewRun}
-                      onChange={() => setView(o.value)}
-                      autoComplete="off"
-                      className={FOCUS}
-                    />
-                    {o.label}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
-          <div className="mt-4">{shown ? <RunDetails scenario={scenario} run={shown} /> : <p>Not run</p>}</div>
-        </section>
+        {/*
+          D49 workbench: from lg up, the results (inspect, findings) fill the left column and the editor
+          sits beside them in a sticky column, so editing, running, and the changed findings share one
+          screen. The DOM order stays inspect, findings, edit (spec §2 journey; reading and Tab order).
+        */}
+        <div className="space-y-16 lg:grid lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start lg:gap-8 lg:space-y-0 xl:grid-cols-[minmax(0,1fr)_23rem]">
+          <div className="min-w-0 space-y-16">
+            <section aria-labelledby="inspect">
+              <h2 id="inspect" className={H2}>
+                2. Inspect paired inputs and responses
+              </h2>
+              {latestRun && (
+                <fieldset className="mt-4">
+                  <legend className="text-sm text-zinc-400">Show run</legend>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                    {[
+                      { value: "baseline", label: "Baseline run" },
+                      { value: "latest", label: `Latest run (${latestRun.id}, ${latestRun.mode})` },
+                      ...history
+                        .slice(0, -1)
+                        .reverse()
+                        .map((r) => ({ value: r.id, label: `${r.id} (${r.mode})` })),
+                    ].map((o) => (
+                      <label key={o.value} className="inline-flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="view-run"
+                          value={o.value}
+                          checked={o.value === viewRun}
+                          onChange={() => setView(o.value)}
+                          autoComplete="off"
+                          className={FOCUS}
+                        />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+              <div className="mt-4">{shown ? <RunDetails scenario={scenario} run={shown} /> : <p>Not run</p>}</div>
+            </section>
 
-        <section aria-labelledby="findings">
-          <h2 id="findings" className={H2}>
-            3. Review findings
-          </h2>
-          {asymmetryNote && shown && (
-            <p
-              key={`${shown.id}-asymmetry`}
-              role="alert"
-              className="mt-4 rounded-md border-2 border-amber-300/70 bg-amber-950/40 p-3 text-amber-100"
-            >
-              {asymmetryNote}
-            </p>
-          )}
-          <div className="mt-4">
-            {shown ? <Findings scenario={scenario} run={shown} overrides={overrides} onSave={saveOverride} /> : <p>Not run</p>}
+            <section aria-labelledby="findings">
+              <h2 id="findings" className={H2}>
+                3. Review findings
+              </h2>
+              {asymmetryNote && shown && (
+                <p
+                  key={`${shown.id}-asymmetry`}
+                  role="alert"
+                  className="mt-4 rounded-md border-2 border-amber-300/70 bg-amber-950/40 p-3 text-amber-100"
+                >
+                  {asymmetryNote}
+                </p>
+              )}
+              <div className="mt-4">
+                {shown ? <Findings scenario={scenario} run={shown} overrides={overrides} onSave={saveOverride} /> : <p>Not run</p>}
+              </div>
+            </section>
           </div>
-        </section>
 
-        <section aria-labelledby="edit" aria-busy={running || undefined}>
-          <h2 id="edit" className={H2}>
-            4. Edit the instruction and rerun
-          </h2>
-          <div className="mt-4 space-y-4">
-            <div>
-              <label htmlFor="lab-instruction" className="block font-medium text-zinc-100">
-                System instruction for “{scenario.title}”
-              </label>
-              <textarea
-                id="lab-instruction"
-                rows={7}
-                maxLength={MAX_INSTRUCTION}
-                value={instruction}
-                readOnly={!hydrated}
-                autoComplete="off"
-                onChange={(e) => setInstruction(e.target.value)}
-                aria-describedby="lab-instruction-count"
-                className={`mt-2 w-full rounded-md border border-zinc-500 bg-zinc-900 p-3 font-mono text-sm text-zinc-100 ${FOCUS}`}
-              />
-              <p id="lab-instruction-count" className="text-sm text-zinc-400">
-                {instruction.length} / {MAX_INSTRUCTION} characters
-              </p>
-            </div>
-            <div role="group" aria-labelledby="lab-presets" className="space-y-2">
-              <p id="lab-presets" className="text-sm text-zinc-400">
-                Presets append a documented simulator snippet to the instruction:
-              </p>
-              <div className="flex flex-col gap-2">
-                {scenario.presets.map((id) => {
-                  const rule = SNIPPET_RULES.find((r) => r.id === id);
-                  if (!rule) return null;
-                  return (
-                    <button key={id} type="button" className={`${BUTTON} text-left`} onClick={() => addPreset(rule.snippet)}>
-                      <span className="mr-2 font-mono text-xs text-zinc-400">
-                        {rule.id} ({rule.kind})
-                      </span>
-                      {rule.snippet}
-                    </button>
-                  );
-                })}
-                <button type="button" className={`${BUTTON} self-start`} onClick={() => setInstruction(scenario.baselineInstruction)}>
-                  Reset to the baseline instruction
-                </button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <fieldset className="min-w-0">
-                <legend className="font-medium text-zinc-100">Response source</legend>
-                <div className="mt-2 space-y-1 text-sm">
-                  <label className="flex items-start gap-2">
-                    <input
-                      type="radio"
-                      name="response-source"
-                      value="simulated"
-                      checked={source === "simulated"}
-                      onChange={() => setSource("simulated")}
-                      autoComplete="off"
-                      className={FOCUS}
-                    />
-                    Simulated (scripted demo)
-                  </label>
-                  <label className="flex items-start gap-2">
-                    <input
-                      type="radio"
-                      name="response-source"
-                      value="live"
-                      checked={source === "live"}
-                      onChange={() => setSource("live")}
-                      autoComplete="off"
-                      className={FOCUS}
-                    />
-                    Live model (your API key)
-                  </label>
-                </div>
-              </fieldset>
-              <div className="min-w-0">
-                <label htmlFor="lab-fault" className="block font-medium text-zinc-100">
-                  Fault injection (simulated only)
+          <section
+            aria-labelledby="edit"
+            aria-busy={running || undefined}
+            className="@container min-w-0 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto lg:rounded-xl lg:border lg:border-zinc-700 lg:bg-zinc-950 lg:p-5"
+          >
+            <h2 id="edit" className={`${H2} lg:text-xl`}>
+              4. Edit the instruction and rerun
+            </h2>
+            <div className="mt-4 space-y-4">
+              <div>
+                <label htmlFor="lab-instruction" className="block font-medium text-zinc-100">
+                  System instruction for “{scenario.title}”
                 </label>
-                <select
-                  id="lab-fault"
-                  value={fault}
-                  disabled={source === "live"}
+                <textarea
+                  id="lab-instruction"
+                  rows={7}
+                  maxLength={MAX_INSTRUCTION}
+                  value={instruction}
+                  readOnly={!hydrated}
                   autoComplete="off"
-                  onChange={(e) => setFault(e.target.value as FaultKind)}
-                  className={`mt-2 w-full max-w-sm rounded-md border border-zinc-500 bg-zinc-900 p-2 text-sm text-zinc-100 disabled:opacity-60 ${FOCUS}`}
-                >
-                  {FAULTS.map(([v, label]) => (
-                    <option key={v} value={v}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(e) => setInstruction(e.target.value)}
+                  aria-describedby="lab-instruction-count"
+                  className={`mt-2 field-sizing-content max-h-[45vh] min-h-36 w-full lg:max-h-[30vh] rounded-md border border-zinc-500 bg-zinc-900 p-3 font-mono text-sm text-zinc-100 lg:min-h-28 ${FOCUS}`}
+                />
+                <p id="lab-instruction-count" className="text-sm text-zinc-400">
+                  {instruction.length} / {MAX_INSTRUCTION} characters
+                </p>
               </div>
-            </div>
-            {source === "live" && (
-              <LivePanel
-                provider={liveProvider}
-                modelId={liveModel.id}
-                onProviderChange={chooseProvider}
-                onModelChange={setLiveModelId}
-                keyInputRef={keyInputRef}
-                keyError={keyError}
-                onKeyErrorClear={() => setKeyError(null)}
-              />
-            )}
-            <div className="flex flex-wrap items-center gap-4">
-              <button
-                ref={rerunRef}
-                type="button"
-                onClick={(e) => startRun("edited", e.currentTarget)}
-                disabled={running}
-                className={`${BUTTON} px-5 py-2 font-semibold`}
-              >
-                Rerun
-              </button>
+              <div role="group" aria-labelledby="lab-presets" className="space-y-2">
+                <p id="lab-presets" className="text-sm text-zinc-400">
+                  Presets append a documented simulator snippet to the instruction:
+                </p>
+                <div className="flex flex-col gap-2">
+                  {scenario.presets.map((id) => {
+                    const rule = SNIPPET_RULES.find((r) => r.id === id);
+                    if (!rule) return null;
+                    return (
+                      <button key={id} type="button" className={`flex w-full flex-col items-start gap-0.5 text-left ${BUTTON_SKIN}`} onClick={() => addPreset(rule.snippet)}>
+                        <span className="font-mono text-xs text-zinc-400">
+                          <span aria-hidden="true">+ </span>
+                          {rule.id} ({rule.kind})
+                        </span>
+                        <span>{rule.snippet}</span>
+                      </button>
+                    );
+                  })}
+                  <button type="button" className={`${BUTTON} self-start`} onClick={() => setInstruction(scenario.baselineInstruction)}>
+                    Reset to the baseline instruction
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2">
+                <fieldset className="min-w-0">
+                  <legend className="font-medium text-zinc-100">Response source</legend>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                    <label className={SOURCE_OPTION}>
+                      <input
+                        type="radio"
+                        name="response-source"
+                        value="simulated"
+                        checked={source === "simulated"}
+                        onChange={() => setSource("simulated")}
+                        autoComplete="off"
+                        className={FOCUS}
+                      />
+                      Simulated (scripted demo)
+                    </label>
+                    <label className={SOURCE_OPTION}>
+                      <input
+                        type="radio"
+                        name="response-source"
+                        value="live"
+                        checked={source === "live"}
+                        onChange={() => setSource("live")}
+                        autoComplete="off"
+                        className={FOCUS}
+                      />
+                      Live model (your API key)
+                    </label>
+                  </div>
+                </fieldset>
+                <div className="min-w-0">
+                  <label htmlFor="lab-fault" className="block font-medium text-zinc-100">
+                    Fault injection (simulated only)
+                  </label>
+                  <select
+                    id="lab-fault"
+                    value={fault}
+                    disabled={source === "live"}
+                    autoComplete="off"
+                    onChange={(e) => setFault(e.target.value as FaultKind)}
+                    className={`mt-2 min-h-11 w-full rounded-md border border-zinc-500 bg-zinc-900 p-2 text-sm text-zinc-100 disabled:opacity-60 lg:min-h-9 ${FOCUS}`}
+                  >
+                    {FAULTS.map(([v, label]) => (
+                      <option key={v} value={v}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               {source === "live" && (
+                <LivePanel
+                  provider={liveProvider}
+                  modelId={liveModel.id}
+                  onProviderChange={chooseProvider}
+                  onModelChange={setLiveModelId}
+                  keyInputRef={keyInputRef}
+                  keyError={keyError}
+                  onKeyErrorClear={() => setKeyError(null)}
+                />
+              )}
+              <div className="flex flex-wrap items-center gap-4">
                 <button
+                  ref={rerunRef}
                   type="button"
-                  onClick={(e) => startRun("baseline", e.currentTarget)}
+                  onClick={(e) => startRun("edited", e.currentTarget)}
                   disabled={running}
-                  aria-describedby={BASELINE_LIVE_HELP_ID}
-                  className={`${BUTTON} px-5 py-2`}
+                  className={`${button.primary} ${RUN_BUTTON}`}
                 >
-                  Run baseline live
+                  Rerun
                 </button>
+                {source === "live" && (
+                  <button
+                    type="button"
+                    onClick={(e) => startRun("baseline", e.currentTarget)}
+                    disabled={running}
+                    aria-describedby={BASELINE_LIVE_HELP_ID}
+                    className={`${button.secondary} ${RUN_BUTTON}`}
+                  >
+                    Run baseline live
+                  </button>
+                )}
+                {running && cancellable && (
+                  <button ref={cancelButtonRef} type="button" onClick={() => abortInFlight(cancelRef)} className={`${button.secondary} ${RUN_BUTTON}`}>
+                    Cancel
+                  </button>
+                )}
+                <p ref={statusRef} tabIndex={-1} role="status" aria-live="polite" className={`text-sm text-zinc-300 ${FOCUS}`}>
+                  {announcement}
+                </p>
+              </div>
+              {source === "live" && <BaselineLiveHelp />}
+              {statusAlert && shown && (
+                <p key={shown.id} ref={statusAlertRef} tabIndex={-1} role="alert" className={`rounded-md border border-rose-400/60 p-3 text-sm text-rose-200 ${FOCUS}`}>
+                  {statusAlert}
+                </p>
               )}
-              {running && cancellable && (
-                <button ref={cancelButtonRef} type="button" onClick={() => abortInFlight(cancelRef)} className={`${BUTTON} px-5 py-2`}>
-                  Cancel
-                </button>
+              {runError && (
+                <p key={runError.key} ref={runErrorRef} tabIndex={-1} role="alert" className={`rounded-md border border-rose-400/60 p-3 text-sm text-rose-200 ${FOCUS}`}>
+                  {runError.text}
+                </p>
               )}
-              <p ref={statusRef} tabIndex={-1} role="status" aria-live="polite" className={`text-sm text-zinc-300 ${FOCUS}`}>
-                {announcement}
-              </p>
+              {noMatch && <p className="rounded-md border border-zinc-600 p-3 text-sm text-zinc-300">{NO_MATCH}</p>}
+              <ResultCard scenario={scenario} baseline={baseline} history={history} latest={latestRun} />
             </div>
-            {source === "live" && <BaselineLiveHelp />}
-            {statusAlert && shown && (
-              <p key={shown.id} ref={statusAlertRef} tabIndex={-1} role="alert" className={`rounded-md border border-rose-400/60 p-3 text-sm text-rose-200 ${FOCUS}`}>
-                {statusAlert}
-              </p>
-            )}
-            {runError && (
-              <p key={runError.key} ref={runErrorRef} tabIndex={-1} role="alert" className={`rounded-md border border-rose-400/60 p-3 text-sm text-rose-200 ${FOCUS}`}>
-                {runError.text}
-              </p>
-            )}
-            {noMatch && <p className="rounded-md border border-zinc-600 p-3 text-sm text-zinc-300">{NO_MATCH}</p>}
-          </div>
-        </section>
+          </section>
+        </div>
 
         <section aria-labelledby="compare">
           <h2 id="compare" className={H2}>
@@ -635,6 +673,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
           </div>
         </section>
       </div>
+      {shown && <RunBar label={runLabel(shown)} headline={scenarioVerdict(shown.results).headline} running={running} />}
     </div>
   );
 }
