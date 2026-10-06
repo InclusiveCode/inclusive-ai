@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { reports, type Report, type ReportFailure } from "@/lib/reports";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const report = reports.find((r) => r.slug === slug);
+  return { title: report ? `${report.title} — Evaluation Reports` : "Evaluation Reports" };
+}
 
 export async function generateStaticParams() {
   return reports.map((r) => ({ slug: r.slug }));

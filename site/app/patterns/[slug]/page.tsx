@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { patterns } from "@/lib/patterns";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const pattern = patterns.find((p) => p.slug === slug);
+  return { title: pattern ? `${pattern.title} — Anti-Pattern Library` : "Anti-Pattern Library" };
+}
 
 export async function generateStaticParams() {
   return patterns.map((p) => ({ slug: p.slug }));

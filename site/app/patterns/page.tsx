@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { patterns } from "@/lib/patterns";
+
+export const metadata: Metadata = { title: "Anti-Pattern Library" };
 
 const severityColor: Record<string, string> = {
   critical: "text-rose-400 bg-rose-400/10",

@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { reports } from "@/lib/reports";
+
+export const metadata: Metadata = { title: "Evaluation Reports" };
 
 const verdictColor: Record<string, string> = {
   PASS: "bg-emerald-900/50 text-emerald-300 border-emerald-700",

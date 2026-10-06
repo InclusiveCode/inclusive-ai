@@ -5,7 +5,7 @@ import { SIMULATED_CONFIG, SIMULATOR_VERSION, simulatedResponder } from "../../l
 import { LabClient } from "./lab-client";
 
 export const metadata: Metadata = {
-  title: "Evaluation Lab — InclusiveCode",
+  title: "Evaluation Lab",
   description:
     "Inspect paired synthetic LGBTQIA+ scenarios, review evidence-backed findings, edit the system instruction, rerun, and compare. Simulated by default with fictional data; optional live mode uses your own API key.",
 };

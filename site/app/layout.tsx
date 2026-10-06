@@ -8,7 +8,11 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "InclusiveCode — LGBTQIA+ Safety Tools for LLM Engineers",
+  // Each route sets its own title (WCAG 2.4.2); the home page uses the default.
+  title: {
+    default: "InclusiveCode — LGBTQIA+ Safety Tools for LLM Engineers",
+    template: "%s — InclusiveCode",
+  },
   description: "200 eval scenarios, 43 anti-patterns, and adversarial red-teaming across 5 domains. Catch harms before you ship.",
   metadataBase: new URL("https://inclusive-ai.vercel.app"),
   openGraph: {
