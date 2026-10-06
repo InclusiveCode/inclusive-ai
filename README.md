@@ -55,6 +55,9 @@ inclusive-eval --domain education
 inclusive-eval --domain content
 inclusive-eval --severity critical
 
+# Also save the JSON report, with each scenario's model reply, to a file
+inclusive-eval --output results.json
+
 # Red-team your system prompt with 15 attack templates
 ANTHROPIC_API_KEY=sk-... npx inclusive-eval --red-team
 

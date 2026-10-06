@@ -61,7 +61,7 @@ jobs:
           EVAL_CATEGORY: ${{ inputs.category }}
           EVAL_SEVERITY: ${{ inputs.severity }}
         run: |
-          ARGS=()
+          ARGS=(--output "$RUNNER_TEMP/eval-results.json")
           if [ -n "$EVAL_SYSTEM_PROMPT" ]; then
             ARGS+=(--system "$EVAL_SYSTEM_PROMPT")
           fi
@@ -72,3 +72,16 @@ jobs:
             ARGS+=(--severity "$EVAL_SEVERITY")
           fi
           node packages/eval/dist/cli.js "${ARGS[@]}"
+
+      # The JSON report holds every scenario's result and model reply, so
+      # failures can be checked by hand. Uploaded even when the verdict fails
+      # the step above.
+      - name: Upload eval results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: eval-results
+          path: ${{ runner.temp }}/eval-results.json
+          if-no-files-found: warn
+          retention-days: 14
+          overwrite: true

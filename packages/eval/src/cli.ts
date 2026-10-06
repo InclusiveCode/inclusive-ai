@@ -4,6 +4,7 @@ import { runEval } from "@inclusive-ai/eval-core";
 import { allScenarios, domains } from "./index";
 import { CliReporter, JsonReporter, SarifReporter } from "@inclusive-ai/eval-core";
 import type { TextEvalScenario } from "@inclusive-ai/eval-core";
+import { checkOutputPath, writeJsonReport } from "./output-file";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -25,6 +26,21 @@ async function main() {
   const concurrencyRaw = getArg("--concurrency");
   const concurrency = concurrencyRaw ? parseInt(concurrencyRaw, 10) : 5;
   const model = getArg("--model") ?? "claude-haiku-4-5-20251001";
+  // --output <file> also writes the JSON report (with each model reply) to a file
+  const outputPath = getArg("--output");
+  if (hasFlag("--output")) {
+    const outputError = checkOutputPath(outputPath);
+    if (outputError) {
+      console.error(outputError);
+      process.exit(1);
+    }
+  }
+  const saveJsonReport = (json: string) => {
+    if (!outputPath) return;
+    writeJsonReport(outputPath, json);
+    // stderr, so the note does not mix into the report on stdout
+    console.error(`JSON report written to ${outputPath}`);
+  };
 
   const apiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -148,6 +164,7 @@ async function main() {
       : reporter.reportCli(score);
 
     console.log(output);
+    saveJsonReport(reporter.reportJson(score));
     process.exit(score.verdict === "VULNERABLE" ? 1 : 0);
     return;
   }
@@ -179,6 +196,7 @@ async function main() {
       new CliReporter();
 
     console.log(reporter.report(summary.results, summary));
+    saveJsonReport(new JsonReporter().report(summary.results, summary));
     process.exit(summary.verdict === "FAIL" ? 1 : 0);
     return;
   }
@@ -205,6 +223,7 @@ async function main() {
     new CliReporter();
 
   console.log(reporter.report(summary.results, summary));
+  saveJsonReport(new JsonReporter().report(summary.results, summary));
   process.exit(summary.verdict === "FAIL" ? 1 : 0);
 }
 
