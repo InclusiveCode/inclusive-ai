@@ -19,6 +19,7 @@ import { pickFocusAfterRun } from "./focus";
 import { forceLabControls, readPreHydrationChoices, type LabControlState } from "./form-sync";
 import { completionAnnouncement } from "./announce";
 import { abortInFlight } from "./inflight";
+import { afterNextPaint } from "./yield";
 import { Limitations, SimulatorRules } from "./components/reference";
 import { RunDetails } from "./components/run-details";
 import { BUTTON, FOCUS, liveAlertText, providerRefusalAsymmetryNote, statusLabel, withRunLabel } from "./components/status";
@@ -239,6 +240,9 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
     setCancellable(live);
     setAnnouncement("Running…");
     try {
+      // F3: let "Running…" paint before the evaluation work, so the click is not blocked on it.
+      // Every input of the run (scenario, instruction, mode, model, fault) is already fixed above.
+      await afterNextPaint();
       const responder =
         live && controller
           ? makeLiveResponder({ scenario: s, provider: liveModel.provider, model: liveModel, key: { get: readKey }, signal: controller.signal })
