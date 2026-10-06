@@ -5,7 +5,11 @@ import type { Scenario } from "../../../lib/lab/scenarios";
 /** Visible keyboard focus for every control. */
 export const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400";
 
-export const BUTTON = `rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS}`;
+/** A lab button's look without its layout, for buttons that lay out their own content (presets). */
+export const BUTTON_SKIN = `min-h-11 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-100 hover:border-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 lg:min-h-9 ${FOCUS}`;
+
+/** D49: 44 px tall on touch-sized screens (the site's mobile target), 36 px on desktop. */
+export const BUTTON = `inline-flex items-center justify-center gap-2 ${BUTTON_SKIN}`;
 
 const ICON: Record<CheckStatus, string> = {
   pass: "✓",

@@ -87,7 +87,8 @@ export function LivePanel({
 
   return (
     <div className="space-y-3 rounded-lg border border-sky-400/40 bg-sky-950/20 p-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* D49: the panel sits in the narrow editor column on desktop, so it follows its container, not the viewport. */}
+      <div className="grid grid-cols-1 gap-3 @sm:grid-cols-2">
         <div>
           <label htmlFor="lab-live-provider" className="block text-sm font-medium text-zinc-100">
             Provider
