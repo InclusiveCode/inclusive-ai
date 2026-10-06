@@ -1,69 +1,44 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { patterns } from "@/lib/patterns";
+import { button, ISSUE_PATTERN_URL, NewTab, PageHeader } from "../ui";
+import { PatternBrowser, type PatternCard } from "./pattern-browser";
 
 export const metadata: Metadata = { title: "Anti-Pattern Library" };
 
-const severityColor: Record<string, string> = {
-  critical: "text-rose-400 bg-rose-400/10",
-  high: "text-red-400 bg-red-400/10",
-  medium: "text-yellow-400 bg-yellow-400/10",
-  low: "text-green-400 bg-green-400/10",
-};
-
-const prideColors = ["#FF6B9D", "#FF9B71", "#FECF6A", "#63E6BE", "#74B9FF", "#A29BFE", "#DDA0DD"];
+/** "Healthcare — Transition Care" → "Healthcare"; categories without a domain prefix are core. */
+function domainOf(category: string): string {
+  const i = category.indexOf(" — ");
+  return i === -1 ? "Core (any product)" : category.slice(0, i);
+}
 
 export default function PatternsPage() {
+  // Only what the list needs reaches the browser, not the code samples.
+  const items: PatternCard[] = patterns.map((p) => ({
+    slug: p.slug,
+    title: p.title,
+    description: p.description,
+    severity: p.severity,
+    category: p.category,
+    domain: domainOf(p.category),
+    tags: p.tags,
+  }));
+  const domains = [...new Set(items.map((p) => p.domain))];
+
   return (
-    <div className="max-w-4xl mx-auto px-6 py-20">
-      <div className="mb-10">
-        <div className="inline-block px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono mb-6">
-          anti-patterns
+    <div className="mx-auto max-w-6xl px-4 pt-10 sm:px-6 sm:pt-16">
+      <PageHeader
+        title="Anti-Pattern Library"
+        lead={`${patterns.length} patterns in LLM prompts, code, and product decisions that harm LGBTQIA+ users. Each one has the harmful pattern, why it harms, a safer alternative, and an eval test case.`}
+      />
+      <PatternBrowser items={items} domains={domains} />
+      <div className="mt-16 flex flex-col items-start gap-4 rounded-2xl border border-zinc-800 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-semibold text-zinc-50">Know a pattern that&apos;s missing?</h2>
+          <p className="mt-1 text-sm text-zinc-400">Describe it in an issue; the template asks for the harm, an example, and a fix.</p>
         </div>
-        <h1 className="text-3xl font-bold mb-3">
-          <span style={{ background: "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Anti-Pattern Library</span>
-        </h1>
-        <p className="text-zinc-400">
-          Common patterns in LLM prompts, code, and product decisions that harm LGBTQIA+ users. Each entry includes the problem, why it happens, and a safer alternative.
-        </p>
-      </div>
-      <div className="space-y-4">
-        {patterns.map((p, i) => (
-          <Link
-            key={p.slug}
-            href={`/patterns/${p.slug}`}
-            className="block p-6 border border-zinc-800 rounded-xl hover:border-zinc-600 transition-colors group border-l-2"
-            style={{ borderLeftColor: prideColors[i % prideColors.length] }}
-          >
-            <div className="flex items-start justify-between gap-4 mb-2">
-              <div className="flex items-center gap-3">
-                <span className={`text-xs font-mono px-2 py-0.5 rounded ${severityColor[p.severity]}`}>
-                  {p.severity}
-                </span>
-                <span className="text-xs text-zinc-400 font-mono">{p.category}</span>
-              </div>
-            </div>
-            <h2 className="font-semibold mb-1 group-hover:text-zinc-100">{p.title}</h2>
-            <p className="text-sm text-zinc-400">{p.description}</p>
-            <div className="flex gap-2 mt-3 flex-wrap">
-              {p.tags.map((t) => (
-                <span key={t} className="text-xs px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded font-mono">
-                  {t}
-                </span>
-              ))}
-            </div>
-          </Link>
-        ))}
-      </div>
-      <div className="mt-10 p-6 border border-zinc-800 rounded-xl text-center">
-        <p className="text-zinc-400 text-sm mb-3">Know a pattern that&apos;s missing?</p>
-        <a
-          href="https://github.com/InclusiveCode/inclusive-ai/issues/new?template=new_pattern.md"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-mono text-zinc-300 hover:text-white transition-colors"
-        >
-          Open an issue on GitHub →
+        <a href={ISSUE_PATTERN_URL} target="_blank" rel="noopener noreferrer" className={button.secondary}>
+          Propose a pattern
+          <NewTab />
         </a>
       </div>
     </div>

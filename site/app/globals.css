@@ -1,43 +1,55 @@
 @import "tailwindcss";
 
-/* Keep focused and anchored elements clear of the sticky top nav (WCAG 2.2 SC 2.4.11). */
-html {
-  scroll-padding-top: 5rem;
+/*
+ * Design tokens (D44).
+ * - Type: Atkinson Hyperlegible Next for text, Atkinson Hyperlegible Mono for code, Instrument Serif
+ *   for page titles only. next/font sets the --font-body/--font-code/--font-serif variables on <html>;
+ *   "inline" makes the utilities read them there.
+ * - Colour: zinc neutrals carry the interface. The six pride colours are identity only (the flag
+ *   mark, the top stripe, section markers), never text and never data. Pass/fail and severity have
+ *   their own colours.
+ */
+@theme inline {
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-code), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-display: var(--font-serif), ui-serif, Georgia, serif;
 }
 
-:root {
-  --pride-rose: #FF6B9D;
-  --pride-orange: #FF9B71;
-  --pride-yellow: #FECF6A;
-  --pride-green: #63E6BE;
-  --pride-blue: #74B9FF;
-  --pride-purple: #A29BFE;
-  --pride-lavender: #DDA0DD;
-
-  --pride-gradient: linear-gradient(
-    90deg,
-    #FF6B9D,
-    #FF9B71,
-    #FECF6A,
-    #63E6BE,
-    #74B9FF,
-    #A29BFE,
-    #DDA0DD
-  );
-
-  --pride-gradient-subtle: linear-gradient(
-    90deg,
-    rgba(255, 107, 157, 0.7),
-    rgba(255, 155, 113, 0.7),
-    rgba(254, 207, 106, 0.7),
-    rgba(99, 230, 190, 0.7),
-    rgba(116, 185, 255, 0.7),
-    rgba(162, 155, 254, 0.7),
-    rgba(221, 160, 221, 0.7)
-  );
+@theme {
+  --color-pride-1: #ff6b9d;
+  --color-pride-2: #ff9b71;
+  --color-pride-3: #fecf6a;
+  --color-pride-4: #63e6be;
+  --color-pride-5: #74b9ff;
+  --color-pride-6: #a29bfe;
 }
 
-/* Pride stripe at the very top of the page */
+@layer base {
+  /* Keep focused and anchored elements clear of the sticky top nav (WCAG 2.2 SC 2.4.11). */
+  html {
+    scroll-padding-top: 5rem;
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-feature-settings: "kern";
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One focus ring everywhere, the same one the lab uses. Components may draw it inset. */
+  :where(a[href], button, summary, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-sky-400);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-sky-400) 35%, transparent);
+    color: var(--color-zinc-50);
+  }
+}
+
+/* The flag as discrete stripes at the very top of the page: identity, not decoration on text. */
 body::before {
   content: "";
   display: block;
@@ -46,49 +58,60 @@ body::before {
   left: 0;
   right: 0;
   height: 3px;
-  background: var(--pride-gradient);
+  background: linear-gradient(
+    90deg,
+    var(--color-pride-1) 0 16.667%,
+    var(--color-pride-2) 16.667% 33.333%,
+    var(--color-pride-3) 33.333% 50%,
+    var(--color-pride-4) 50% 66.667%,
+    var(--color-pride-5) 66.667% 83.333%,
+    var(--color-pride-6) 83.333% 100%
+  );
   z-index: 100;
 }
 
-/* Rainbow gradient text utility */
-.text-rainbow {
-  background: var(--pride-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
+/* Printing (the checklist says "Print it"): black on white, no site chrome or buttons. */
+@media print {
+  body::before,
+  [data-print="hide"] {
+    display: none !important;
+  }
 
-/* Rainbow border gradient card */
-.card-rainbow-hover {
-  position: relative;
-  transition: border-color 0.2s;
-}
+  html,
+  body {
+    background: #fff !important;
+  }
 
-.card-rainbow-hover::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: var(--pride-gradient);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
+  *,
+  *::before,
+  *::after {
+    color: #000 !important;
+    -webkit-text-fill-color: currentColor !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
 
-.card-rainbow-hover:hover::before,
-.card-rainbow-hover:focus-visible::before {
-  opacity: 1;
-}
+  main {
+    padding: 0 !important;
+  }
 
-/* Pride left border for pattern cards */
-.border-pride-1 { border-left-color: #FF6B9D; }
-.border-pride-2 { border-left-color: #FF9B71; }
-.border-pride-3 { border-left-color: #FECF6A; }
-.border-pride-4 { border-left-color: #63E6BE; }
-.border-pride-5 { border-left-color: #74B9FF; }
-.border-pride-6 { border-left-color: #A29BFE; }
-.border-pride-7 { border-left-color: #DDA0DD; }
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+  }
+
+  [role="checkbox"],
+  section,
+  li {
+    break-inside: avoid;
+  }
+
+  [role="checkbox"] {
+    border-color: #999 !important;
+  }
+
+  [role="checkbox"] [aria-hidden="true"] {
+    border-color: #000 !important;
+  }
+}

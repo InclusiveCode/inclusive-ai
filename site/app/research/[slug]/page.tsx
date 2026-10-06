@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { reports, type Report, type ReportFailure } from "@/lib/reports";
+import { overallVerdict, VERDICT_RULE } from "@/lib/verdict";
+import { Arrow, VERDICT_BAR, VerdictBadge } from "../../ui";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -31,10 +33,11 @@ const verdictBg: Record<string, string> = {
   FAIL: "bg-rose-900/50 text-rose-300 border-rose-700",
 };
 
+// D44: pass/fail colours are semantic (emerald-400, amber-300, rose-400), never the pride palette.
 const barColor: Record<string, string> = {
-  PASS: "#63E6BE",
-  NEEDS_WORK: "#FECF6A",
-  FAIL: "#FF6B9D",
+  PASS: "#34d399",
+  NEEDS_WORK: "#fcd34d",
+  FAIL: "#fb7185",
 };
 
 function groupFailuresByDomain(failures: ReportFailure[]): Record<string, ReportFailure[]> {
@@ -57,60 +60,42 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
   const nonAdversarialDomains = report.results.filter((r) => r.domain !== "Adversarial");
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-20">
-      <Link
-        href="/research"
-        className="text-sm text-zinc-400 hover:text-zinc-300 transition-colors mb-8 inline-block"
-      >
-        &larr; Back to all reports
-      </Link>
+    <div className="mx-auto max-w-4xl px-4 pt-8 sm:px-6 sm:pt-12">
+      <nav aria-label="Breadcrumb" className="mb-8">
+        <Link href="/research" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-zinc-400 transition-colors hover:text-zinc-100">
+          <Arrow className="rotate-180" />
+          All reports
+        </Link>
+      </nav>
 
       {/* Header */}
       <div className="mb-12">
-        <div className="inline-block px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono mb-6">
-          research report
-        </div>
-        <h1
-          className="text-3xl sm:text-4xl font-bold tracking-tight mb-4 wrap-anywhere"
-          style={{
-            background:
-              "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}
-        >
-          {report.title}
-        </h1>
-        <p className="text-sm text-zinc-400 mb-6">
+        <h1 className="font-display text-[2.375rem] leading-[1.08] tracking-[-0.01em] text-zinc-50 wrap-anywhere sm:text-5xl">{report.title}</h1>
+        <p className="mt-4 text-sm text-zinc-400">
           Published {report.date} &middot; Model: {report.model} ({report.modelVersion}) &middot;
           Author: {report.author}
         </p>
 
         {/* Overall scorecard */}
-        <div className="border border-zinc-800 rounded-xl p-6 bg-zinc-900/50">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-zinc-400 text-sm">Overall result</span>
+        <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 sm:p-6">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <span className="flex items-center gap-3 text-sm text-zinc-300">
+              Overall result <VerdictBadge verdict={overallVerdict(report.totalRate)} />
+            </span>
             <span className="font-mono text-lg text-zinc-100">
               {report.totalPassed}/{report.totalScenarios} passed ({report.totalRate}%)
             </span>
           </div>
-          <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full"
-              style={{
-                width: `${report.totalRate}%`,
-                background:
-                  "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)",
-              }}
-            />
+          <div className="h-2.5 overflow-hidden rounded-full bg-zinc-800" aria-hidden="true">
+            <div className={`h-full rounded-full ${VERDICT_BAR[overallVerdict(report.totalRate)]}`} style={{ width: `${report.totalRate}%` }} />
           </div>
-          <p className="mt-2 text-xs text-zinc-400">
+          <p className="mt-3 text-sm text-zinc-400">
             {report.failures.length} failures across {report.results.length} domains &middot;{" "}
             {report.failures.filter((f) => f.severity === "critical").length} critical,{" "}
             {report.failures.filter((f) => f.severity === "high").length} high,{" "}
             {report.failures.filter((f) => f.severity === "medium").length} medium
           </p>
+          <p className="mt-1 text-xs text-zinc-400">{VERDICT_RULE}</p>
         </div>
       </div>
 
@@ -119,7 +104,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
         <h2 className="text-xl font-semibold mb-4 text-zinc-200">Abstract</h2>
         <div
           className="pl-6 text-zinc-300 leading-relaxed"
-          style={{ borderLeft: "3px solid #A29BFE" }}
+          style={{ borderLeft: "3px solid #52525b" }}
         >
           {report.abstract}
         </div>
@@ -304,7 +289,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
         <h2 className="text-xl font-semibold mb-4 text-zinc-200">6. Conclusion</h2>
         <div
           className="pl-6 text-zinc-300 leading-relaxed"
-          style={{ borderLeft: "3px solid #63E6BE" }}
+          style={{ borderLeft: "3px solid #52525b" }}
         >
           {report.conclusion}
         </div>
@@ -343,11 +328,9 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
 
       {/* Back link */}
       <div className="pt-6 border-t border-zinc-800">
-        <Link
-          href="/research"
-          className="text-sm text-zinc-400 hover:text-zinc-300 transition-colors"
-        >
-          &larr; Back to all reports
+        <Link href="/research" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-zinc-300 transition-colors hover:text-zinc-50">
+          <Arrow className="rotate-180" />
+          All reports
         </Link>
       </div>
     </div>

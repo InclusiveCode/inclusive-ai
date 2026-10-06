@@ -1,143 +1,93 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { reports } from "@/lib/reports";
+import { overallVerdict, VERDICT_RULE } from "@/lib/verdict";
+import { Arrow, button, cx, NewTab, PageHeader, REPO_URL, VERDICT_BAR, VerdictBadge } from "../ui";
 
 export const metadata: Metadata = { title: "Evaluation Reports" };
 
-const verdictColor: Record<string, string> = {
-  PASS: "bg-emerald-900/50 text-emerald-300 border-emerald-700",
-  NEEDS_WORK: "bg-yellow-900/50 text-yellow-300 border-yellow-700",
-  FAIL: "bg-rose-900/50 text-rose-300 border-rose-700",
-};
-
-function overallVerdict(rate: number): string {
-  if (rate >= 90) return "PASS";
-  if (rate >= 85) return "NEEDS_WORK";
-  return "FAIL";
-}
+/** Domain bar colour by the domain's own verdict field. */
+const domainBar = (rate: number) => VERDICT_BAR[overallVerdict(rate)];
 
 export default function ResearchPage() {
   return (
-    <div className="max-w-4xl mx-auto px-6 py-20">
-      <div className="mb-12">
-        <div className="inline-block px-3 py-1 rounded-full bg-zinc-800 text-zinc-400 text-xs font-mono mb-6">
-          research
-        </div>
-        <h1 className="text-4xl font-bold tracking-tight mb-4">
-          <span
-            style={{
-              background:
-                "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            Evaluation Reports
-          </span>
-        </h1>
-        <p className="text-lg text-zinc-400 max-w-2xl">
-          Published results from running the InclusiveCode eval suite against production LLM models.
-          Each report documents pass rates, failure analysis, and safety gaps.
-        </p>
-      </div>
+    <div className="mx-auto max-w-4xl px-4 pt-10 sm:px-6 sm:pt-16">
+      <PageHeader
+        title="Evaluation Reports"
+        lead="Published results from running the InclusiveCode eval suite against production LLM models: pass rates, failure analysis, and safety gaps."
+      >
+        <p className="mt-4 text-sm text-zinc-400">{VERDICT_RULE}</p>
+      </PageHeader>
 
-      <div className="space-y-6">
+      <ul className="space-y-5">
         {reports.map((report) => {
           const verdict = overallVerdict(report.totalRate);
           return (
-            <Link
-              key={report.slug}
-              href={`/research/${report.slug}`}
-              className="block group border border-zinc-800 rounded-xl p-6 hover:border-zinc-600 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div>
-                  <h2
-                    className="text-xl font-semibold mb-1"
-                    style={{
-                      background:
-                        "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      backgroundClip: "text",
-                    }}
-                  >
-                    {report.title}
-                  </h2>
-                  <p className="text-sm text-zinc-400">
-                    {report.date} &middot; {report.model}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 px-3 py-1 text-xs font-mono rounded border ${verdictColor[verdict]}`}
-                >
-                  {verdict}
-                </span>
-              </div>
-
-              {/* Score bar */}
-              <div className="mb-3">
-                <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="text-zinc-400">Overall pass rate</span>
-                  <span className="font-mono text-zinc-300">
-                    {report.totalPassed}/{report.totalScenarios} ({report.totalRate}%)
+            <li key={report.slug}>
+              <Link
+                href={`/research/${report.slug}`}
+                className="group block rounded-2xl border border-zinc-800 p-5 transition-colors hover:border-zinc-600 hover:bg-zinc-900/40 active:bg-zinc-900 sm:p-6"
+              >
+                <span className="flex items-start justify-between gap-4">
+                  <span>
+                    <span className="block text-xl font-semibold leading-snug text-zinc-50">{report.title}</span>
+                    <span className="mt-1 block text-sm text-zinc-400">
+                      {report.date} &middot; {report.model}
+                    </span>
                   </span>
-                </div>
-                <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${report.totalRate}%`,
-                      background:
-                        "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)",
-                    }}
-                  />
-                </div>
-              </div>
+                  <VerdictBadge verdict={verdict} />
+                </span>
 
-              {/* Domain mini-bars */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs">
-                {report.results.map((r) => (
-                  <div key={r.domain} className="flex items-center gap-2">
-                    <span className="text-zinc-400 w-20 shrink-0">{r.domain}</span>
-                    <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${r.rate}%`,
-                          background:
-                            r.rate >= 90
-                              ? "#63E6BE"
-                              : r.rate >= 85
-                              ? "#FECF6A"
-                              : "#FF6B9D",
-                        }}
-                      />
-                    </div>
-                    <span className="font-mono text-zinc-400 w-8 text-right">{r.rate}%</span>
-                  </div>
-                ))}
-              </div>
+                {/* Overall */}
+                <span className="mt-5 block">
+                  <span className="mb-1.5 flex items-center justify-between text-sm">
+                    <span className="text-zinc-300">Overall pass rate</span>
+                    <span className="font-mono text-zinc-100">
+                      {report.totalPassed}/{report.totalScenarios} ({report.totalRate}%)
+                    </span>
+                  </span>
+                  <span className="block h-2 overflow-hidden rounded-full bg-zinc-800" aria-hidden="true">
+                    <span className={cx("block h-full rounded-full", VERDICT_BAR[verdict])} style={{ width: `${report.totalRate}%` }} />
+                  </span>
+                </span>
 
-              <p className="mt-4 text-sm text-zinc-400 group-hover:text-zinc-200 transition-colors">
-                Read full report &rarr;
-              </p>
-            </Link>
+                {/* Domains */}
+                <span className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-sm min-[420px]:grid-cols-2 sm:grid-cols-3">
+                  {report.results.map((r) => (
+                    <span key={r.domain} className="flex items-center gap-2">
+                      <span className="w-24 shrink-0 text-zinc-400">{r.domain}</span>
+                      <span className="block h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800" aria-hidden="true">
+                        <span className={cx("block h-full rounded-full", domainBar(r.rate))} style={{ width: `${r.rate}%` }} />
+                      </span>
+                      <span className="w-10 text-right font-mono text-zinc-300">{r.rate}%</span>
+                    </span>
+                  ))}
+                </span>
+
+                <span className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-zinc-200 group-hover:text-zinc-50">
+                  Read the full report
+                  <Arrow />
+                </span>
+              </Link>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
-      <div className="mt-10 p-6 border border-zinc-800 rounded-xl text-center">
-        <p className="text-zinc-400 text-sm mb-3">Want to run the eval suite against a different model?</p>
-        <a
-          href="https://github.com/InclusiveCode/inclusive-ai"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-mono text-zinc-300 hover:text-white transition-colors"
-        >
-          Run your own eval &rarr;
-        </a>
+      <div className="mt-12 flex flex-col items-start gap-4 rounded-2xl border border-zinc-800 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-semibold text-zinc-50">Run the suite against your model</h2>
+          <p className="mt-1 text-sm text-zinc-400">Same 200 scenarios, your system prompt, your API key.</p>
+        </div>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Link href="/tools#quick-start" className={button.primary}>
+            Quick start
+          </Link>
+          <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={button.secondary}>
+            Source on GitHub
+            <NewTab />
+          </a>
+        </div>
       </div>
     </div>
   );
