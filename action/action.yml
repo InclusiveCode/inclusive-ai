@@ -50,10 +50,13 @@ inputs:
 runs:
   using: "composite"
   steps:
+    # No dependency cache in the caller's repository: this action receives an
+    # API key, and setup-node v5+ can turn caching on by itself.
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
         node-version: 20
+        package-manager-cache: false
 
     # The CLI goes into RUNNER_TEMP, not the caller's workspace, so the
     # caller's package.json, lockfile and node_modules are left alone, and no

@@ -99,7 +99,7 @@ jobs:
   eval:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: InclusiveCode/inclusive-ai/action@main
         with:
           anthropic-api-key: \${{ secrets.ANTHROPIC_API_KEY }}

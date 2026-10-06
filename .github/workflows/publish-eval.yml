@@ -13,14 +13,16 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # No dependency cache: a publish job should not restore a cache that
-      # other workflow runs can write to.
-      - uses: actions/setup-node@v4
+      # other workflow runs can write to. setup-node v5+ can turn caching on
+      # by itself, so it is switched off explicitly.
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
 
       # packages/eval imports the other workspace packages, so install and
       # build from the repo root. No dependency install scripts run in a job

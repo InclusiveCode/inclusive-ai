@@ -84,7 +84,7 @@ jobs:
   eval:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Pinning a commit SHA instead of @main is the safest option.
       - uses: InclusiveCode/inclusive-ai/action@main
         with:
