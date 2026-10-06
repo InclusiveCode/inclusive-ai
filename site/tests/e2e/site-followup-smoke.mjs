@@ -232,7 +232,8 @@ if (want("F1")) {
       const gate = new Promise((r) => (release = r));
       let held = 0;
       // Hold back only the scripts (not the stylesheets), so the server markup renders but cannot hydrate.
-      await page.route("**/_next/static/chunks/**", async (route) => {
+      // `next start` serves them from /_next/static/chunks/, a Vercel deployment from /_next/static/immutable/chunks/.
+      await page.route((url) => /\/_next\/static\/(?:immutable\/)?chunks\//.test(url.pathname), async (route) => {
         if (route.request().resourceType() !== "script") return route.continue().catch(() => {});
         held += 1;
         await gate;
