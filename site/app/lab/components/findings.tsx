@@ -160,6 +160,7 @@ function OverrideControl({
                     value={v}
                     checked={human === v}
                     onChange={() => setHuman(v)}
+                    autoComplete="off"
                     className={FOCUS}
                   />
                   {statusLabel(v)}
@@ -177,6 +178,7 @@ function OverrideControl({
               rows={3}
               maxLength={2000}
               value={reason}
+              autoComplete="off"
               onChange={(e) => setReason(e.target.value)}
               className={`mt-1 w-full rounded-md border border-zinc-500 bg-zinc-950 p-2 text-sm text-zinc-100 ${FOCUS}`}
             />

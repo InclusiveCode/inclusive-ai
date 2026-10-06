@@ -95,6 +95,7 @@ export function LivePanel({
           <select
             id="lab-live-provider"
             value={provider}
+            autoComplete="off"
             onChange={(e) => onProviderChange(e.target.value as Provider)}
             className={`mt-1 w-full rounded-md border border-zinc-500 bg-zinc-900 p-2 text-sm text-zinc-100 ${FOCUS}`}
           >
@@ -112,6 +113,7 @@ export function LivePanel({
           <select
             id="lab-live-model"
             value={modelId}
+            autoComplete="off"
             onChange={(e) => onModelChange(e.target.value)}
             className={`mt-1 w-full rounded-md border border-zinc-500 bg-zinc-900 p-2 text-sm text-zinc-100 ${FOCUS}`}
           >
