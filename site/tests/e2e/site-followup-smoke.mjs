@@ -972,6 +972,55 @@ if (want("ALLPAGES")) {
   });
 }
 
+if (want("N1")) {
+  await step("N1 /research reports at 320 px with every 'Results by Domain' section expanded: nothing is wider than its container", async () => {
+    const paths = (await sitemapPaths()).filter((p) => p.startsWith("/research/"));
+    const { page, context } = await newPage(browser, { width: 320, height: 800 });
+    const problems = [];
+    let opened = 0;
+    let measured = 0;
+    for (const path of paths) {
+      await page.goto(`${ORIGIN}${path}`, { waitUntil: "networkidle" });
+      const res = await page.evaluate(() => {
+        const h = [...document.querySelectorAll("main h2")].find((x) => /Results by Domain/.test(x.textContent ?? ""));
+        const section = h?.closest("section") ?? h?.parentElement;
+        const details = section ? [...section.querySelectorAll("details")] : [];
+        for (const d of details) d.open = true;
+        return { details: details.length };
+      });
+      opened += res.details;
+      await sleep(200);
+      const out = await page.evaluate(() => {
+        const h = [...document.querySelectorAll("main h2")].find((x) => /Results by Domain/.test(x.textContent ?? ""));
+        const section = h?.closest("section") ?? h?.parentElement;
+        const bad = [];
+        let n = 0;
+        for (const el of section ? section.querySelectorAll("*") : []) {
+          const r = el.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) continue;
+          n += 1;
+          const parent = el.parentElement;
+          const pr = parent.getBoundingClientRect();
+          const scrolls = /(auto|scroll)/.test(getComputedStyle(parent).overflowX);
+          // Wider than its container (or past the viewport), unless the container deliberately scrolls.
+          if (!scrolls && (r.right > pr.right + 1 || r.left < pr.left - 1 || r.right > window.innerWidth + 0.5)) {
+            bad.push(`<${el.tagName.toLowerCase()}> "${(el.textContent ?? "").trim().slice(0, 40)}" right ${Math.round(r.right)} > ${Math.round(pr.right)}`);
+          }
+          if (el.scrollWidth > el.clientWidth + 1 && /(hidden|clip)/.test(getComputedStyle(el).overflowX) && (el.innerText ?? "").trim()) {
+            bad.push(`<${el.tagName.toLowerCase()}> clips its text: "${(el.innerText ?? "").trim().slice(0, 40)}"`);
+          }
+        }
+        return { n, bad, failureCards: section ? section.querySelectorAll("details li, details > div > div").length : 0 };
+      });
+      measured += out.n;
+      for (const b of out.bad) problems.push(`${path}: ${b}`);
+    }
+    check(`N1 ${paths.length} report pages, ${opened} 'Results by Domain' sections expanded, ${measured} elements measured at 320 px: none wider than its container or clipped`, paths.length >= 3 && opened >= 3 && measured > 200 && problems.length === 0, problems.slice(0, 6).join(" | "));
+    await context.close();
+  });
+
+}
+
 // ---------- wrap-up ----------
 await browser.close();
 if (bfBrowser) await bfBrowser.close();
