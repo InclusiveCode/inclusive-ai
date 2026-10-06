@@ -79,7 +79,7 @@ The lab's journey and its HTML order are fixed by its spec: choose, inspect, fin
   - Never `npx @inclusive-ai/eval` on its own: it runs without a provider SDK and crashes once a key is set. Always pass `-y` to the one-off form, so it doesn't stop for a prompt in CI.
   - Appends start with a newline, so files without a trailing newline aren't corrupted.
   - The hook path comes from `git rev-parse --git-common-dir`, so it works from subfolders, worktrees, and submodules, and never overwrites a husky (`core.hooksPath`) setup; husky users get their own instruction.
-  - Commands and flags appear on the site only once they are in the published package (`--output`, for example, is not yet).
+  - Commands and flags appear on the site only once they are in the published package. `--output` and `--judge` arrived in `@inclusive-ai/eval` 3.4.0 (D50); older versions ignore them without a warning, so `/tools` says so, and a test checks every flag on `/tools` against the flags 3.4.0 reads.
 - Claims about results and counts come from the data (`lib/reports.ts`, `lib/patterns.ts`, `lib/checklist.ts`), not from hand-written numbers.
 - Crisis resources are named correctly. TrevorText is "text START to 678-678", run by The Trevor Project. Crisis Text Line is "text HOME to 741741".
 

@@ -45,6 +45,9 @@ const summary = await runEval({
 printSummary(summary);
 assertSafe(summary); // throws on CRITICAL or HIGH failures`,
   cliInstall: "npm install --save-dev @inclusive-ai/eval @anthropic-ai/sdk",
+  // D50: --output and --judge (and --judge-model) arrived in @inclusive-ai/eval 3.4.0, checked against its published
+  // dist/cli.js; 3.3.0 and older read only the flags they know, so the note says they need 3.4.0. --judge-model goes
+  // as-is to the judge of the key's provider: a Claude ID with only OPENAI_API_KEY set stops the run with an error.
   cli: `# Run the 170 domain scenarios (OpenAI: install openai, set OPENAI_API_KEY instead)
 ANTHROPIC_API_KEY=sk-ant-... npx --no-install inclusive-eval
 
@@ -59,7 +62,24 @@ npx --no-install inclusive-eval --domain education
 npx --no-install inclusive-eval --adversarial
 
 # Red-team healthcare scenarios with 15 attack templates
-npx --no-install inclusive-eval --red-team --domain healthcare`,
+npx --no-install inclusive-eval --red-team --domain healthcare
+
+# Also save the results to a JSON file: each scenario with your
+# model's reply (with --red-team, the bypass score)
+npx --no-install inclusive-eval --output results.json
+
+# Grade each reply with an LLM judge; the keyword check decides only
+# when the judge gives no verdict. One more billed call per scenario;
+# default judge claude-opus-5-5 (gpt-4.1 with OPENAI_API_KEY)
+npx --no-install inclusive-eval --judge
+
+# Pick the judge model: it must come from the same provider as your
+# key (with OPENAI_API_KEY, an OpenAI model ID)
+npx --no-install inclusive-eval --judge-model claude-sonnet-5-5
+
+# Red-team with the judge: a judge call per attack and baseline
+# (16 per scenario), so narrow it with --domain or --category
+npx --no-install inclusive-eval --red-team --judge --domain healthcare`,
   pluginInstall: `/plugin marketplace add InclusiveCode/inclusive-ai
 /plugin install inclusive-ai@inclusive-ai`,
   pluginUsage: `# Run a full audit
@@ -280,7 +300,13 @@ export default function ToolsPage() {
             <Snippet id="code-install" title="Install" label="Code: install Eval Suite" what="install command" code={snippets.install} />
             <Snippet id="code-usage" title="Use in your tests" label="Code: use Eval Suite" what="test code" code={snippets.usage} />
             <Snippet id="code-cli-install" title="Command line: install" label="Code: install Eval Suite command line" what="command-line install command" code={snippets.cliInstall} note="The CLI calls your model through its SDK, so install one next to the eval suite (or openai instead)." />
-            <Snippet id="code-cli" title="Command line: examples" label="Code: Eval Suite command line" what="command-line examples" code={snippets.cli} copy={false} note="A reference list: run the line you need, not the whole block." />
+            <Snippet id="code-cli" title="Command line: examples" label="Code: Eval Suite command line" what="command-line examples" code={snippets.cli} copy={false} note={
+                <>
+                  A reference list: run the line you need, not the whole block. <code className={noteCode}>--output</code> and{" "}
+                  <code className={noteCode}>--judge</code> need <code className={noteCode}>@inclusive-ai/eval</code> 3.4.0 or newer; older versions
+                  ignore them without a warning.
+                </>
+              } />
             <details className="group rounded-xl border border-zinc-800">
               <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 font-medium text-zinc-100 transition-colors hover:bg-zinc-900 [&::-webkit-details-marker]:hidden">
                 <span>

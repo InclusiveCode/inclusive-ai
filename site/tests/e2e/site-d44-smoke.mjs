@@ -1,6 +1,6 @@
 // D44 e2e checks (site UX overhaul, requirements R1–R19, as revised after the reviews of f24607a and
 // 6ee9805: R2′ CLI commands bring a provider SDK, R2″ newline-safe appends and a --git-common-dir hook
-// path, R2‴ no unpublished CLI flags on /tools, R3′ the CLI reference list has no Copy, R5′ menu focus,
+// path, R2‴ only published CLI flags on /tools (D50: --output and --judge, from 3.4.0), R3′ the CLI reference list has no Copy, R5′ menu focus,
 // R11–R19 verdicts, headings, counts, checklist, header CTA, copy feedback, filters, social image,
 // footer). Independent verification; not run in CI.
 //
@@ -289,9 +289,23 @@ if (want("R2")) {
       hookInstalls.length >= 1 && hookInstalls.every((l) => HOOK_FORM.test(l)) && literal.length === 0,
       JSON.stringify({ hookInstalls, literal }),
     );
+    // D50: every flag @inclusive-ai/eval@3.4.0's published dist/cli.js reads; older versions ignore unknown flags.
+    const PUBLISHED_FLAGS = ["--system", "--category", "--domain", "--severity", "--format", "--adversarial", "--red-team", "--concurrency", "--model", "--output", "--judge-model", "--judge"];
+    const flags = blocks.flatMap((b) =>
+      b
+        .replace(/\\\n\s*/g, " ")
+        .split("\n")
+        .filter((l) => !l.trim().startsWith("#") && /\binclusive-eval\b/.test(l))
+        .flatMap((l) => l.split(/\binclusive-eval(?:@\S+)?/).slice(1).join(" ").match(/--[a-z][a-z-]*/g) ?? []),
+    );
+    const unpublished = flags.filter((f) => !PUBLISHED_FLAGS.includes(f));
+    check("R2‴ every inclusive-eval flag on /tools is one the published @inclusive-ai/eval@3.4.0 reads", flags.includes("--severity") && unpublished.length === 0, unpublished.join(" | "));
     const pageText = await page.evaluate(() => document.body.innerText);
-    const unpublished = pageText.match(/--(?:output|judge)\b[^\n]{0,30}/g) ?? [];
-    check("R2‴ /tools does not show --output or --judge (the published @inclusive-ai/eval@3.3.0 has neither)", /inclusive-eval/.test(pageText) && unpublished.length === 0, unpublished.join(" | "));
+    check(
+      "D50 /tools shows --output, --judge and --judge-model, and says they need @inclusive-ai/eval 3.4.0 or newer",
+      ["--output", "--judge", "--judge-model"].every((f) => flags.includes(f)) && pageText.includes("--output and --judge need @inclusive-ai/eval 3.4.0 or newer; older versions ignore them without a warning."),
+      JSON.stringify([...new Set(flags)]),
+    );
     const plugin = blocks.find((b) => /^\/plugin marketplace add InclusiveCode\/inclusive-ai\s*$/m.test(b));
     check(
       "R2 the plugin installs with `/plugin marketplace add InclusiveCode/inclusive-ai` then `/plugin install inclusive-ai@inclusive-ai`",
@@ -319,7 +333,7 @@ if (want("R2")) {
 // =====================================================================================
 // R3 / R3′: Copy buttons on every runnable /tools code block
 // =====================================================================================
-/** The CLI examples are a reference list: pasting the block would run seven billed commands, so it has no Copy. */
+/** The CLI examples are a reference list: pasting the block would run ten billed commands, so it has no Copy. */
 const REFERENCE_LIST = "Code: Eval Suite command line";
 /** For each code block in main: its index, label, text, and the buttons in its own card (the largest ancestor holding no other code block). */
 async function codeCards(page) {
