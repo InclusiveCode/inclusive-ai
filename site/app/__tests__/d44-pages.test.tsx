@@ -78,7 +78,7 @@ describe("D44 R3′: /tools code blocks and their Copy buttons (server markup)",
     expect(new Set(names).size, names.join(" | ")).toBe(names.length);
   });
 
-  it("the 'Command line: examples' reference list (seven billed commands) has no Copy button", () => {
+  it("the 'Command line: examples' reference list (ten billed commands) has no Copy button", () => {
     const ref = pres.filter((p) => p.attrs["aria-label"] === REFERENCE_LIST);
     expect(ref).toHaveLength(1);
     expect(byTag(ownCard(ref[0]), "button")).toEqual([]);

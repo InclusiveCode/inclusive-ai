@@ -277,11 +277,30 @@ describe("D47: one-off runs use `npx -y inclusive-eval`, the project's npm alias
   });
 });
 
-describe("D44 R2‴: /tools shows only flags the published CLI has", () => {
-  it("/tools never mentions --output or --judge (@inclusive-ai/eval@3.3.0 on npm has neither; README.md documents the repo's HEAD and is out of scope)", () => {
-    const page = text(toolsTree);
-    expect(page).toContain("inclusive-eval");
-    expect(page.match(/--(?:output|judge)\b[^\n]{0,40}/g) ?? []).toEqual([]);
+describe("D44 R2‴, D50: /tools shows only flags the published CLI has", () => {
+  // Every flag @inclusive-ai/eval@3.4.0's published dist/cli.js reads (D50). 3.3.0 and older read only the flags
+  // they know and ignore the rest without a warning, so --output and --judge carry a "3.4.0 or newer" note.
+  const PUBLISHED_FLAGS = ["--system", "--category", "--domain", "--severity", "--format", "--adversarial", "--red-team", "--concurrency", "--model", "--output", "--judge-model", "--judge"];
+  /** The flags passed to inclusive-eval in every /tools command (continuation lines joined, comments skipped). */
+  const toolsFlags = () =>
+    toolsBlocks.flatMap((block) =>
+      block
+        .replace(/\\\n\s*/g, " ")
+        .split("\n")
+        .filter((l) => !l.trim().startsWith("#") && /\binclusive-eval\b/.test(l))
+        .flatMap((l) => l.split(/\binclusive-eval(?:@\S+)?/).slice(1).join(" ").match(/--[a-z][a-z-]*/g) ?? []),
+    );
+
+  it("every inclusive-eval flag on /tools is one @inclusive-ai/eval 3.4.0 reads", () => {
+    const flags = toolsFlags();
+    expect(flags).toContain("--severity");
+    expect(flags.filter((f) => !PUBLISHED_FLAGS.includes(f))).toEqual([]);
+  });
+
+  it("/tools shows --output, --judge and --judge-model, and says they need @inclusive-ai/eval 3.4.0", () => {
+    const flags = toolsFlags();
+    for (const f of ["--output", "--judge", "--judge-model"]) expect(flags).toContain(f);
+    expect(text(toolsTree)).toContain("--output and --judge need @inclusive-ai/eval 3.4.0 or newer; older versions ignore them without a warning.");
   });
 });
 
