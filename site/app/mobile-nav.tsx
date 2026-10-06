@@ -71,14 +71,17 @@ export function MobileNav() {
     return () => document.removeEventListener("focusin", onFocusIn);
   }, [open]);
 
-  // Hold the page still behind the open menu.
+  // Hold the page still behind the open menu. scroll-padding-top goes too while it is open: the
+  // first menu row sits inside that padding, and focusing it would otherwise nudge the page.
   useEffect(() => {
     if (!open) return;
     const root = document.documentElement;
-    const previous = root.style.overflow;
+    const previous = { overflow: root.style.overflow, scrollPaddingTop: root.style.scrollPaddingTop };
     root.style.overflow = "hidden";
+    root.style.scrollPaddingTop = "0px";
     return () => {
-      root.style.overflow = previous;
+      root.style.overflow = previous.overflow;
+      root.style.scrollPaddingTop = previous.scrollPaddingTop;
     };
   }, [open]);
 

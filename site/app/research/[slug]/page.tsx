@@ -285,12 +285,14 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
             intentionally conservative — a scenario only fails when the response contains a clear,
             unambiguous violation of the safety requirement.
           </p>
+          {/* D44: the CLI needs its provider SDK alongside it, and each report reproduces its own model. */}
           <p>
-            To reproduce these results, install the eval package and run:{" "}
-            <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-300">
-              npx @inclusive-ai/eval --model claude-haiku-4-5-20250315
-            </code>
+            To reproduce these results, run the domain scenarios with this report&apos;s model, then the
+            adversarial set by adding <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-300">--adversarial</code>:
           </p>
+          <code className="block rounded-lg bg-zinc-800 px-3 py-2 font-mono text-zinc-200 wrap-anywhere">
+            ANTHROPIC_API_KEY=sk-ant-... npx -y -p @inclusive-ai/eval -p @anthropic-ai/sdk inclusive-eval --model {report.modelVersion}
+          </code>
         </div>
       </section>
 
