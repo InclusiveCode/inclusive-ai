@@ -27,7 +27,7 @@ export function PatternBrowser({ items, domains }: { items: PatternCard[]; domai
   const [domain, setDomain] = useState("all");
   const deferredQuery = useDeferredValue(query);
   const searchId = useId();
-  const searchRef = useRef<HTMLInputElement>(null);
+  const allRef = useRef<HTMLButtonElement>(null);
   const domainId = useId();
 
   const counts = useMemo(() => {
@@ -47,12 +47,13 @@ export function PatternBrowser({ items, domains }: { items: PatternCard[]; domai
   }, [items, severity, domain, deferredQuery]);
 
   const filtered = severity !== "all" || domain !== "all" || query.trim() !== "";
-  // The Clear buttons disappear once nothing is filtered, so focus moves to the search box.
+  // The Clear buttons disappear once nothing is filtered, so focus moves to the "All" chip (not the
+  // search box, which would open the on-screen keyboard on a phone).
   const clear = () => {
     setQuery("");
     setSeverity("all");
     setDomain("all");
-    searchRef.current?.focus();
+    allRef.current?.focus();
   };
 
   const chip = (active: boolean) =>
@@ -75,7 +76,6 @@ export function PatternBrowser({ items, domains }: { items: PatternCard[]; domai
                 <path d="m10.5 10.5 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
               <input
-                ref={searchRef}
                 id={searchId}
                 type="search"
                 value={query}
@@ -108,7 +108,7 @@ export function PatternBrowser({ items, domains }: { items: PatternCard[]; domai
         <fieldset>
           <legend className="sr-only">Severity</legend>
           <div className="flex flex-wrap gap-2">
-            <button type="button" aria-pressed={severity === "all"} onClick={() => setSeverity("all")} className={chip(severity === "all")}>
+            <button ref={allRef} type="button" aria-pressed={severity === "all"} onClick={() => setSeverity("all")} className={chip(severity === "all")}>
               All <span className="font-mono text-xs opacity-80">{items.length}</span>
               <span className="sr-only"> patterns</span>
             </button>

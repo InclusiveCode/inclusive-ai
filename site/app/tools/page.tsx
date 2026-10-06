@@ -40,7 +40,7 @@ const summary = await runEval({
 printSummary(summary);
 assertSafe(summary); // throws on CRITICAL or HIGH failures`,
   cliInstall: "npm install --save-dev @inclusive-ai/eval @anthropic-ai/sdk",
-  cli: `# Run all 200 scenarios (with OpenAI: install openai and set OPENAI_API_KEY)
+  cli: `# Run the 170 domain scenarios (OpenAI: install openai, set OPENAI_API_KEY instead)
 ANTHROPIC_API_KEY=sk-ant-... npx --no-install inclusive-eval
 
 # Filter by category or severity
@@ -49,9 +49,6 @@ npx --no-install inclusive-eval --severity critical
 
 # Run by domain
 npx --no-install inclusive-eval --domain education
-
-# Also save the JSON report, with each model reply, to a file
-npx --no-install inclusive-eval --output results.json
 
 # Run 30 adversarial jailbreak scenarios
 npx --no-install inclusive-eval --adversarial
@@ -66,9 +63,11 @@ npx --no-install inclusive-eval --red-team --domain healthcare`,
 # Audit specific files
 /inclusive-ai:lgbt-audit src/prompts/
 /inclusive-ai:lgbt-audit src/models/user.ts`,
-  // git rev-parse finds the hooks folder in worktrees and submodules too, where .git is a file.
-  hookInstall: `HOOK="$(git rev-parse --git-path hooks)/pre-commit"
-curl -fsSL ${RAW}/hooks/pre-commit -o "$HOOK" && chmod +x "$HOOK"`,
+  // --git-common-dir finds the repository's hooks folder from subfolders, worktrees, and submodules.
+  // It ignores core.hooksPath, so a husky setup's own hooks are never overwritten; && stops the
+  // download outside a git repository.
+  hookInstall: `HOOKS="$(git rev-parse --git-common-dir)/hooks" &&
+curl -fsSL ${RAW}/hooks/pre-commit -o "$HOOKS/pre-commit" && chmod +x "$HOOKS/pre-commit"`,
   // Appends start with a newline, so a file without a trailing newline isn't corrupted.
   hookHusky: `curl -fsSL ${RAW}/hooks/pre-commit -o .husky/inclusive-ai-pre-commit
 printf '\\nbash .husky/inclusive-ai-pre-commit\\n' >> .husky/pre-commit`,
@@ -212,7 +211,7 @@ export default function ToolsPage() {
         <div className="min-w-0 space-y-16">
           {/* Quick start: the shortest path from this page to a failing build. */}
           <section id="quick-start" aria-labelledby="quick-start-title" className="scroll-mt-24 rounded-2xl border border-zinc-700 bg-zinc-900/40 p-5 sm:p-8">
-            <h2 id="quick-start-title" className="font-display text-3xl leading-tight text-zinc-50 sm:text-4xl">
+            <h2 id="quick-start-title" tabIndex={-1} className="font-display text-3xl leading-tight text-zinc-50 focus:outline-none sm:text-4xl">
               Quick start
             </h2>
             <p className="mt-2 text-zinc-300">Two steps from here to a build that fails on critical LGBTQIA+ safety issues.</p>
@@ -223,7 +222,7 @@ export default function ToolsPage() {
                 </span>
                 <div className="min-w-0 space-y-3">
                   <h3 className="text-lg font-semibold text-zinc-50">Try it on your system prompt</h3>
-                  <Snippet id="code-try" title="Terminal" label="Code: try Eval Suite on a system prompt" what="trial command" code={snippets.tryIt} note="Runs the critical scenarios with your own Anthropic key; your provider bills the calls. Using OpenAI? Replace @anthropic-ai/sdk with openai and set OPENAI_API_KEY." />
+                  <Snippet id="code-try" title="Terminal" label="Code: try Eval Suite on a system prompt" what="trial command" code={snippets.tryIt} note="Runs the critical scenarios with your own Anthropic key; your provider bills the calls. Using OpenAI? Replace @anthropic-ai/sdk with openai and set OPENAI_API_KEY instead of ANTHROPIC_API_KEY." />
                 </div>
               </li>
               <li className="grid gap-3 sm:grid-cols-[2.25rem_1fr]">
@@ -337,7 +336,7 @@ export default function ToolsPage() {
             <p className="max-w-3xl text-[0.9375rem] leading-relaxed text-zinc-300">
               A bash hook that scans staged files with pattern matching. It blocks commits with critical issues and warns on the rest. No dependencies.
             </p>
-            <Snippet id="code-hook-install" title="Install" label="Code: install Pre-Commit Hook" what="hook install commands" code={snippets.hookInstall} note="This replaces any existing .git/hooks/pre-commit. Using husky? Use the next block instead." />
+            <Snippet id="code-hook-install" title="Install" label="Code: install Pre-Commit Hook" what="hook install commands" code={snippets.hookInstall} note="This replaces any existing pre-commit hook in the repository. Using husky, or anything else that sets core.hooksPath? Git ignores that folder then, so use the next block instead." />
             <Snippet id="code-hook-husky" title="With husky" label="Code: use Pre-Commit Hook with husky" what="husky commands" code={snippets.hookHusky} note="Adds one line to your existing husky pre-commit hook." />
             <div role="region" aria-label="What the pre-commit hook catches" tabIndex={0} className="overflow-x-auto rounded-xl border border-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
               <table className="w-full text-left text-sm">
@@ -384,7 +383,7 @@ export default function ToolsPage() {
               All tools. One repo.
             </h2>
             <p className="mt-2 text-zinc-400">Everything is MIT licensed and open source.</p>
-            <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={cx(button.primary, "mt-6")}>
+            <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={cx(button.secondary, "mt-6")}>
               View on GitHub
               <NewTab />
             </a>

@@ -61,7 +61,9 @@ The header carries an outlined "Add to CI" on every page from 360 px up, so each
 - Every command must work when pasted into a project that is not a clone of this repo.
   - The CLI needs a provider SDK, which the package lists as an optional peer. A one-off run is `npx -y -p @inclusive-ai/eval -p @anthropic-ai/sdk inclusive-eval`. In a project, install both and run `npx --no-install inclusive-eval`.
   - Never a bare `npx inclusive-eval`: that name is not registered on npm, so anyone could publish a package under it.
-  - Appends start with a newline, and the hook path comes from `git rev-parse --git-path hooks`, so files without a trailing newline and git worktrees both work.
+  - Appends start with a newline, so files without a trailing newline aren't corrupted.
+  - The hook path comes from `git rev-parse --git-common-dir`, so it works from subfolders, worktrees, and submodules, and never overwrites a husky (`core.hooksPath`) setup; husky users get their own instruction.
+  - Commands and flags appear on the site only once they are in the published package (`--output`, for example, is not yet).
 - Claims about results and counts come from the data (`lib/reports.ts`, `lib/patterns.ts`, `lib/checklist.ts`), not from hand-written numbers.
 - Crisis resources are named correctly. TrevorText is "text START to 678-678", run by The Trevor Project. Crisis Text Line is "text HOME to 741741".
 

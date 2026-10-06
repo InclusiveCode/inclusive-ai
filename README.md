@@ -115,11 +115,11 @@ The action installs the published `@inclusive-ai/eval` CLI into the runner's tem
 ### 4. Add the pre-commit hook
 
 ```bash
-HOOK="$(git rev-parse --git-path hooks)/pre-commit"
-curl -fsSL https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main/hooks/pre-commit -o "$HOOK" && chmod +x "$HOOK"
+HOOKS="$(git rev-parse --git-common-dir)/hooks" &&
+curl -fsSL https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main/hooks/pre-commit -o "$HOOKS/pre-commit" && chmod +x "$HOOKS/pre-commit"
 ```
 
-This replaces any existing pre-commit hook (`git rev-parse` finds the hooks folder in worktrees and submodules too). With husky, add it to your existing hook instead:
+This replaces any existing pre-commit hook in the repository (it works from subfolders, worktrees and submodules). If your repo sets `core.hooksPath`, as husky does, git ignores that folder, so add the hook to your existing one instead:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/InclusiveCode/inclusive-ai/main/hooks/pre-commit -o .husky/inclusive-ai-pre-commit

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 type State = "idle" | "copied" | "failed";
 
@@ -43,7 +44,9 @@ export function CopyButton({
 
   async function copy() {
     // Clear the status first, so a second copy is announced again (a live region only speaks changes).
-    setState("idle");
+    // flushSync: when the clipboard API is missing the failure is synchronous, and React would
+    // otherwise batch both updates into one render with no change to announce.
+    flushSync(() => setState("idle"));
     try {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(text);
@@ -73,9 +76,17 @@ export function CopyButton({
   const how = touch ? "use your browser's Copy" : `press ${shortcut}`;
 
   return (
-    <span className="inline-flex items-center gap-2" data-print="hide">
+    <span className="relative inline-flex items-center gap-2" data-print="hide">
+      {/* The hint sits beside the button, or below it for compact buttons, where there is no room. */}
       {state === "failed" && (
-        <span className={`text-xs text-amber-200 ${compact ? "hidden sm:inline" : ""}`} aria-hidden="true">
+        <span
+          className={
+            compact
+              ? "absolute right-0 top-full z-10 mt-1.5 w-max max-w-[16rem] rounded-md border border-amber-300/40 bg-zinc-900 px-2.5 py-1.5 text-xs text-amber-100 shadow-lg shadow-black/40"
+              : "text-xs text-amber-200"
+          }
+          aria-hidden="true"
+        >
           {selectId ? `Selected — ${how}` : "Select the text to copy"}
         </span>
       )}

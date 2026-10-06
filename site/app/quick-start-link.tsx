@@ -18,6 +18,8 @@ export function QuickStartLink({ className, children }: { className: string; chi
     if (!target) return;
     e.preventDefault();
     target.scrollIntoView({ block: "start" });
+    // Move focus there too, as following an anchor would, so the next Tab continues from the section.
+    document.getElementById("quick-start-title")?.focus({ preventScroll: true });
     if (window.location.hash !== "#quick-start") window.history.pushState(null, "", "#quick-start");
   }
 

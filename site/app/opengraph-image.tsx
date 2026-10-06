@@ -5,6 +5,8 @@ export const alt = "InclusiveCode — LGBTQIA+ Safety Tools for LLM Engineers";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+const PRIDE = ["#FF6B9D", "#FF9B71", "#FECF6A", "#63E6BE", "#74B9FF", "#A29BFE"];
+
 export default async function Image() {
   return new ImageResponse(
     (
@@ -22,7 +24,7 @@ export default async function Image() {
           overflow: "hidden",
         }}
       >
-        {/* The flag as discrete stripes (D44), at top */}
+        {/* The flag as six discrete stripes (D44; the image renderer ignores hard gradient stops), at top */}
         <div
           style={{
             position: "absolute",
@@ -30,9 +32,13 @@ export default async function Image() {
             left: 0,
             right: 0,
             height: "6px",
-            background: "linear-gradient(90deg, #FF6B9D 0 16.667%, #FF9B71 16.667% 33.333%, #FECF6A 33.333% 50%, #63E6BE 50% 66.667%, #74B9FF 66.667% 83.333%, #A29BFE 83.333% 100%)",
+            display: "flex",
           }}
-        />
+        >
+          {PRIDE.map((c) => (
+            <div key={c} style={{ flex: 1, background: c }} />
+          ))}
+        </div>
 
         {/* Logo / Brand */}
         <div
@@ -111,9 +117,13 @@ export default async function Image() {
             left: 0,
             right: 0,
             height: "6px",
-            background: "linear-gradient(90deg, #FF6B9D 0 16.667%, #FF9B71 16.667% 33.333%, #FECF6A 33.333% 50%, #63E6BE 50% 66.667%, #74B9FF 66.667% 83.333%, #A29BFE 83.333% 100%)",
+            display: "flex",
           }}
-        />
+        >
+          {PRIDE.map((c) => (
+            <div key={c} style={{ flex: 1, background: c }} />
+          ))}
+        </div>
 
         {/* URL */}
         <div
