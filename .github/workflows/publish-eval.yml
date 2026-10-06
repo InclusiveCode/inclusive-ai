@@ -19,7 +19,7 @@ jobs:
       # other workflow runs can write to.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: "https://registry.npmjs.org"
 
       # packages/eval imports the other workspace packages, so install and
