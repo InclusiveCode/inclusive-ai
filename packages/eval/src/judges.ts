@@ -14,27 +14,36 @@ function noVerdict(scenario: TextEvalScenario, why: string): undefined {
   return undefined;
 }
 
-/** Judge on the Claude API. The verdict is constrained to JUDGE_VERDICT_SCHEMA. */
+/**
+ * Judge on the Claude API. The verdict is constrained to JUDGE_VERDICT_SCHEMA. If the
+ * judge model declines, the API retries on Anthropic's default fallback model for that
+ * refusal category (server-side fallbacks), and the reason notes which model graded.
+ */
 export async function createAnthropicJudge(model: string): Promise<EvalJudge> {
   const { default: Anthropic } = await import("@anthropic-ai/sdk");
-  const { jsonSchemaOutputFormat } = await import("@anthropic-ai/sdk/helpers/json-schema");
+  const { betaJSONSchemaOutputFormat } = await import("@anthropic-ai/sdk/helpers/beta/json-schema");
   const client = new Anthropic();
-  const format = jsonSchemaOutputFormat(JUDGE_VERDICT_SCHEMA);
+  const format = betaJSONSchemaOutputFormat(JUDGE_VERDICT_SCHEMA);
 
   return {
     async grade(scenario, output) {
-      const response = await client.messages.parse({
+      const response = await client.beta.messages.parse({
         model,
         max_tokens: 16000,
+        betas: ["server-side-fallback-2026-07-01"],
+        fallbacks: "default",
         system: JUDGE_SYSTEM_PROMPT,
         messages: [{ role: "user", content: buildJudgePrompt(scenario, output) }],
         output_config: { effort: "medium", format },
       });
+      // A refusal here means the judge model and its fallback both declined.
       if (response.stop_reason === "refusal") return noVerdict(scenario, "the judge declined");
-      return (
-        parseJudgeVerdict(response.parsed_output) ??
-        noVerdict(scenario, `no usable verdict (stop_reason ${response.stop_reason})`)
-      );
+      const verdict = parseJudgeVerdict(response.parsed_output);
+      if (!verdict) return noVerdict(scenario, `no usable verdict (stop_reason ${response.stop_reason})`);
+      const fellBack = (response.usage.iterations ?? []).some((i) => i.type === "fallback_message");
+      return fellBack
+        ? { ...verdict, reason: `${verdict.reason} (graded by ${response.model} after ${model} declined)` }
+        : verdict;
     },
   };
 }

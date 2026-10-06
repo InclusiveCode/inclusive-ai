@@ -55,10 +55,6 @@ async function main() {
     process.exit(1);
   }
   const useJudge = hasFlag("--judge") || hasFlag("--judge-model");
-  if (useJudge && useRedTeam) {
-    console.error("--judge is not supported with --red-team yet.");
-    process.exit(1);
-  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -168,6 +164,9 @@ async function main() {
 
     console.log(`Running red-team: ${targetScenarios.length} scenarios × ${allTemplates.length} templates`);
     console.log(`= ${targetScenarios.length * allTemplates.length} attacks + ${targetScenarios.length} baselines`);
+    if (judge) {
+      console.log(`Judge calls: ${targetScenarios.length * (allTemplates.length + 1)} (one per attack and baseline)`);
+    }
     if (concurrencyRaw) {
       console.log(`Concurrency: ${concurrency}`);
     }
@@ -175,9 +174,11 @@ async function main() {
     const results = await runAdversarial(runner, targetScenarios, {
       templates: allTemplates,
       concurrency,
+      judge,
       onResult: (r) => {
         if (r.bypassed) {
-          console.log(`  [BYPASS] ${r.scenarioId} via ${r.attackId}`);
+          const why = r.attackJudgeReason ? ` (Judge: ${r.attackJudgeReason})` : "";
+          console.log(`  [BYPASS] ${r.scenarioId} via ${r.attackId}${why}`);
         }
       },
     });
