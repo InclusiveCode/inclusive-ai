@@ -47,7 +47,8 @@ export default async function PatternDetailPage({
           </span>
           <span className="text-xs text-zinc-400 font-mono">{pattern.category}</span>
         </div>
-        <h1 className="text-3xl font-bold mb-3">{pattern.title}</h1>
+        {/* F12 (WCAG 1.4.10): long words such as "Housing/Employment" break rather than widen the page. */}
+        <h1 className="text-3xl font-bold mb-3 wrap-anywhere">{pattern.title}</h1>
         <p className="text-zinc-400">{pattern.description}</p>
         <div className="flex gap-2 mt-4 flex-wrap">
           {pattern.tags.map((t) => (

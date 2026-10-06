@@ -71,7 +71,7 @@ export default async function ReportPage({ params }: { params: Promise<{ slug: s
           research report
         </div>
         <h1
-          className="text-3xl sm:text-4xl font-bold tracking-tight mb-4"
+          className="text-3xl sm:text-4xl font-bold tracking-tight mb-4 wrap-anywhere"
           style={{
             background:
               "linear-gradient(90deg, #FF6B9D, #FF9B71, #FECF6A, #63E6BE, #74B9FF, #A29BFE)",
