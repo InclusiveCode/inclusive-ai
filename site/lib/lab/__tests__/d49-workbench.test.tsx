@@ -114,10 +114,13 @@ describe("D49 workbench layout", () => {
     for (const c of ["field-sizing-content", "min-h-36", "max-h-[45vh]", "lg:max-h-[30vh]", "border-zinc-500"]) expect(ta).toContain(c);
   });
 
-  it("after a run of the displayed scenario, scrolls its result card into view without moving focus", () => {
+  it("after a run of the displayed scenario, scrolls its result card into view without moving focus or (on desktop) the page", () => {
     const src = read("app/lab/lab-client.tsx");
     const effect = /useEffect\(\(\) => \{\s*if \(!revealResultRef\.current\) return;[\s\S]*?\}, \[latestRun\?\.id\]\);/.exec(src)?.[0] ?? "";
-    expect(effect).toContain('document.getElementById("lab-result")?.scrollIntoView({ block: "nearest" });');
+    // Desktop: only the editor column scrolls (to its end, where the card is); phones: the page, minimally.
+    expect(effect).toContain("column.scrollTop = column.scrollHeight;");
+    expect(effect).toContain('card.scrollIntoView({ block: "nearest" });');
+    expect(effect).toMatch(/if \(getComputedStyle\(column\)\.overflowY !== "visible"\) \{\s*column\.scrollTop = column\.scrollHeight;\s*\} else \{\s*card\.scrollIntoView/);
     expect(effect).not.toMatch(/\.focus\(/);
     expect(src).toContain("revealResultRef.current = displayedScenarioRef.current === s.id;");
   });

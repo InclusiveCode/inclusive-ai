@@ -65,8 +65,13 @@ for (const [w, h] of [[1024, 768], [1280, 900], [1440, 900]]) {
   check(`D49 ${w}×${h}: with the findings at the top, Rerun is fully on screen below the site bar`, rr.top >= nb && rr.bottom <= h, JSON.stringify({ rr, nb }));
   check(`D49 ${w}×${h}: … and so is the findings verdict`, fr.top >= nb - 1 && fr.bottom <= h, JSON.stringify(fr));
   await page.getByRole("button", { name: /FIX-VERIFY/ }).click();
-  await rerun(page, 1);
+  await page.locator("section[aria-labelledby=edit] button:text-is('Rerun')").evaluate((b) => b.focus());
+  const scrollBefore = await page.evaluate(() => scrollY);
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => (document.querySelector("[role=status]")?.textContent ?? "").includes("Run 1 complete"), null, { timeout: 30000 });
   await page.waitForTimeout(200);
+  const scrollAfter = await page.evaluate(() => scrollY);
+  check(`D49 ${w}×${h}: a Rerun doesn't move the page you are reading (only the editor column scrolls)`, Math.abs(scrollAfter - scrollBefore) <= 1, `${scrollBefore} -> ${scrollAfter}`);
   const card = await rectOf(page, "#lab-result");
   const aside = await rectOf(page, "section[aria-labelledby=edit]");
   check(`D49 ${w}×${h}: after Rerun, the result card is fully visible inside the editor column`, card.top >= Math.max(nb, aside.top) - 1 && card.bottom <= Math.min(h, aside.bottom) + 1, JSON.stringify({ card, aside }));

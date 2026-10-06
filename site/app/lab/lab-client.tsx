@@ -142,12 +142,21 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
         : (history.find((r) => r.id === view) ?? latestRun ?? baseline);
   const instruction = instructions[scenario.id] ?? "";
 
-  // D49: "nearest" scrolls only as far as needed (inside the sticky editor column on desktop, the
-  // page on phones), so the button you pressed stays in view. It never moves focus.
+  // D49: bring the new result card into view without moving focus or the page you are reading.
+  // On desktop the card is the last thing in the editor column, which scrolls on its own: scroll
+  // only that column to its end (scrollIntoView would also scroll the page under the findings).
+  // On phones the column is part of the page: scroll the page as little as needed.
   useEffect(() => {
     if (!revealResultRef.current) return;
     revealResultRef.current = false;
-    document.getElementById("lab-result")?.scrollIntoView({ block: "nearest" });
+    const card = document.getElementById("lab-result");
+    const column = card?.closest("section");
+    if (!card || !column) return;
+    if (getComputedStyle(column).overflowY !== "visible") {
+      column.scrollTop = column.scrollHeight;
+    } else {
+      card.scrollIntoView({ block: "nearest" });
+    }
   }, [latestRun?.id]);
   // The "Show run" radio that is checked: an older run, the precomputed baseline, or the latest run.
   const viewRun = view === "baseline" ? "baseline" : history.slice(0, -1).some((r) => r.id === view) ? view : "latest";
