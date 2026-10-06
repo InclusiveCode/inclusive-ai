@@ -21,7 +21,7 @@ import { completionAnnouncement } from "./announce";
 import { abortInFlight } from "./inflight";
 import { Limitations, SimulatorRules } from "./components/reference";
 import { RunDetails } from "./components/run-details";
-import { BUTTON, FOCUS, liveAlertText, providerRefusalAsymmetryNote, statusLabel } from "./components/status";
+import { BUTTON, FOCUS, liveAlertText, providerRefusalAsymmetryNote, statusLabel, withRunLabel } from "./components/status";
 
 const MAX_INSTRUCTION = 4000;
 const NO_MATCH =
@@ -131,8 +131,9 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
   // The "Show run" radio that is checked: an older run, the precomputed baseline, or the latest run.
   const viewRun = view === "baseline" ? "baseline" : history.slice(0, -1).some((r) => r.id === view) ? view : "latest";
   const liveModel = findModel(liveProvider, liveModelId) ?? LIVE_MODELS.find((m) => m.provider === liveProvider) ?? LIVE_MODELS[0];
-  const statusAlert = !running && shown?.mode === "live" ? liveAlertText(shown) : null;
-  const asymmetryNote = !running && shown ? providerRefusalAsymmetryNote(shown) : null;
+  // F2: each run alert names its run (it stays up while other controls change).
+  const statusAlert = !running && shown?.mode === "live" ? withRunLabel(shown, liveAlertText(shown)) : null;
+  const asymmetryNote = !running && shown ? withRunLabel(shown, providerRefusalAsymmetryNote(shown)) : null;
 
   const controlState: LabControlState = {
     scenarioId: scenario.id,
@@ -263,7 +264,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
       setNoMatch(!live && runInstruction !== s.baselineInstruction && matchSnippets(runInstruction).length === 0);
     } catch {
       setAnnouncement(displayedScenarioRef.current === s.id ? `Run ${n} could not be completed.` : `Run ${n} for ${s.title} could not be completed.`);
-      setRunError({ key: `${s.id}-run-${n}-failed`, text: "The run could not be completed. This is not an evaluation result." });
+      setRunError({ key: `${s.id}-run-${n}-failed`, text: `Run ${n}: The run could not be completed. This is not an evaluation result.` });
     } finally {
       cancelRef.current = null;
       runningRef.current = false;

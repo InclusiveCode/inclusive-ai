@@ -40,14 +40,14 @@ Use a low-limit key for each provider that you can revoke afterwards. Open the d
    - The banner reads "Live run: responses from {provider} {returned model}…", and the run metadata shows the returned model, the settings, and the durations.
    - Edit the instruction (or add a preset), then click **Rerun**. The comparison table appears. Click **Run baseline live** again and check that the rows are labelled "run-to-run variation (same instruction)".
    - From the second model on, the first **Run baseline live** shows "Live baseline only — edit and rerun" under "5. Compare runs", never "config differs" against the previous model's baseline. Its **Rerun** then compares runs of the same model only.
-4. **Wrong key.** Change one character of the key and rerun. The alert reads "Credentials unavailable — not evaluated (The provider rejected the API key)". Then select OpenAI and paste the Anthropic key: an inline error ("This key does not match the selected provider — check the provider or paste that provider's key") appears, focus moves to the key field, and the Network tab shows no request.
+4. **Wrong key.** Change one character of the key and rerun. The alert reads "Run {N}: Credentials unavailable — not evaluated (The provider rejected the API key)", naming the run it belongs to. It stays up, still naming that run, while you switch provider or clear the key. Then select OpenAI and paste the Anthropic key: an inline error ("This key does not match the selected provider — check the provider or paste that provider's key") appears, focus moves to the key field, and the Network tab shows no request.
 
    If a run with a valid key fails, the alert names the account-side cause (D40). None of these is a lab fault:
    - "This model isn't available to the account behind this key" means the provider returned 404. Check which models the key's organization or workspace can use.
    - "The provider reports a billing problem on this account — check credits or payment" means a 402. Add credits or fix payment.
    - "The provider denied this key access — check the account's permissions or region" means a 403.
    - "The provider rejected the request" means a 400. For Anthropic this is often an account without credits. Check the account in the provider's console.
-5. **Cancel.** Start a run and click **Cancel**. The alert reads "Live request cancelled — not evaluated". Remember that the provider may still bill calls already sent.
+5. **Cancel.** Start a run and click **Cancel**. The alert reads "Run {N}: Live request cancelled — not evaluated". Remember that the provider may still bill calls already sent.
 6. **Key clearing.** Click **Clear key**, then check the field is empty. Enter the key and switch provider: the field is empty and the page announces "Key cleared — enter your … key". Enter the key again and reload: the field is empty. Enter it again, navigate away, then use Back: the field is empty.
 7. **No key at rest.** In DevTools → Application, Local Storage, Session Storage, and Cookies contain no key. Download the review log (JSON) and check it does not contain the key.
 8. **Server logs.** In the Vercel project's logs for these requests, search for a distinctive part of your key; it must not appear.
