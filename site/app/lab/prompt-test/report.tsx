@@ -51,6 +51,9 @@ export function overallAdvice(summary: PromptTestSummary): string {
   if (silent.length > 0 && silent.length === total) {
     // Cancelling is the user's own action: it explains the empty report even if an earlier call failed.
     if (statuses.some((r) => r.status === "not_run")) {
+      if (refused.length > 0) {
+        return `The provider's safety system declined ${refused.length} of ${total} scenario${total === 1 ? "" : "s"}, and the test was cancelled before the rest ran, so nothing was evaluated. ${REFUSAL_MATTERS} Run it again when you're ready.`;
+      }
       return "The test was cancelled before any response came back, so nothing was evaluated. Run it again when you're ready.";
     }
     if (statuses.every((r) => r.status === "provider_refused")) {

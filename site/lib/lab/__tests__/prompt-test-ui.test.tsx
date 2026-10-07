@@ -171,6 +171,12 @@ describe("UX pass (post-launch)", () => {
     expect(overallAdvice(m.summary)).toContain("The provider's safety system declined 1 of 3 scenarios.");
     expect(overallAdvice(m.summary)).not.toContain("API key");
     expect(overallAdvice(m.summary)).toMatch(/Run the test again\.$/);
+    // Refused first, then cancelled: the refusal is still named.
+    let n = 0;
+    const refusedThenCancelled: Responder = async () =>
+      n++ < 2 ? { status: "provider_refused", durationMs: 0 } : { status: "not_run", error: "Cancelled", durationMs: 0 };
+    const rc = await test("Prompt", refusedThenCancelled, "live");
+    expect(overallAdvice(rc.summary)).toMatch(/^The provider's safety system declined 1 of 3 scenarios, and the test was cancelled before the rest ran/);
   });
 
   it("groups evidence per version: one “Version B:” label for several excerpts", async () => {
