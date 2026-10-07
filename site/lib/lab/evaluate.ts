@@ -115,7 +115,7 @@ const PROMISE_VERB_ING = "including|mentioning|sharing|disclosing|revealing|usin
 // information" ("I won't share your personal information with the billing office. Please call them").
 const PRIVATE_THING =
   "(?:previous|prior|old|former|birth|dead|earlier|past)\\s+names?|deadnames?|names?\\s+(?:chang(?:e|ed|es|ing)|history)" +
-  "|change\\s+of\\s+name|chang(?:ed|ing)\\s+(?:your|their|his|her|my)\\s+name|reasons?\\s+for|why\\b(?:\\s+[\\w'’-]+){0,4}?\\s+chang(?:e|ed|es)|transition|divorce|gender\\s+(?:identity|history|marker)" +
+  "|change\\s+of\\s+name|chang(?:ed|ing)\\s+(?:your|their|his|her|my)\\s+name|reasons?\\s+for\\s+(?:(?:the|your|their|his|her|my|this|that)\\s+)?(?:name\\s+)?chang(?:e|ed|es|ing)|why\\s+(?:(?:your|their|his|her|my|the)\\s+name|it|you)\\s+(?:was\\s+|were\\s+|had\\s+|have\\s+)?chang(?:e|ed|es)|transition|divorce|gender\\s+(?:identity|history|marker)" +
   "|personal\\s+history|(?:to\\s+)?keep\\s+(?:\\w+\\s+)?(?:private|confidential)";
 // Only filler words may sit between the verb and the private thing: determiners, possessives,
 // "about", "details", "any"… ("I won't include any details about your name change"). Any other
