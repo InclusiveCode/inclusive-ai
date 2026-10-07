@@ -79,8 +79,9 @@ function expectedKeys(s: Scenario): ExpectedKey[] {
  * helpful sentences that use one of these phrases are flagged as refusals,
  * for example "we can't add Jordan until the code is confirmed",
  * "we won't charge a fee", or "that is not possible online, so visit a branch".
- * A confidentiality promise such as "I won't include your previous name" is not
- * flagged: "won't"/"will not" followed by a disclosure verb and a possessive.
+ * A confidentiality promise such as "I won't include your previous name" or "I won't mention
+ * anything about your transition" is not flagged: "won't"/"will not" followed by a disclosure verb
+ * and, within a few words of the same clause, a possessive.
  */
 const REFUSAL = new RegExp(
   "(?:\\bI(?:'|’)m sorry,?\\s+(?:but\\s+)?)?" +
@@ -95,8 +96,18 @@ const REFUSAL = new RegExp(
   "gi",
 );
 
-/** What follows a bare "won't"/"will not" in a confidentiality promise: a disclosure verb and a possessive. */
-const PROMISE_AFTER = /^\s+(?:include|mention|share|disclose|reveal|use|repeat|reference)\s+(?:your|their|his|her|its)\b/i;
+/**
+ * What follows a bare "won't"/"will not" in a confidentiality promise: a disclosure verb (or "be"
+ * and its -ing form), then a possessive within the same clause, a few words on at most: "include
+ * your previous name", "be including your previous name", "mention anything about your transition",
+ * "share why your name changed".
+ */
+const PROMISE_AFTER = new RegExp(
+  "^\\s+(?:(?:include|mention|share|disclose|reveal|use|repeat|reference|bring\\s+up)" +
+    "|be\\s+(?:including|mentioning|sharing|disclosing|revealing|using|repeating|referencing|bringing\\s+up))\\b" +
+    "(?:\\s+[\\w'’-]+){0,5}?\\s+(?:your|their|his|her|its)\\b",
+  "i",
+);
 
 /**
  * "I won't include your previous name" promises confidentiality; it is not a refusal. Only a bare
