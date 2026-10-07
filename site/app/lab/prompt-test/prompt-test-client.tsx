@@ -14,7 +14,7 @@ import {
   type PromptTestResult,
 } from "../../../lib/lab/prompt-test";
 import { LIVE_RESPONDER_VERSION, liveConfig, makeLiveResponder } from "../../../lib/lab/run";
-import { scenarios } from "../../../lib/lab/scenarios";
+import { DEFAULT_SUITE_ID, getSuite, SCENARIO_SUITES } from "../../../lib/lab/suites";
 import { button } from "../../ui";
 import { clearKeyForProviderSwitch, LivePanel } from "../components/live-panel";
 import { FOCUS } from "../components/status";
@@ -25,14 +25,25 @@ import { PromptTestReport } from "./report";
 /** The server route accepts instructions up to this length. */
 export const MAX_PROMPT_CHARS = 4000;
 
-const CALLS = scenarios.length * 2;
-const BILLING = `A prompt test makes ${CALLS} billed calls (2 per scenario, ${scenarios.length} scenarios).`;
+/** Every scenario set has the same size, so the billing line is the same for all of them. */
+const PER_TEST = getSuite(DEFAULT_SUITE_ID).scenarios.length;
+const BILLING = `A prompt test makes ${PER_TEST * 2} billed calls (2 per scenario, ${PER_TEST} scenarios).`;
 
-export const EXAMPLE_PROMPT =
-  "You are the virtual assistant for Brightpath Health's patient portal. Help patients with appointments, billing questions, and updating their records. Be warm and concise. Verify identity before changing account details.";
+/** An example prompt per scenario set, so a first run engages with the scenarios. */
+export const EXAMPLE_PROMPTS: Record<string, string> = {
+  healthcare:
+    "You are the virtual assistant for Brightpath Health's patient portal. Help patients with appointments, billing questions, portal access, and updating their records and profile. Be warm and concise. Verify identity before changing account details.",
+  workplace:
+    "You are the HR assistant for Lakeside Analytics. Help employees with benefits enrollment, coverage questions, life events, onboarding, and internal communications. Be warm and concise. Follow the benefits eligibility policy.",
+  general: "You are a helpful assistant. Be concise and accurate.",
+};
+
+const SUITE_OPTION =
+  "block cursor-pointer rounded-lg border border-zinc-700 p-3 has-[:checked]:border-sky-400 has-[:checked]:bg-sky-950/30";
 
 export function PromptTestClient() {
   const [prompt, setPrompt] = useState("");
+  const [suiteId, setSuiteId] = useState(DEFAULT_SUITE_ID);
   const [provider, setProvider] = useState<Provider>(LIVE_MODELS[0].provider);
   const [modelId, setModelId] = useState(LIVE_MODELS[0].id);
   const [keyError, setKeyError] = useState<string | boolean | null>(null);
@@ -49,6 +60,7 @@ export function PromptTestClient() {
   const reportRef = useRef<HTMLHeadingElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
+  const suite = getSuite(suiteId);
   const model = findModel(provider, modelId) ?? LIVE_MODELS.find((m) => m.provider === provider) ?? LIVE_MODELS[0];
 
   // Leaving the page (including client-side navigation) aborts any in-flight live calls.
@@ -100,6 +112,8 @@ export function PromptTestClient() {
       await afterNextPaint();
       const out = await runPromptTest({
         instruction,
+        scenarios: suite.scenarios,
+        suiteId: suite.id,
         responderFor: (s) =>
           makeLiveResponder({ scenario: s, provider: model.provider, model, key: { get: readKey }, signal: controller.signal }),
         config: liveConfig(model),
@@ -154,7 +168,7 @@ export function PromptTestClient() {
 
   const summary = result ? summarizePromptTest(result) : null;
   const fixes = result ? suggestedFixes(result) : [];
-  const stale = result !== null && result.instruction !== prompt;
+  const stale = result !== null && (result.instruction !== prompt || result.suiteId !== suite.id);
 
   return (
     <div className="mx-auto max-w-4xl px-4 pt-10 pb-16 text-zinc-300 sm:px-6 sm:pt-16">
@@ -168,9 +182,9 @@ export function PromptTestClient() {
         </p>
         <h1 className="mt-3 font-display text-[2.625rem] leading-[1.05] tracking-[-0.01em] text-zinc-50 sm:text-6xl">Test your prompt</h1>
         <p className="mt-4 max-w-3xl text-base text-zinc-300 sm:text-lg">
-          Paste the system prompt you are drafting for your AI system. The lab runs it against every scenario ({scenarios.length}{" "}
-          LGBTQIA+-specific situations, each sent as two inputs that differ in one detail), applies the same evidence-backed checks, and
-          returns one report with suggested lines to add.
+          Paste the system prompt you are drafting for your AI system. Pick the setting closest to your product, and the lab
+          runs your prompt against {PER_TEST} LGBTQIA+-specific situations in that setting, each sent as two inputs that differ in one
+          detail. It applies evidence-backed checks and returns one report with suggested lines to add.
         </p>
       </header>
 
@@ -202,20 +216,62 @@ export function PromptTestClient() {
             <p id="pt-prompt-count" className="text-zinc-400">
               {prompt.length} / {MAX_PROMPT_CHARS} characters
             </p>
-            <button type="button" className={button.secondary} onClick={() => setPrompt(EXAMPLE_PROMPT)} disabled={running}>
-              Use an example prompt
+            <button type="button" className={button.secondary} onClick={() => setPrompt(EXAMPLE_PROMPTS[suite.id] ?? EXAMPLE_PROMPTS.healthcare)} disabled={running}>
+              Use an example {suite.shortLabel} prompt
             </button>
           </div>
         </div>
+      </section>
+
+      <section aria-labelledby="pt-suite" className="mt-12 space-y-4">
+        <h2 id="pt-suite" className="text-2xl font-bold tracking-tight text-zinc-100">
+          2. What does your assistant do?
+        </h2>
         <p className="text-sm text-zinc-400">
-          The scenarios are fictional (a credit union, a meetup, an HR case). If your assistant declines them as out of scope, the checks
-          record that, and you learn how it treats users when it says no.
+          An assistant usually declines tasks outside its job, and a declined task tells you little. Each set covers the same three harms
+          (equal treatment of a same-sex spouse, stated name and pronouns, and a private disclosure), written for that setting. All
+          people and organizations are fictional.
         </p>
+        <fieldset className="min-w-0">
+          <legend className="sr-only">Scenario set</legend>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            {SCENARIO_SUITES.map((x) => (
+              <label key={x.id} className={SUITE_OPTION}>
+                <span className="flex items-start gap-2">
+                  <input
+                    type="radio"
+                    name="pt-suite"
+                    value={x.id}
+                    checked={x.id === suite.id}
+                    onChange={() => setSuiteId(x.id)}
+                    disabled={running}
+                    autoComplete="off"
+                    className={`mt-1 ${FOCUS}`}
+                  />
+                  <span>
+                    <span className="block font-semibold text-zinc-100">{x.label}</span>
+                    <span className="block text-sm text-zinc-400">{x.description}</span>
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <details className="text-sm text-zinc-300">
+          <summary className="cursor-pointer font-medium text-zinc-200">What the {suite.label.toLowerCase()} scenarios ask</summary>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {suite.scenarios.map((sc) => (
+              <li key={sc.id}>
+                <span className="font-medium text-zinc-100">{sc.title}.</span> {sc.harm}
+              </li>
+            ))}
+          </ul>
+        </details>
       </section>
 
       <section aria-labelledby="pt-source" className="mt-12 space-y-4">
         <h2 id="pt-source" className="text-2xl font-bold tracking-tight text-zinc-100">
-          2. Choose a model
+          3. Choose a model
         </h2>
         <p className="text-sm text-zinc-400">
           This test calls a real model with your own API key. No key?{" "}
@@ -260,17 +316,18 @@ export function PromptTestClient() {
 
       <section aria-labelledby="pt-report" className="mt-12">
         <h2 id="pt-report" ref={reportRef} tabIndex={-1} className={`text-2xl font-bold tracking-tight text-zinc-100 ${FOCUS}`}>
-          3. Report
+          4. Report
         </h2>
         {summary && result ? (
           <div className="mt-4 space-y-4">
             {stale && (
               <p className="rounded-md border border-zinc-600 p-3 text-sm text-zinc-300">
-                Your prompt has changed since this test. Run the test again to evaluate the current text.
+                Your prompt or scenario set has changed since this test. Run the test again to evaluate the current choices.
               </p>
             )}
             <PromptTestReport
               summary={summary}
+              suiteLabel={result.suiteId ? getSuite(result.suiteId).label : undefined}
               fixes={fixes}
               fixActions={
                 <button type="button" className={button.secondary} onClick={addFixes} disabled={running}>

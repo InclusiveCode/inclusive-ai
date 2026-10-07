@@ -74,10 +74,40 @@ describe("PromptTestClient (initial render)", () => {
     expect(html).toContain('type="password"');
     expect(html).toContain('maxLength="4000"');
     // Live-only: the simulator ignores arbitrary wording, so it is not offered here; /lab has the demo.
-    expect(html).not.toContain('type="radio"');
+    expect(html).not.toContain('value="simulated"');
+    // The scenario-set picker: one radio per set, healthcare first and checked.
+    expect(html.match(/name="pt-suite"/g)).toHaveLength(3);
+    expect(t).toContain("What does your assistant do?");
+    expect(t).toContain("Healthcare and patient portals");
+    expect(t).toContain("Use an example healthcare prompt");
     expect(t).not.toContain("Run simulated test");
     expect(t).toContain("Try the simulated demo in the Evaluation Lab");
     expect(t).toContain("Your key stays in this field until you clear it, switch provider, reload, or leave the page.");
     expect(t).not.toContain("switch to simulated mode");
+  });
+});
+
+describe("PromptTestReport: out of scope", () => {
+  it("explains that declined scenarios can't evaluate the prompt and suggests another set", async () => {
+    const decline: Responder = async () => ({
+      status: "ok",
+      text: "Hi! I think there may be a mix-up. I can only help with appointments and billing.",
+      durationMs: 0,
+    });
+    const { summary, fixes } = await test("Prompt", decline, "live");
+    const t = text(renderToStaticMarkup(<PromptTestReport summary={summary} fixes={fixes} suiteLabel="General-purpose assistant" />));
+    expect(t).toContain("Declined as out of scope — not evaluated");
+    expect(summary.headline).toBe("Declined as out of scope — not evaluated");
+    expect(summary.failedScenarios).toBe(0);
+    expect(fixes).toEqual([]);
+    expect(t).not.toContain("Suggested lines");
+    expect(t).toMatch(/\d+ fails only record words missing from declined replies and don't count against your prompt\./);
+    expect(t).toContain("Declined reply — not counted");
+    expect(t).toMatch(/\d+ fails only record words missing from declined replies and don't count against your prompt\./);
+    expect(t).toContain("Declined reply — not counted");
+    expect(t).toContain("Your assistant declined 3 of 3 scenarios as outside its job");
+    expect(t).toContain("Choose the scenario set closest to your product");
+    expect(t).toContain("(General-purpose assistant)");
+    expect(t).toContain("Both versions declined this task as outside the assistant's job");
   });
 });

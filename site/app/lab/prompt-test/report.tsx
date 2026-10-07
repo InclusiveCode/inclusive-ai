@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { PromptTestSummary, ScenarioSummary, SuggestedFix } from "../../../lib/lab/prompt-test";
+import { countsAsFail, type PromptTestSummary, type ScenarioSummary, type SuggestedFix } from "../../../lib/lab/prompt-test";
 import type { CheckResult } from "../../../lib/lab/types";
 import { providerLabel, returnedModelText } from "../components/banner";
 import { countLine } from "../components/result-card";
@@ -16,6 +16,14 @@ function tone(headline: string): string {
 }
 
 /** One sentence that says what the overall headline means for the engineer's prompt. */
+/** Said when the assistant declined scenarios as outside its job; null when none were. */
+export function outOfScopeAdvice(summary: PromptTestSummary): string | null {
+  const n = summary.outOfScopeScenarios;
+  if (n === 0) return null;
+  const total = summary.scenarios.length;
+  return `Your assistant declined ${n} of ${total} scenario${total === 1 ? "" : "s"} as outside its job, so the checks had little to judge there. That is usually a sign the scenarios don't match what your assistant does, not a problem with your prompt. Choose the scenario set closest to your product and test again.`;
+}
+
 export function overallAdvice(summary: PromptTestSummary): string {
   if (summary.failedScenarios > 0) {
     const n = summary.failedScenarios;
@@ -24,17 +32,22 @@ export function overallAdvice(summary: PromptTestSummary): string {
   if (summary.headline === "All displayed checks passed") {
     return "No displayed check failed in this sample. That is evidence, not proof: run it again, and test with your own real traffic too.";
   }
+  if (summary.outOfScopeScenarios > 0 && summary.outOfScopeScenarios === summary.scenarios.length) {
+    return "This test could not evaluate your prompt.";
+  }
   return "Some checks could not give a clear answer. Look at the responses below before drawing a conclusion.";
 }
 
 function Issue({ summary, result }: { summary: ScenarioSummary; result: CheckResult }) {
   const check = summary.scenario.checks.find((c) => c.id === result.checkId);
+  const uncounted = result.status === "fail" && !countsAsFail(summary.scenario, summary.run, result, summary.outOfScope !== null);
   return (
     <li className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
       <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="font-semibold text-zinc-100">{check?.title ?? result.checkId}</span>
         <StatusBadge status={result.status} flags={result.flags} />
         <span className="text-xs text-zinc-400">{variantLabel(summary.scenario, result.variant)}</span>
+        {uncounted && <span className="text-xs text-amber-200">Declined reply — not counted</span>}
       </p>
       <p className="mt-1 text-sm text-zinc-300">{result.rationale}</p>
       {result.evidence.length > 0 && (
@@ -47,7 +60,7 @@ function Issue({ summary, result }: { summary: ScenarioSummary; result: CheckRes
           ))}
         </ul>
       )}
-      {result.status === "fail" && check && <p className="mt-2 text-sm text-zinc-400">Why it matters: {check.whyItMatters}</p>}
+      {result.status === "fail" && !uncounted && check && <p className="mt-2 text-sm text-zinc-400">Why it matters: {check.whyItMatters}</p>}
     </li>
   );
 }
@@ -65,6 +78,12 @@ function ScenarioCard({ summary }: { summary: ScenarioSummary }) {
       <p className="mt-2 font-semibold text-zinc-50">{summary.headline}</p>
       <p className="text-sm text-zinc-300">{countLine(summary.counts)}</p>
       {run.mode === "live" && alert && <p className="mt-2 text-sm text-amber-200">{alert}.</p>}
+      {summary.outOfScope && (
+        <p className="mt-2 text-sm text-amber-200">
+          Both versions declined this task as outside the assistant&apos;s job (“{summary.outOfScope.a.excerpt}”), so the checks below had
+          little to judge.
+        </p>
+      )}
       {summary.issues.length > 0 ? (
         <ul className="mt-3 space-y-2">
           {summary.issues.map((r) => (
@@ -89,11 +108,15 @@ export function PromptTestReport({
   summary,
   fixes,
   fixActions,
+  suiteLabel,
 }: {
   summary: PromptTestSummary;
   fixes: SuggestedFix[];
   fixActions?: ReactNode;
+  /** The scenario set that was run. */
+  suiteLabel?: string;
 }) {
+  const scopeAdvice = outOfScopeAdvice(summary);
   const first = summary.scenarios[0]?.run;
   const live = first?.mode === "live";
   const models = live ? Array.from(new Set(summary.scenarios.map((s) => returnedModelText(s.run)))) : [];
@@ -113,12 +136,16 @@ export function PromptTestReport({
         </p>
         <p className="mt-2 text-xl font-semibold text-zinc-50">{summary.headline}</p>
         <p className="text-sm text-zinc-300">
-          {summary.scenarios.length} scenario{summary.scenarios.length === 1 ? "" : "s"} run. {countLine(summary.counts)}
+          {summary.scenarios.length} scenario{summary.scenarios.length === 1 ? "" : "s"} run{suiteLabel ? ` (${suiteLabel})` : ""}.{" "}
+          {countLine(summary.counts)}
+          {summary.uncountedFails > 0 &&
+            ` ${summary.uncountedFails === 1 ? "One fail only records" : `${summary.uncountedFails} fails only record`} words missing from declined replies and ${summary.uncountedFails === 1 ? "doesn't" : "don't"} count against your prompt.`}
         </p>
         {summary.skipped.length > 0 && (
           <p className="mt-1 text-sm text-amber-200">Not run (cancelled): {summary.skipped.map((s) => s.title).join(", ")}.</p>
         )}
         <p className="mt-2 text-sm text-zinc-300">{overallAdvice(summary)}</p>
+        {scopeAdvice && <p className="mt-2 rounded-md border border-amber-300/60 bg-amber-950/30 p-3 text-sm text-amber-100">{scopeAdvice}</p>}
         {!live && (
           <p className="mt-2 text-sm text-amber-200">
             Simulated: the scripted simulator only reacts to the lab&apos;s known snippets, not to the rest of your wording.

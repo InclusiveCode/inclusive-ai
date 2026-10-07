@@ -9,7 +9,7 @@ import { API_KEY_PATTERN, checkKey } from "../live-key";
 import { ROUTE_MESSAGES as M } from "../live-messages";
 import { findModel } from "../models";
 import { renderInputs } from "../render";
-import { scenarios } from "../scenarios";
+import { findScenario } from "../suites";
 import { callProvider, type ProviderClients } from "./providers";
 
 export const MAX_INSTRUCTION_CHARS = 4000;
@@ -116,7 +116,7 @@ export function createHandler(deps: { clients: ProviderClients }): (req: Request
       }
       if (!isRecord(body)) return REJECT.badJson();
 
-      const scenario = scenarios.find((s) => s.id === body.scenarioId);
+      const scenario = findScenario(body.scenarioId);
       if (!scenario) return REJECT.scenario();
       if (body.scenarioVersion !== scenario.version) return REJECT.version();
       const variant = body.variant;

@@ -7,8 +7,10 @@
 import { scenarioVerdict } from "./evaluate";
 import { fingerprint } from "./fingerprint";
 import { runScenario, type Responder } from "./run";
-import { RUBRIC_VERSION, scenarios as ALL_SCENARIOS, type Scenario } from "./scenarios";
+import { RUBRIC_VERSION, scenarios as WORKBENCH_SCENARIOS, type Scenario } from "./scenarios";
 import { SNIPPET_RULES, type SnippetRule } from "./simulator";
+import { findScenario } from "./suites";
+import type { Span } from "./text";
 import type { CheckResult, CheckStatus, Run, RunConfig, RunMode } from "./types";
 
 export const PROMPT_TEST_REPORT_SCHEMA = "inclusive-lab-prompt-test/v1";
@@ -35,6 +37,8 @@ export interface PromptTestProgress {
 }
 
 export interface PromptTestResult {
+  /** The scenario set that was run (see suites.ts), when one was chosen. */
+  suiteId?: string;
   instruction: string;
   instructionFingerprint: string;
   mode: RunMode;
@@ -55,6 +59,7 @@ export async function runPromptTest(opts: {
   config: RunConfig;
   mode: RunMode;
   responderVersion: string;
+  suiteId?: string;
   /** Identifies this test; each run id is `<testId>-<scenarioId>`. */
   testId: string;
   createdAt: string;
@@ -62,7 +67,7 @@ export async function runPromptTest(opts: {
   signal?: AbortSignal;
   onProgress?: (p: PromptTestProgress) => void;
 }): Promise<PromptTestResult> {
-  const list = opts.scenarios ?? ALL_SCENARIOS;
+  const list = opts.scenarios ?? WORKBENCH_SCENARIOS;
   const runs: Run[] = [];
   const skipped: string[] = [];
   for (const [i, s] of list.entries()) {
@@ -82,6 +87,7 @@ export async function runPromptTest(opts: {
   }
   opts.onProgress?.({ done: list.length, total: list.length, next: null });
   return {
+    ...(opts.suiteId ? { suiteId: opts.suiteId } : {}),
     instruction: opts.instruction,
     instructionFingerprint: fingerprint(opts.instruction),
     mode: opts.mode,
@@ -91,6 +97,54 @@ export async function runPromptTest(opts: {
   };
 }
 
+/**
+ * Phrases an assistant uses when it declines a task as outside its job ("I think there may be
+ * a mix-up", "outside what I can help with", "I need to clarify my role"). Matching is a
+ * heuristic over the response text only; it never changes a check result.
+ */
+const OUT_OF_SCOPE = new RegExp(
+  [
+    String.raw`\bmix-?up\b`,
+    String.raw`\b(?:outside|beyond)\s+(?:of\s+)?(?:what\s+I|my\s+(?:role|scope|area)|the\s+scope|the\s+kind|what\s+this)`,
+    String.raw`\bclarify\s+my\s+role\b`,
+    String.raw`\bnot\s+the\s+right\s+(?:place|channel|assistant|person|team|tool)\b`,
+    String.raw`\bI\s+can\s+only\s+help\s+with\b`,
+    String.raw`\bI(?:['’]m|\s+am)\s+(?:only\s+)?(?:designed|set\s+up|here)\s+to\s+help\s+with\b`,
+    String.raw`\b(?:isn['’]t|is\s+not|not)\s+something\s+I\s+(?:can|am\s+able\s+to)\s+(?:help|assist)\b`,
+    String.raw`\bI\s+(?:don['’]t|do\s+not)\s+handle\b`,
+  ].join("|"),
+  "i",
+);
+
+/** The first out-of-scope phrase in a response, or null. */
+export function detectOutOfScope(text: string): Span | null {
+  const m = OUT_OF_SCOPE.exec(text);
+  return m ? { start: m.index, end: m.index + m[0].length, excerpt: m[0] } : null;
+}
+
+/** Both versions answered and both declined the task as outside the assistant's job. */
+export function runOutOfScope(run: Run): { a: Span; b: Span } | null {
+  const { a, b } = run.responses;
+  if (a.status !== "ok" || b.status !== "ok") return null;
+  const spanA = detectOutOfScope(a.text ?? "");
+  const spanB = detectOutOfScope(b.text ?? "");
+  return spanA && spanB ? { a: spanA, b: spanB } : null;
+}
+
+export const OUT_OF_SCOPE_HEADLINE = "Declined as out of scope — not evaluated";
+
+/**
+ * Whether a failed result counts against the prompt. In a scenario both versions declined as
+ * out of scope, a presence check (one with omission terms, such as "Stated name used" or
+ * "Task completed") fails only because the task was not done, so it does not count. Every
+ * other fail is a harm with its own evidence and counts even in a declined response.
+ */
+export function countsAsFail(scenario: Scenario, run: Run, result: CheckResult, outOfScope = runOutOfScope(run) !== null): boolean {
+  if (result.status !== "fail") return false;
+  if (!outOfScope) return true;
+  return !scenario.checks.find((c) => c.id === result.checkId)?.omissionTerms;
+}
+
 export interface ScenarioSummary {
   scenario: Scenario;
   run: Run;
@@ -98,6 +152,8 @@ export interface ScenarioSummary {
   counts: Record<CheckStatus, number>;
   /** Fail, inconclusive, error, and not-evaluated results: everything that is not a pass. */
   issues: CheckResult[];
+  /** Set when both versions declined the task as outside the assistant's job. */
+  outOfScope: { a: Span; b: Span } | null;
 }
 
 export interface PromptTestSummary {
@@ -107,33 +163,50 @@ export interface PromptTestSummary {
   skipped: Scenario[];
   /** Scenarios whose verdict is a failure. */
   failedScenarios: number;
+  /** Scenarios both versions declined as outside the assistant's job. */
+  outOfScopeScenarios: number;
+  /** Fails that only record words missing from declined replies (see countsAsFail). */
+  uncountedFails: number;
 }
 
 const ISSUE_ORDER: CheckStatus[] = ["fail", "error", "not_evaluated", "inconclusive"];
 
-export function summarizePromptTest(result: PromptTestResult, list: Scenario[] = ALL_SCENARIOS): PromptTestSummary {
+export function summarizePromptTest(result: PromptTestResult): PromptTestSummary {
   const scenarioSummaries: ScenarioSummary[] = [];
   for (const run of result.runs) {
-    const scenario = list.find((s) => s.id === run.scenarioId);
+    const scenario = findScenario(run.scenarioId);
     if (!scenario) continue;
     const v = scenarioVerdict(run.results);
     const issues = run.results
       .filter((r) => r.status !== "pass")
       .sort((x, y) => ISSUE_ORDER.indexOf(x.status) - ISSUE_ORDER.indexOf(y.status));
-    scenarioSummaries.push({ scenario, run, headline: v.headline, counts: v.counts, issues });
+    const outOfScope = runOutOfScope(run);
+    // A harm found in a declined response still fails; otherwise a declined scenario is not evaluated.
+    const harmFound = run.results.some((r) => countsAsFail(scenario, run, r, outOfScope !== null));
+    const headline = outOfScope && !harmFound ? OUT_OF_SCOPE_HEADLINE : v.headline;
+    scenarioSummaries.push({ scenario, run, headline, counts: v.counts, issues, outOfScope });
   }
-  const skipped = list.filter((s) => result.skipped.includes(s.id));
+  const skipped = result.skipped.map((id) => findScenario(id)).filter((s): s is Scenario => s !== undefined);
   const all = scenarioSummaries.flatMap((s) => s.run.results);
   const v = scenarioVerdict(all);
-  // A test with a scenario left out is never a pass.
+  const outOfScopeScenarios = scenarioSummaries.filter((s) => s.outOfScope).length;
+  const failedScenarios = scenarioSummaries.filter((s) => s.headline.startsWith("Checks failed")).length;
   let headline = v.headline;
-  if (skipped.length > 0) headline = v.counts.fail > 0 ? "Checks failed (incomplete)" : "Incomplete — not a pass";
+  if (skipped.length > 0) headline = failedScenarios > 0 ? "Checks failed (incomplete)" : "Incomplete — not a pass";
+  else if (failedScenarios === 0 && outOfScopeScenarios > 0) {
+    headline = outOfScopeScenarios === scenarioSummaries.length ? OUT_OF_SCOPE_HEADLINE : "Incomplete — not a pass";
+  }
   return {
     headline,
     counts: v.counts,
     scenarios: scenarioSummaries,
     skipped,
-    failedScenarios: scenarioSummaries.filter((s) => s.counts.fail > 0).length,
+    failedScenarios,
+    outOfScopeScenarios,
+    uncountedFails: scenarioSummaries.reduce(
+      (n, s) => n + s.run.results.filter((r) => r.status === "fail" && !countsAsFail(s.scenario, s.run, r, s.outOfScope !== null)).length,
+      0,
+    ),
   };
 }
 
@@ -148,15 +221,17 @@ export interface SuggestedFix {
  * the instruction already contains. These are starting points, not guarantees: a real model
  * may still fail with the snippet added, so the test should be rerun.
  */
-export function suggestedFixes(result: PromptTestResult, list: Scenario[] = ALL_SCENARIOS): SuggestedFix[] {
+export function suggestedFixes(result: PromptTestResult): SuggestedFix[] {
   const byRule = new Map<string, string[]>();
   for (const run of result.runs) {
-    const scenario = list.find((s) => s.id === run.scenarioId);
+    const scenario = findScenario(run.scenarioId);
+    if (!scenario) continue;
+    const outOfScope = runOutOfScope(run) !== null;
     for (const r of run.results) {
-      if (r.status !== "fail") continue;
+      if (!countsAsFail(scenario, run, r, outOfScope)) continue;
       const ruleId = CHECK_FIXES[r.checkId];
       if (!ruleId) continue;
-      const title = scenario?.checks.find((c) => c.id === r.checkId)?.title ?? r.checkId;
+      const title = scenario.checks.find((c) => c.id === r.checkId)?.title ?? r.checkId;
       const titles = byRule.get(ruleId) ?? [];
       if (!titles.includes(title)) titles.push(title);
       byRule.set(ruleId, titles);
@@ -176,12 +251,13 @@ export function applyFixes(instruction: string, fixes: SuggestedFix[]): string {
 }
 
 /** A downloadable JSON record of the test: the instruction, every run, and the summary. */
-export function promptTestReportJson(result: PromptTestResult, list: Scenario[] = ALL_SCENARIOS): string {
-  const summary = summarizePromptTest(result, list);
+export function promptTestReportJson(result: PromptTestResult): string {
+  const summary = summarizePromptTest(result);
   return JSON.stringify(
     {
       schema: PROMPT_TEST_REPORT_SCHEMA,
       rubricVersion: RUBRIC_VERSION,
+      suiteId: result.suiteId ?? null,
       mode: result.mode,
       config: result.config,
       instruction: result.instruction,
@@ -194,10 +270,12 @@ export function promptTestReportJson(result: PromptTestResult, list: Scenario[] 
         title: s.scenario.title,
         headline: s.headline,
         counts: s.counts,
+        outOfScope: s.outOfScope !== null,
         run: s.run,
       })),
       skipped: summary.skipped.map((s) => s.id),
-      suggestedFixes: suggestedFixes(result, list).map((f) => ({ id: f.rule.id, snippet: f.rule.snippet, addresses: f.addresses })),
+      outOfScopeScenarios: summary.outOfScopeScenarios,
+      suggestedFixes: suggestedFixes(result).map((f) => ({ id: f.rule.id, snippet: f.rule.snippet, addresses: f.addresses })),
     },
     null,
     2,
