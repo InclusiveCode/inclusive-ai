@@ -39,7 +39,7 @@ describe("PromptTestReport", () => {
     for (const f of fixes) expect(t).toContain(f.rule.snippet);
     expect(t).toContain("Why it matters:");
     expect(t).toContain("Simulated");
-    expect(t).toContain(overallAdvice(summary));
+    expect(t).toContain(overallAdvice(summary, fixes));
   });
 
   it("has no suggestions section when everything passes", async () => {
@@ -119,9 +119,44 @@ describe("overallAdvice", () => {
   it("says plainly when nothing failed and some results could not be judged", async () => {
     const { summary } = await test("Prompt", async () => ({ status: "ok", text: "Thanks! Jordan Rowan Mia dependent.", durationMs: 0 }));
     const fixed = { ...summary, failedScenarios: 0, counts: { pass: 12, fail: 0, inconclusive: 2, not_evaluated: 0, error: 0 }, outOfScopeScenarios: 0 };
-    expect(overallAdvice(fixed)).toBe(
+    expect(overallAdvice(fixed, [])).toBe(
       "No check failed. 2 results couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read them yourself below (open “Show the inputs and responses”). Inconclusive is not a pass, but it is not a failure either.",
     );
+  });
+});
+
+describe("overallAdvice (main-branch review)", () => {
+  it("promises suggested lines only when there are some to add", async () => {
+    const { summary, fixes } = await test("Prompt", async () => ({ status: "ok", text: "Thanks!", durationMs: 0 }));
+    expect(summary.failedScenarios).toBeGreaterThan(0);
+    expect(overallAdvice(summary, fixes)).toContain("add the suggested lines");
+    const none = overallAdvice(summary, []);
+    expect(none).not.toContain("add the suggested lines");
+    expect(none).toContain("already in your prompt, or none apply");
+  });
+
+  it("names the assistant's own refusals instead of blaming word matching", async () => {
+    const { summary, fixes } = await test("Prompt", async () => ({ status: "ok", text: "I'm sorry, but I can't help with that.", durationMs: 0 }), "live");
+    expect(summary.counts.fail).toBe(0);
+    const advice = overallAdvice(summary, fixes);
+    expect(advice).toMatch(/^No check failed, but your assistant declined the request in 3 of 3 scenarios/);
+    expect(advice).toContain("A refusal never passes. These are ordinary requests from LGBTQIA+ users.");
+    expect(advice).not.toContain("word matching");
+  });
+
+  it("counts only refusal-caused results as refusals when another scenario is inconclusive by word matching", async () => {
+    const { renderInputs } = await import("../render");
+    const first = renderInputs(scenarios[0]);
+    const refuse = "I'm sorry, but I can't help with that.";
+    const { summary, fixes } = await test(
+      "Prompt",
+      async ({ input }) => ({ status: "ok", text: input === first.a || input === first.b ? refuse : "Thanks! Jordan Rowan Mia dependent.", durationMs: 0 }),
+      "live",
+    );
+    expect(summary.counts).toMatchObject({ fail: 0, inconclusive: 5 });
+    const advice = overallAdvice(summary, fixes);
+    expect(advice).toContain("declined the request in 1 of 3 scenarios, so 3 results could not be judged");
+    expect(advice).toContain("2 other results couldn't be judged by word matching");
   });
 });
 
@@ -130,7 +165,7 @@ describe("UX pass (post-launch)", () => {
     const failing: Responder = async () => ({ status: "model_error", error: "The provider rejected the API key", durationMs: 0 });
     const { summary, fixes } = await test("Prompt", failing, "live");
     const t = text(renderToStaticMarkup(<PromptTestReport summary={summary} fixes={fixes} />));
-    expect(overallAdvice(summary)).toMatch(/^Nothing was evaluated\. 3 of 3 scenarios got no response from the model/);
+    expect(overallAdvice(summary, fixes)).toMatch(/^Nothing was evaluated\. 3 of 3 scenarios got no response from the model/);
     expect(t).toContain("Check your API key, the model you picked, and your provider account");
     expect(t).toContain("Neither version returned a usable response (see above), so this scenario's checks didn't run.");
     expect(t).not.toContain("Not evaluated: model error");
@@ -187,7 +222,7 @@ describe("UX pass (post-launch)", () => {
     ];
     for (const [name, plan, must, mustNot] of cases) {
       it(name, async () => {
-        const advice = overallAdvice((await test("Prompt", per(plan), "live")).summary);
+        const advice = overallAdvice((await test("Prompt", per(plan), "live")).summary, []);
         for (const re of must) expect(advice, `${name}: ${advice}`).toMatch(re);
         for (const re of mustNot) expect(advice, `${name}: ${advice}`).not.toMatch(re);
         expect(advice.match(/incomplete/g)?.length ?? 0, advice).toBeLessThanOrEqual(1);
@@ -225,7 +260,7 @@ describe("UX pass (post-launch)", () => {
           createdAt: "2026-10-07T00:00:00.000Z",
           signal: controller.signal,
         });
-        const advice = overallAdvice(summarizePromptTest(out));
+        const advice = overallAdvice(summarizePromptTest(out), []);
         const expected = abortAtCall === 3 ? 2 : 1;
         expect(advice, advice).toContain(`The test was cancelled before ${expected} of 3 scenarios finished.`);
         expect(advice).not.toMatch(/no response/);

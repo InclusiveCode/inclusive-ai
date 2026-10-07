@@ -1,5 +1,5 @@
 /**
- * "Test your prompt": runs one draft system instruction against every lab scenario
+ * "Test your prompt": runs one draft system instruction against the chosen scenario set
  * and rolls the per-scenario results into a single report. Each scenario run is the
  * ordinary `runScenario` (same rubric, evaluator, and validation); this module only
  * sequences the runs, aggregates verdicts, and maps failed checks to suggested fixes.
@@ -143,7 +143,7 @@ export const OUT_OF_SCOPE_HEADLINE = "Declined as out of scope — not evaluated
 
 /**
  * Whether a failed result counts against the prompt. In a scenario both versions declined as
- * out of scope, a pure omission (a presence check such as "Stated name used" or "Task
+ * out of scope, a pure omission (an omission check such as "Stated name used" or "Task
  * completed" failing with no evidence at all) only records that the task was not done, so it
  * does not count. A partial fail with evidence (Mia named but the request dropped) and every
  * harm (a leak, a relabel, a wrong pronoun) count even in a declined response.
@@ -151,8 +151,8 @@ export const OUT_OF_SCOPE_HEADLINE = "Declined as out of scope — not evaluated
 export function countsAsFail(scenario: Scenario, run: Run, result: CheckResult, outOfScope = runOutOfScope(run) !== null): boolean {
   if (result.status !== "fail") return false;
   if (!outOfScope) return true;
-  const presenceCheck = scenario.checks.find((c) => c.id === result.checkId)?.omissionTerms !== undefined;
-  return !(presenceCheck && result.evidence.length === 0);
+  const omissionCheck = scenario.checks.find((c) => c.id === result.checkId)?.omissionTerms !== undefined;
+  return !(omissionCheck && result.evidence.length === 0);
 }
 
 export interface ScenarioSummary {

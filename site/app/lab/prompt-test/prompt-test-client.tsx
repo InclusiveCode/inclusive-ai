@@ -305,6 +305,7 @@ export function PromptTestClient() {
             onKeyErrorClear={() => setKeyError(null)}
             billing={BILLING}
             simulatedMode={false}
+            disabled={running}
           />
         </div>
       </section>

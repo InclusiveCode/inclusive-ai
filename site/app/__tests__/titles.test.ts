@@ -6,6 +6,7 @@ import { patterns } from "@/lib/patterns";
 import { reports } from "@/lib/reports";
 import { metadata as checklist } from "../checklist/layout";
 import { metadata as lab } from "../lab/page";
+import { metadata as promptTest } from "../lab/prompt-test/page";
 import { generateMetadata as patternMetadata } from "../patterns/[slug]/page";
 import { metadata as patternsIndex } from "../patterns/page";
 import { metadata as registry } from "../registry/page";
@@ -34,6 +35,7 @@ describe("F4: every page has its own descriptive title (WCAG 2.4.2)", () => {
       "/": rendered(undefined),
       "/checklist": rendered(checklist),
       "/lab": rendered(lab),
+      "/lab/prompt-test": rendered(promptTest),
       "/patterns": rendered(patternsIndex),
       "/registry": rendered(registry),
       "/research": rendered(research),
@@ -43,6 +45,7 @@ describe("F4: every page has its own descriptive title (WCAG 2.4.2)", () => {
       "/": DEFAULT,
       "/checklist": "Pre-Ship Checklist — InclusiveCode",
       "/lab": "Evaluation Lab — InclusiveCode",
+      "/lab/prompt-test": "Test Your Prompt — Evaluation Lab — InclusiveCode",
       "/patterns": "Anti-Pattern Library — InclusiveCode",
       "/registry": "Harm Registry — InclusiveCode",
       "/research": "Evaluation Reports — InclusiveCode",

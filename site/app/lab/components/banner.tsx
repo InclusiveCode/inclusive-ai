@@ -16,8 +16,14 @@ export function providerLabel(provider: string): string {
   return (PROVIDER_LABEL as Record<string, string>)[provider] ?? provider;
 }
 
-/** The page banner follows the run being displayed, not the response-source radio. */
-export function RunBanner({ run }: { run: Run }) {
+const LINK =
+  "underline decoration-amber-300/60 underline-offset-4 hover:decoration-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400";
+
+/**
+ * The page banner follows the run being displayed, not the response-source radio. The radio only
+ * decides whether the simulated banner still points to live mode (it doesn't once Live is selected).
+ */
+export function RunBanner({ run, source = "simulated" }: { run: Run; source?: RunMode }) {
   if (run.mode === "live") {
     return (
       <div role="note" className="mb-8 rounded-xl border-2 border-sky-300/70 bg-sky-950/40 p-4 text-sky-100">
@@ -36,17 +42,28 @@ export function RunBanner({ run }: { run: Run }) {
         (lab-simulator-rules-v1) built to show known failure modes, so an improvement here demonstrates the workflow, not real model
         behavior. All people, organizations, and data are fictional.
       </p>
-      <p className="mt-2">
-        <strong>Live mode is available.</strong> Choose “Live model (your API key)” in{" "}
-        <a href="#edit" className="underline decoration-amber-300/60 underline-offset-4 hover:decoration-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
-          4. Edit the instruction and rerun
-        </a>{" "}
-        to get real responses from a model with your own API key, or{" "}
-        <Link href="/lab/prompt-test" className="underline decoration-amber-300/60 underline-offset-4 hover:decoration-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
-          test your own system prompt
-        </Link>{" "}
-        against scenarios written for your product.
-      </p>
+      {source === "live" ? (
+        // Live is already selected (the note below says so), so only the prompt-test pointer remains.
+        <p className="mt-2">
+          You can also{" "}
+          <Link href="/lab/prompt-test" className={LINK}>
+            test your own system prompt
+          </Link>{" "}
+          against scenarios written for your product.
+        </p>
+      ) : (
+        <p className="mt-2">
+          <strong>Live mode is available.</strong> Choose “Live model (your API key)” in{" "}
+          <a href="#edit" className={LINK}>
+            4. Edit the instruction and rerun
+          </a>{" "}
+          to get real responses from a model with your own API key, or{" "}
+          <Link href="/lab/prompt-test" className={LINK}>
+            test your own system prompt
+          </Link>{" "}
+          against scenarios written for your product.
+        </p>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { countsAsFail, type PromptTestSummary, type ScenarioSummary, type SuggestedFix } from "../../../lib/lab/prompt-test";
+import { isRefusalInconclusive } from "../../../lib/lab/evaluate";
 import type { CheckResult } from "../../../lib/lab/types";
 import { providerLabel, returnedModelText } from "../components/banner";
 import { countLine } from "../components/result-card";
@@ -28,7 +29,8 @@ export function outOfScopeAdvice(summary: PromptTestSummary): string | null {
   return `Your assistant declined ${n} of ${total} scenario${total === 1 ? "" : "s"} as outside its job, so the checks had little to judge there. That is usually a sign the scenarios don't match what your assistant does, not a problem with your prompt. Choose the scenario set closest to your product and test again.`;
 }
 
-const REFUSAL_MATTERS = "That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users.";
+const ORDINARY_REQUESTS = "These are ordinary requests from LGBTQIA+ users.";
+const REFUSAL_MATTERS = `That is worth knowing in itself: ${ORDINARY_REQUESTS.charAt(0).toLowerCase()}${ORDINARY_REQUESTS.slice(1)}`;
 
 type Status = ScenarioSummary["run"]["responses"]["a"]["status"];
 const FAILED: ReadonlySet<Status> = new Set(["model_error", "timeout", "credentials_unavailable"]);
@@ -39,9 +41,10 @@ const FAILED: ReadonlySet<Status> = new Set(["model_error", "timeout", "credenti
  * (never started, or stopped mid-request), a safety refusal (of both versions, or of one version,
  * which is named with that version's label), and a failed call. A refusal and a cancel are always
  * named, a cancel is never blamed on the model, and key or account advice appears only when a call
- * failed in a way a key or account could explain.
+ * failed in a way a key or account could explain. Suggested lines are promised only when there are
+ * some to add, and results left inconclusive by the assistant's own refusals are called refusals.
  */
-export function overallAdvice(summary: PromptTestSummary): string {
+export function overallAdvice(summary: PromptTestSummary, fixes: readonly SuggestedFix[]): string {
   // Scenarios that never started because the test was cancelled are in `skipped`, not in `scenarios`.
   const ran = summary.scenarios.length;
   const total = ran + summary.skipped.length;
@@ -56,7 +59,7 @@ export function overallAdvice(summary: PromptTestSummary): string {
   const notes: string[] = [];
   if (refusedBoth > 0) {
     notes.push(
-      `The provider's safety system declined both versions in ${refusedBoth} of ${scen(total)}. That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users.`,
+      `The provider's safety system declined both versions in ${refusedBoth} of ${scen(total)}. ${REFUSAL_MATTERS}`,
     );
   }
   for (const s of refusedOne) {
@@ -80,12 +83,11 @@ export function overallAdvice(summary: PromptTestSummary): string {
     );
   }
   if (cancelled > 0) notes.push(`The test was cancelled before ${cancelled} of ${scen(total)} finished.`);
-  const refused = refusedBoth;
 
   if (silent.length === ran) {
     // Nothing usable came back from any scenario that ran (or none ran).
-    if (refused === total) {
-      return `The provider's safety system declined every request, so nothing was evaluated. That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users. Try another model, or check how your provider handles this content.`;
+    if (refusedBoth === total) {
+      return `The provider's safety system declined every request, so nothing was evaluated. ${REFUSAL_MATTERS} Try another model, or check how your provider handles this content.`;
     }
     return [`Nothing was evaluated.`, ...notes, cancelled > 0 ? "Run it again when you're ready." : ""].filter(Boolean).join(" ");
   }
@@ -93,7 +95,11 @@ export function overallAdvice(summary: PromptTestSummary): string {
   const tail = notes.length > 0 ? ` ${notes.join(" ")}` : "";
   if (summary.failedScenarios > 0) {
     const n = summary.failedScenarios;
-    return `Your prompt produced a failing response in ${n} of ${scen(total)}. Review the evidence below, add the suggested lines, and test again.${tail}`;
+    const next =
+      fixes.length > 0
+        ? "Review the evidence below, add the suggested lines, and test again."
+        : "The lab's suggested lines for these checks are already in your prompt, or none apply, so review the evidence below, adjust your own wording, and test again.";
+    return `Your prompt produced a failing response in ${n} of ${scen(total)}. ${next}${tail}`;
   }
   if (summary.headline === "All displayed checks passed") {
     return "No displayed check failed in this sample. That is evidence, not proof: run it again, and test with your own real traffic too.";
@@ -106,6 +112,19 @@ export function overallAdvice(summary: PromptTestSummary): string {
   }
   const n = summary.counts.inconclusive;
   if (summary.counts.fail === 0 && n > 0 && summary.counts.error === 0 && summary.counts.not_evaluated === 0) {
+    // A refusal by the assistant itself (not the provider's safety system) leaves checks too empty to judge.
+    const refusalIn = summary.scenarios.filter((s) => s.outOfScope === null).map((s) => s.issues.filter(isRefusalInconclusive).length);
+    const refusals = refusalIn.reduce((a, b) => a + b, 0);
+    if (refusals > 0) {
+      const declined = refusalIn.filter((k) => k > 0).length;
+      const rest = n - refusals;
+      return (
+        `No check failed, but your assistant declined the request in ${declined} of ${scen(total)}, so ${refusals === 1 ? "one result" : `${refusals} results`} could not be judged. A refusal never passes. ${ORDINARY_REQUESTS} Read the responses below (open “Show the inputs and responses”) and check whether your prompt should let your assistant help.` +
+        (rest > 0
+          ? ` ${rest === 1 ? "One other result" : `${rest} other results`} couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read ${rest === 1 ? "it" : "them"} yourself too.`
+          : "")
+      );
+    }
     return `No check failed. ${n === 1 ? "One result" : `${n} results`} couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read ${n === 1 ? "it" : "them"} yourself below (open “Show the inputs and responses”). Inconclusive is not a pass, but it is not a failure either.`;
   }
   return "Some checks could not give a clear answer. Look at the responses below before drawing a conclusion.";
@@ -230,7 +249,7 @@ export function PromptTestReport({
         {summary.skipped.length > 0 && (
           <p className="mt-1 text-sm text-amber-200">Not run (cancelled): {summary.skipped.map((s) => s.title).join(", ")}.</p>
         )}
-        <p className="mt-2 text-sm text-zinc-300">{overallAdvice(summary)}</p>
+        <p className="mt-2 text-sm text-zinc-300">{overallAdvice(summary, fixes)}</p>
         {scopeAdvice && <p className="mt-2 rounded-md border border-amber-300/60 bg-amber-950/30 p-3 text-sm text-amber-100">{scopeAdvice}</p>}
         {!live && (
           <p className="mt-2 text-sm text-amber-200">
