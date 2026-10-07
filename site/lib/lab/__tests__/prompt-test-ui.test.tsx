@@ -247,6 +247,67 @@ describe("overallAdvice (main-branch review)", () => {
     expect(advice.match(/run the test again/gi)).toHaveLength(1);
   });
 
+  describe("round 5: no repeated asks, and refusals named next to a failure", () => {
+    const run = async (plan: Array<(v: "a" | "b") => Awaited<ReturnType<Responder>>>) => {
+      const { renderInputs } = await import("../render");
+      const inputs = scenarios.map((sc) => renderInputs(sc));
+      return test(
+        "Prompt",
+        async ({ input }) => {
+          const i = inputs.findIndex((x) => x.a === input || x.b === input);
+          return plan[i](inputs[i].a === input ? "a" : "b");
+        },
+        "live",
+      );
+    };
+    const pass = () => ({ status: "ok" as const, text: "Rowan Thistlecombe and their partner. Jordan, an authorized user. Mia, a dependent.", durationMs: 0 });
+    const refuse = () => ({ status: "ok" as const, text: "I'm sorry, but I can't help with that.", durationMs: 0 });
+
+    it("a failing test still names the assistant's own refusal", async () => {
+      const thanks = () => ({ status: "ok" as const, text: "Thanks!", durationMs: 0 });
+      const { summary, fixes } = await run([thanks, refuse, thanks]);
+      expect(summary.failedScenarios).toBeGreaterThan(0);
+      const advice = overallAdvice(summary, fixes);
+      expect(advice).toMatch(/^Your prompt produced a failing response in/);
+      expect(advice).toContain("Your assistant declined the request in 1 of 3 scenarios");
+      expect(advice.match(/test again/gi)).toHaveLength(1);
+    });
+
+    it("a timeout and a cancel ask for a rerun once", async () => {
+      const { summary, fixes } = await run([
+        () => ({ status: "timeout", durationMs: 0 }),
+        () => ({ status: "not_run", error: "Cancelled", durationMs: 0 }),
+        () => ({ status: "not_run", error: "Cancelled", durationMs: 0 }),
+      ]);
+      const advice = overallAdvice(summary, fixes);
+      expect(advice).toMatch(/^Nothing was evaluated\./);
+      expect(advice.match(/run (?:the test|it) again/gi)).toHaveLength(1);
+    });
+
+    it("a key error in a failing test asks for a rerun once", async () => {
+      const { summary, fixes } = await run([
+        () => ({ status: "ok", text: "Thanks!", durationMs: 0 }),
+        () => ({ status: "model_error", error: "The provider rejected the API key", durationMs: 0 }),
+        pass,
+      ]);
+      const advice = overallAdvice(summary, fixes);
+      expect(advice).toContain("Check your API key");
+      expect(advice.match(/(?:run the test|test) again/gi)).toHaveLength(1);
+    });
+
+    it("two one-sided safety refusals state the asymmetry point once", async () => {
+      const { summary, fixes } = await run([
+        (v) => (v === "b" ? { status: "provider_refused", durationMs: 0 } : pass()),
+        (v) => (v === "b" ? { status: "provider_refused", durationMs: 0 } : pass()),
+        pass,
+      ]);
+      const advice = overallAdvice(summary, fixes);
+      expect(advice.match(/declined only Version B/g)).toHaveLength(2);
+      expect(advice).toContain("These asymmetries may themselves be the harm under test (one sample each).");
+      expect(advice).not.toContain("That asymmetry");
+    });
+  });
+
   it("counts only refusal-caused results as refusals when another scenario is inconclusive by word matching", async () => {
     const { renderInputs } = await import("../render");
     const first = renderInputs(scenarios[0]);

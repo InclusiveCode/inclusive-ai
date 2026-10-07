@@ -62,15 +62,19 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
       `The provider's safety system declined both versions in ${refusedBoth} of ${scen(total)}. ${REFUSAL_MATTERS}`,
     );
   }
+  let asymmetries = 0;
   for (const s of refusedOne) {
     const v = s.run.responses.a.status === "provider_refused" ? "a" : "b";
     const other = s.run.responses[v === "a" ? "b" : "a"];
+    if (other.status === "ok") asymmetries += 1;
     notes.push(
       other.status === "ok"
-        ? `In “${s.scenario.title}”, the provider's safety system declined only ${variantLabel(s.scenario, v)} and answered the other version. That asymmetry may itself be the harm under test (one sample).`
+        ? `In “${s.scenario.title}”, the provider's safety system declined only ${variantLabel(s.scenario, v)} and answered the other version.`
         : `In “${s.scenario.title}”, the provider's safety system declined ${variantLabel(s.scenario, v)}.`,
     );
   }
+  if (asymmetries === 1) notes.push("That asymmetry may itself be the harm under test (one sample).");
+  if (asymmetries > 1) notes.push("These asymmetries may themselves be the harm under test (one sample each).");
   if (failed.length > 0) {
     const statuses = failed.flatMap(pair).filter((r) => FAILED.has(r.status));
     // The reason names only the failed calls, never a refusal or a cancel from the same scenario.
@@ -89,17 +93,23 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
     if (refusedBoth === total) {
       return `The provider's safety system declined every request, so nothing was evaluated. ${REFUSAL_MATTERS} Try another model, or check how your provider handles this content.`;
     }
-    return [`Nothing was evaluated.`, ...notes, cancelled > 0 ? "Run it again when you're ready." : ""].filter(Boolean).join(" ");
+    return [`Nothing was evaluated.`, ...notes, cancelled > 0 && failed.length === 0 ? "Run it again when you're ready." : ""].filter(Boolean).join(" ");
   }
 
   const tail = notes.length > 0 ? ` ${notes.join(" ")}` : "";
+  // The provider-refusal note already says these are ordinary requests; don't say it twice.
+  const sayOrdinary = !tail.includes(REFUSAL_MATTERS);
   if (summary.failedScenarios > 0) {
     const n = summary.failedScenarios;
+    // The failed-call note already asks for a rerun.
+    const again = failed.length === 0 ? ", and test again." : ".";
     const next =
       fixes.length > 0
-        ? "Review the evidence below, add the suggested lines, and test again."
-        : "The lab's suggested lines for these checks are already in your prompt, or none apply, so review the evidence below, adjust your own wording, and test again.";
-    return `Your prompt produced a failing response in ${n} of ${scen(total)}. ${next}${tail}`;
+        ? `Review the evidence below, add the suggested lines${again}`
+        : `The lab's suggested lines for these checks are already in your prompt, or none apply, so review the evidence below, adjust your own wording${again}`;
+    // The assistant's own refusals and empty replies are worth naming even next to a failure.
+    const unjudged = unjudgedExplanations(summary, scen(total), { sayOrdinary, sayRerun: false });
+    return [`Your prompt produced a failing response in ${n} of ${scen(total)}. ${next}${tail}`, unjudged.refusal, unjudged.empty].filter(Boolean).join(" ");
   }
   if (summary.headline === "All displayed checks passed") {
     return "No displayed check failed in this sample. That is evidence, not proof: run it again, and test with your own real traffic too.";
@@ -107,9 +117,8 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
   if (summary.outOfScopeScenarios > 0 && summary.outOfScopeScenarios === ran) {
     return `This test could not evaluate your prompt.${tail}`;
   }
-  // The provider-refusal note already says these are ordinary requests; don't say it twice.
-  // Nor ask for a rerun twice when the failed-call note already does.
-  const unjudged = unjudgedExplanations(summary, scen(total), { sayOrdinary: !tail.includes(REFUSAL_MATTERS), sayRerun: failed.length === 0 });
+  // Don't ask for a rerun twice when the failed-call note already does.
+  const unjudged = unjudgedExplanations(summary, scen(total), { sayOrdinary, sayRerun: failed.length === 0 });
   if (notes.length > 0) {
     return [`This result is incomplete.${tail}`, ...unjudged.parts].join(" ");
   }
@@ -133,7 +142,7 @@ function unjudgedExplanations(
   summary: PromptTestSummary,
   ofTotal: string,
   { sayOrdinary, sayRerun }: { sayOrdinary: boolean; sayRerun: boolean },
-): { parts: string[]; onlyWordMatching: boolean } {
+): { refusal?: string; empty?: string; parts: string[]; onlyWordMatching: boolean } {
   const inScope = summary.scenarios.filter((s) => s.outOfScope === null);
   const oosInconclusive = summary.scenarios.reduce((k, s) => k + (s.outOfScope === null ? 0 : s.counts.inconclusive), 0);
   const inDeclined = oosInconclusive + summary.uncountedFails;
@@ -143,14 +152,16 @@ function unjudgedExplanations(
   const rest = summary.counts.inconclusive - oosInconclusive - refusals - empties;
   const results = (k: number) => (k === 1 ? "One result" : `${k} results`);
   const parts: string[] = [];
+  let refusal: string | undefined;
+  let empty: string | undefined;
   if (refusals > 0) {
     const declined = refusalIn.filter((k) => k > 0).length;
-    parts.push(
-      `Your assistant declined the request in ${declined} of ${ofTotal}, so ${results(refusals).toLowerCase()} could not be judged. A refusal never passes.${sayOrdinary ? ` ${ORDINARY_REQUESTS}` : ""} Read the responses below (open “Show the inputs and responses”) and check whether your prompt should let your assistant help.`,
-    );
+    refusal = `Your assistant declined the request in ${declined} of ${ofTotal}, so ${results(refusals).toLowerCase()} could not be judged. A refusal never passes.${sayOrdinary ? ` ${ORDINARY_REQUESTS}` : ""} Read the responses below (open “Show the inputs and responses”) and check whether your prompt should let your assistant help.`;
+    parts.push(refusal);
   }
   if (empties > 0) {
-    parts.push(`${results(empties)} could not be judged because the model returned an empty response. ${sayRerun ? "Run the test again; an empty response" : "An empty response"} is not a pass.`);
+    empty = `${results(empties)} could not be judged because the model returned an empty response. ${sayRerun ? "Run the test again; an empty response" : "An empty response"} is not a pass.`;
+    parts.push(empty);
   }
   if (inDeclined > 0) {
     parts.push(
@@ -165,7 +176,7 @@ function unjudgedExplanations(
       `${results(rest)} couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read ${rest === 1 ? "it" : "them"} yourself below (open “Show the inputs and responses”).`,
     );
   }
-  return { parts, onlyWordMatching: rest > 0 && parts.length === 1 };
+  return { refusal, empty, parts, onlyWordMatching: rest > 0 && parts.length === 1 };
 }
 
 function Issue({ summary, result }: { summary: ScenarioSummary; result: CheckResult }) {
