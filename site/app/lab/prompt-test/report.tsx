@@ -30,30 +30,16 @@ export function outOfScopeAdvice(summary: PromptTestSummary): string | null {
 
 const REFUSAL_MATTERS = "That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users.";
 
-type Cause = "cancelled" | "refused" | "refused_one" | "failed";
+type Status = ScenarioSummary["run"]["responses"]["a"]["status"];
+const FAILED: ReadonlySet<Status> = new Set(["model_error", "timeout", "credentials_unavailable"]);
 
 /**
- * Why a scenario is missing a usable response for at least one version, or null when both
- * versions answered. Cancelling is the user's own action, so it wins. A safety refusal of only one
- * version, while the other answered, is kept apart: that asymmetry may itself be the harm under test.
- */
-function cause(s: ScenarioSummary): Cause | null {
-  const { a, b } = s.run.responses;
-  if (a.status === "ok" && b.status === "ok") return null;
-  if (a.status === "not_run" || b.status === "not_run") return "cancelled";
-  if (a.status === "provider_refused" || b.status === "provider_refused") {
-    return a.status === "ok" || b.status === "ok" ? "refused_one" : "refused";
-  }
-  return "failed";
-}
-
-/**
- * What the overall headline means for the engineer's prompt. Every scenario missing a response
- * for either version gets exactly one cause: cancelled (never started, or stopped mid-request),
- * declined by the provider's safety system (for both versions, or for only one), or a failed call.
- * Each cause gets one sentence, so a refusal and a cancel are always named, a cancel is never
- * blamed on the model, and key or account advice appears only when a call failed in a way a key
- * or account could explain.
+ * What the overall headline means for the engineer's prompt. Causes are counted per version, so a
+ * scenario whose two versions failed differently contributes to each matching note: a cancel
+ * (never started, or stopped mid-request), a safety refusal (of both versions, or of one version,
+ * which is named with that version's label), and a failed call. A refusal and a cancel are always
+ * named, a cancel is never blamed on the model, and key or account advice appears only when a call
+ * failed in a way a key or account could explain.
  */
 export function overallAdvice(summary: PromptTestSummary): string {
   // Scenarios that never started because the test was cancelled are in `skipped`, not in `scenarios`.
@@ -61,24 +47,29 @@ export function overallAdvice(summary: PromptTestSummary): string {
   const total = ran + summary.skipped.length;
   const scen = (n: number) => `${n} scenario${n === 1 ? "" : "s"}`;
   const silent = summary.scenarios.filter(noResponses);
-  const by = (c: Cause) => summary.scenarios.filter((s) => cause(s) === c);
-  const cancelled = summary.skipped.length + by("cancelled").length;
-  const refused = by("refused").length;
-  const refusedOne = by("refused_one");
-  const failed = by("failed");
+  const pair = (s: ScenarioSummary) => [s.run.responses.a, s.run.responses.b];
+  const cancelled = summary.skipped.length + summary.scenarios.filter((s) => pair(s).some((r) => r.status === "not_run")).length;
+  const refusedBoth = summary.scenarios.filter((s) => pair(s).every((r) => r.status === "provider_refused")).length;
+  const refusedOne = summary.scenarios.filter((s) => pair(s).filter((r) => r.status === "provider_refused").length === 1);
+  const failed = summary.scenarios.filter((s) => pair(s).some((r) => FAILED.has(r.status)));
 
   const notes: string[] = [];
-  if (refused > 0) {
-    notes.push(`The provider's safety system declined ${refused} of ${scen(total)}. That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users.`);
+  if (refusedBoth > 0) {
+    notes.push(
+      `The provider's safety system declined both versions in ${refusedBoth} of ${scen(total)}. That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users.`,
+    );
   }
   for (const s of refusedOne) {
     const v = s.run.responses.a.status === "provider_refused" ? "a" : "b";
+    const other = s.run.responses[v === "a" ? "b" : "a"];
     notes.push(
-      `In “${s.scenario.title}”, the provider's safety system declined only ${variantLabel(s.scenario, v)} and answered the other version. That asymmetry may itself be the harm under test (one sample).`,
+      other.status === "ok"
+        ? `In “${s.scenario.title}”, the provider's safety system declined only ${variantLabel(s.scenario, v)} and answered the other version. That asymmetry may itself be the harm under test (one sample).`
+        : `In “${s.scenario.title}”, the provider's safety system declined ${variantLabel(s.scenario, v)}.`,
     );
   }
   if (failed.length > 0) {
-    const statuses = failed.flatMap((s) => [s.run.responses.a, s.run.responses.b]);
+    const statuses = failed.flatMap(pair).filter((r) => FAILED.has(r.status));
     const reason = liveAlertText(failed[0].run);
     const keyProblem = statuses.some((r) => r.status === "model_error" || r.status === "credentials_unavailable");
     notes.push(
@@ -87,6 +78,7 @@ export function overallAdvice(summary: PromptTestSummary): string {
     );
   }
   if (cancelled > 0) notes.push(`The test was cancelled before ${cancelled} of ${scen(total)} finished.`);
+  const refused = refusedBoth;
 
   if (silent.length === ran) {
     // Nothing usable came back from any scenario that ran (or none ran).

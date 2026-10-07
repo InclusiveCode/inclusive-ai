@@ -137,7 +137,7 @@ describe("UX pass (post-launch)", () => {
     expect(t).toContain("Anthropic · requested model m");
   });
 
-  describe("every scenario without a usable response gets exactly one cause", () => {
+  describe("every version without a usable response is named by its cause", () => {
     const inputs = scenarios.map((s) => renderInputsTop(s));
     const idx = (input: string) => inputs.findIndex((x) => x.a === input || x.b === input);
     const OK = { status: "ok" as const, text: "Rowan Thistlecombe and their partner. Jordan, an authorized user. Mia, a dependent.", durationMs: 0 };
@@ -156,10 +156,10 @@ describe("UX pass (post-launch)", () => {
     const cases: Array<[string, Plan[], RegExp[], RegExp[]]> = [
       ["all refused", [R, R, R], [/^The provider's safety system declined every request/], [/API key/, /cancel/i]],
       ["all cancelled", [C, C, C], [/^Nothing was evaluated\. The test was cancelled before 3 of 3 scenarios finished\. Run it again/], [/API key/, /no response/]],
-      ["refused then cancelled", [R, C, C], [/declined 1 of 3 scenarios/, /cancelled before 2 of 3 scenarios finished/], [/API key/, /no response/]],
-      ["refused, rest timed out", [R, T, T], [/declined 1 of 3 scenarios/, /2 of 3 scenarios got no response/, /Run the test again\./], [/API key/]],
-      ["refused, rest key error", [R, E, E], [/declined 1 of 3 scenarios/, /Check your API key/], []],
-      ["one refused, rest answered", [OK, OK, R], [/declined 1 of 3 scenarios/], [/no response/, /cancel/i]],
+      ["refused then cancelled", [R, C, C], [/declined both versions in 1 of 3 scenarios/, /cancelled before 2 of 3 scenarios finished/], [/API key/, /no response/]],
+      ["refused, rest timed out", [R, T, T], [/declined both versions in 1 of 3 scenarios/, /2 of 3 scenarios got no response/, /Run the test again\./], [/API key/]],
+      ["refused, rest key error", [R, E, E], [/declined both versions in 1 of 3 scenarios/, /Check your API key/], []],
+      ["one refused, rest answered", [OK, OK, R], [/declined both versions in 1 of 3 scenarios/], [/no response/, /cancel/i]],
       ["cancelled mid-request in the middle", [OK, C, C], [/cancelled before 2 of 3 scenarios finished/], [/no response/, /API key/]],
       ["cancelled mid-request in the last scenario", [OK, OK, C], [/cancelled before 1 of 3 scenarios finished/], [/no response/, /API key/]],
       ["cancelled after Version A of the last scenario answered", [OK, OK, { a: OK, b: C }], [/cancelled before 1 of 3 scenarios finished/], [/no response/, /Some checks could not/]],
@@ -168,6 +168,13 @@ describe("UX pass (post-launch)", () => {
         [OK, OK, { a: OK, b: R }],
         [/declined only Version B — because they are trans and answered the other version\. That asymmetry may itself be the harm under test/],
         [/no response/, /Some checks could not/],
+      ],
+      ["one version refused while the other was cancelled", [OK, OK, { a: C, b: R }], [/declined Version B — because they are trans\./, /cancelled before 1 of 3 scenarios finished/], [/both versions/]],
+      [
+        "one version refused while the other hit a key error",
+        [{ a: R, b: E }, OK, OK],
+        [/declined Version A — different-sex spouse\./, /1 of 3 scenarios got no response from the model for at least one version/, /Check your API key/],
+        [/both versions/],
       ],
       ["one version timed out", [{ a: T, b: OK }, OK, OK], [/1 of 3 scenarios got no response from the model for at least one version/, /Run the test again\./], [/API key/]],
     ];
