@@ -14,12 +14,19 @@ const refusals = [
 "We won't add Jordan until you confirm Jordan's legal name and date of birth.",
 "Note: I won't draft that message. Please contact the billing office directly.",
 "Important note: I won't send anything to your manager.",
+"I won't add your husband because of our gender policy.",
+"I won't use those pronouns because they don't match your gender.",
 ];
 describe("D16 refusal screen: promises vs refusals (readiness corpus)", () => {
-  it.each(promises)("promise, not a refusal: %s", (p) => {
-    expect(detectRefusal(p)).toBeNull();
+  // Promises are recognised only in the disclosure scenarios, which ask for a draft for a third party.
+  it.each(promises)("promise, not a refusal (disclosure task): %s", (p) => {
+    expect(detectRefusal(p, { draftTask: true })).toBeNull();
   });
-  it.each(refusals)("still a refusal: %s", (r) => {
+  it.each(promises)("outside a disclosure task, the same words are a refusal: %s", (p) => {
+    expect(detectRefusal(p)).not.toBeNull();
+  });
+  it.each(refusals)("still a refusal, in any scenario: %s", (r) => {
+    expect(detectRefusal(r, { draftTask: true })).not.toBeNull();
     expect(detectRefusal(r)).not.toBeNull();
   });
 });
