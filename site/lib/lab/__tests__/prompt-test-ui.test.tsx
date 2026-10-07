@@ -4,6 +4,7 @@ import { PromptTestClient } from "../../../app/lab/prompt-test/prompt-test-clien
 import { overallAdvice, PromptTestReport } from "../../../app/lab/prompt-test/report";
 import { runPromptTest, suggestedFixes, summarizePromptTest } from "../prompt-test";
 import type { Responder } from "../run";
+import { renderInputs as renderInputsTop } from "../render";
 import { scenarios } from "../scenarios";
 import { SIMULATED_CONFIG, SIMULATOR_VERSION, simulatedResponder, SNIPPET_RULES } from "../simulator";
 
@@ -121,5 +122,148 @@ describe("overallAdvice", () => {
     expect(overallAdvice(fixed)).toBe(
       "No check failed. 2 results couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read them yourself below (open “Show the inputs and responses”). Inconclusive is not a pass, but it is not a failure either.",
     );
+  });
+});
+
+describe("UX pass (post-launch)", () => {
+  it("when no response comes back, says why once and lists no per-check noise", async () => {
+    const failing: Responder = async () => ({ status: "model_error", error: "The provider rejected the API key", durationMs: 0 });
+    const { summary, fixes } = await test("Prompt", failing, "live");
+    const t = text(renderToStaticMarkup(<PromptTestReport summary={summary} fixes={fixes} />));
+    expect(overallAdvice(summary)).toMatch(/^Nothing was evaluated\. 3 of 3 scenarios got no response from the model/);
+    expect(t).toContain("Check your API key, the model you picked, and your provider account");
+    expect(t).toContain("Neither version returned a usable response (see above), so this scenario's checks didn't run.");
+    expect(t).not.toContain("Not evaluated: model error");
+    expect(t).toContain("Anthropic · requested model m");
+  });
+
+  describe("every version without a usable response is named by its cause", () => {
+    const inputs = scenarios.map((s) => renderInputsTop(s));
+    const idx = (input: string) => inputs.findIndex((x) => x.a === input || x.b === input);
+    const OK = { status: "ok" as const, text: "Rowan Thistlecombe and their partner. Jordan, an authorized user. Mia, a dependent.", durationMs: 0 };
+    const R = { status: "provider_refused" as const, durationMs: 0 };
+    const T = { status: "timeout" as const, durationMs: 0 };
+    const E = { status: "model_error" as const, error: "The provider rejected the API key", durationMs: 0 };
+    const C = { status: "not_run" as const, error: "Cancelled", durationMs: 0 };
+    type R = typeof OK | typeof R | typeof T | typeof E | typeof C;
+    type Plan = R | { a: R; b: R };
+    const per = (plan: Plan[]): Responder => async ({ input }) => {
+      const i = idx(input);
+      const p = plan[i];
+      return "a" in p ? (inputs[i].a === input ? p.a : p.b) : p;
+    };
+
+    const cases: Array<[string, Plan[], RegExp[], RegExp[]]> = [
+      ["all refused", [R, R, R], [/^The provider's safety system declined every request/], [/API key/, /cancel/i]],
+      ["all cancelled", [C, C, C], [/^Nothing was evaluated\. The test was cancelled before 3 of 3 scenarios finished\. Run it again/], [/API key/, /no response/]],
+      ["refused then cancelled", [R, C, C], [/declined both versions in 1 of 3 scenarios/, /cancelled before 2 of 3 scenarios finished/], [/API key/, /no response/]],
+      ["refused, rest timed out", [R, T, T], [/declined both versions in 1 of 3 scenarios/, /2 of 3 scenarios got no response/, /Run the test again\./], [/API key/]],
+      ["refused, rest key error", [R, E, E], [/declined both versions in 1 of 3 scenarios/, /Check your API key/], []],
+      ["one refused, rest answered", [OK, OK, R], [/declined both versions in 1 of 3 scenarios/], [/no response/, /cancel/i]],
+      ["cancelled mid-request in the middle", [OK, C, C], [/cancelled before 2 of 3 scenarios finished/], [/no response/, /API key/]],
+      ["cancelled mid-request in the last scenario", [OK, OK, C], [/cancelled before 1 of 3 scenarios finished/], [/no response/, /API key/]],
+      ["cancelled after Version A of the last scenario answered", [OK, OK, { a: OK, b: C }], [/cancelled before 1 of 3 scenarios finished/], [/no response/, /Some checks could not/]],
+      [
+        "safety system declined only Version B (the trans version) in one scenario",
+        [OK, OK, { a: OK, b: R }],
+        [/declined only Version B — because they are trans and answered the other version\. That asymmetry may itself be the harm under test/],
+        [/no response/, /Some checks could not/],
+      ],
+      ["one version refused while the other was cancelled", [OK, OK, { a: C, b: R }], [/declined Version B — because they are trans\./, /cancelled before 1 of 3 scenarios finished/], [/both versions/]],
+      [
+        "one version refused while the other hit a key error",
+        [{ a: R, b: E }, OK, OK],
+        [/declined Version A — different-sex spouse\./, /1 of 3 scenarios got no response from the model for at least one version/, /Check your API key/],
+        [/both versions/],
+      ],
+      [
+        "a timeout in one scenario and a key error in another name both reasons",
+        [T, E, OK],
+        [/2 of 3 scenarios got no response from the model for at least one version \(Live request timed out — not evaluated; Live request failed — not evaluated \(The provider rejected the API key\)\)/, /Check your API key/],
+        [],
+      ],
+      ["a cancel and a timeout in the same scenario", [{ a: C, b: T }, OK, OK], [/got no response from the model for at least one version \(Live request timed out — not evaluated\)/, /cancelled before 1 of 3/], []],
+      ["one version timed out", [{ a: T, b: OK }, OK, OK], [/1 of 3 scenarios got no response from the model for at least one version/, /Run the test again\./], [/API key/]],
+    ];
+    for (const [name, plan, must, mustNot] of cases) {
+      it(name, async () => {
+        const advice = overallAdvice((await test("Prompt", per(plan), "live")).summary);
+        for (const re of must) expect(advice, `${name}: ${advice}`).toMatch(re);
+        for (const re of mustNot) expect(advice, `${name}: ${advice}`).not.toMatch(re);
+        expect(advice.match(/incomplete/g)?.length ?? 0, advice).toBeLessThanOrEqual(1);
+        // A refusal is named once, and never as the reason for a failed call; a cancel never appears in the failed-call sentence.
+        expect(advice.match(/declined/g)?.length ?? 0, advice).toBeLessThanOrEqual(1);
+        expect(advice, advice).not.toMatch(/no response from the model[^.]*\((?:[^)]*(?:Provider declined|cancelled))/);
+      });
+    }
+
+    it("the scenario card also flags a one-sided safety refusal", async () => {
+      const { summary, fixes } = await test("Prompt", per([OK, OK, { a: OK, b: R }]), "live");
+      const t = text(renderToStaticMarkup(<PromptTestReport summary={summary} fixes={fixes} />));
+      expect(t).toContain("Only Version B was declined by the provider's safety system (one sample). This asymmetry may itself be the harm under test.");
+    });
+
+    it("a real abort while a request is in flight (and skipped scenarios after it) counts as cancelled", async () => {
+      const { runPromptTest: run } = await import("../prompt-test");
+      for (const abortAtCall of [3, 5]) {
+        const controller = new AbortController();
+        let calls = 0;
+        const out = await run({
+          instruction: "P",
+          responderFor: () => async () => {
+            calls += 1;
+            if (calls >= abortAtCall) {
+              controller.abort(); // the user presses Cancel while this request is in flight
+              return C;
+            }
+            return OK;
+          },
+          config: { provider: "anthropic", model: "m", temperature: 0, maxTokens: 1024 },
+          mode: "live",
+          responderVersion: "v",
+          testId: "t",
+          createdAt: "2026-10-07T00:00:00.000Z",
+          signal: controller.signal,
+        });
+        const advice = overallAdvice(summarizePromptTest(out));
+        const expected = abortAtCall === 3 ? 2 : 1;
+        expect(advice, advice).toContain(`The test was cancelled before ${expected} of 3 scenarios finished.`);
+        expect(advice).not.toMatch(/no response/);
+      }
+    });
+  });
+
+  it("groups evidence per version: one “Version B:” label for several excerpts", async () => {
+    const s = (await import("../suites")).findScenario("health-stated-identity")!;
+    const { renderInputs } = await import("../render");
+    const { a } = renderInputs(s);
+    const responder: Responder = async ({ input }) => ({
+      status: "ok",
+      durationMs: 0,
+      text: input === a ? "Rowan is a new patient. They and their partner hope to start a family." : "Rowan is a new patient. He and his partner hope to start a family.",
+    });
+    const { runPromptTest } = await import("../prompt-test");
+    const out = await runPromptTest({
+      instruction: "P",
+      scenarios: [s],
+      responderFor: () => responder,
+      config: { provider: "anthropic", model: "m", temperature: 0, maxTokens: 1024 },
+      mode: "live",
+      responderVersion: "v",
+      testId: "t",
+      createdAt: "2026-10-07T00:00:00.000Z",
+    });
+    const html = renderToStaticMarkup(<PromptTestReport summary={summarizePromptTest(out)} fixes={suggestedFixes(out)} />);
+    const start = html.indexOf("Stated pronouns respected");
+    const block = html.slice(start, html.indexOf("Why it matters", start));
+    expect(block.match(/Version B:/g)).toHaveLength(1);
+    expect(block.match(/<mark/g)!.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("asks what the assistant does before asking for the prompt", () => {
+    const t = text(renderToStaticMarkup(<PromptTestClient />));
+    expect(t.indexOf("1. What does your assistant do?")).toBeGreaterThan(-1);
+    expect(t.indexOf("1. What does your assistant do?")).toBeLessThan(t.indexOf("2. Your system prompt"));
+    expect(t.indexOf("2. Your system prompt")).toBeLessThan(t.indexOf("3. Choose a model"));
   });
 });

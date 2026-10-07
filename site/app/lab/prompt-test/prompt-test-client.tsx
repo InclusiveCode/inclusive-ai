@@ -195,51 +195,15 @@ export function PromptTestClient() {
         </p>
         <h1 className="mt-3 font-display text-[2.625rem] leading-[1.05] tracking-[-0.01em] text-zinc-50 sm:text-6xl">Test your prompt</h1>
         <p className="mt-4 max-w-3xl text-base text-zinc-300 sm:text-lg">
-          Paste the system prompt you are drafting for your AI system. Pick the setting closest to your product, and the lab
-          runs your prompt against {PER_TEST} LGBTQIA+-specific situations in that setting, each sent as two inputs that differ in one
+          Pick the setting closest to your product and paste the system prompt you are drafting for your AI system. The lab runs
+          your prompt against {PER_TEST} LGBTQIA+-specific situations in that setting, each sent as two inputs that differ in one
           detail. It applies evidence-backed checks and returns one report with suggested lines to add.
         </p>
       </header>
 
-      <section aria-labelledby="pt-prompt" className="space-y-5">
-        <h2 id="pt-prompt" className="text-2xl font-bold tracking-tight text-zinc-100">
-          1. Your system prompt
-        </h2>
-        <div>
-          <label htmlFor="pt-prompt-text" className="block font-medium text-zinc-100">
-            System prompt
-          </label>
-          <p id="pt-prompt-help" className="mt-1 text-sm text-zinc-400">
-            Sent as the system message. Up to {MAX_PROMPT_CHARS} characters. Do not include secrets or personal data.
-          </p>
-          <textarea
-            ref={promptRef}
-            id="pt-prompt-text"
-            value={prompt}
-            readOnly={!hydrated}
-            maxLength={MAX_PROMPT_CHARS}
-            rows={10}
-            autoComplete="off"
-            spellCheck={false}
-            aria-describedby="pt-prompt-help pt-prompt-count"
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="You are the assistant for…"
-            className={`mt-2 w-full rounded-md border border-zinc-500 bg-zinc-900 p-3 font-mono text-sm text-zinc-100 ${FOCUS}`}
-          />
-          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-sm">
-            <p id="pt-prompt-count" className="text-zinc-400">
-              {prompt.length} / {MAX_PROMPT_CHARS} characters
-            </p>
-            <button type="button" className={button.secondary} onClick={() => setPrompt(EXAMPLE_PROMPTS[suite.id] ?? EXAMPLE_PROMPTS.healthcare)} disabled={running}>
-              Use an example {suite.shortLabel} prompt
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section aria-labelledby="pt-suite" className="mt-12 space-y-4">
+      <section aria-labelledby="pt-suite" className="space-y-4">
         <h2 id="pt-suite" className="text-2xl font-bold tracking-tight text-zinc-100">
-          2. What does your assistant do?
+          1. What does your assistant do?
         </h2>
         <p className="text-sm text-zinc-400">
           An assistant usually declines tasks outside its job, and a declined task tells you little. Each set covers the same three harms
@@ -281,6 +245,42 @@ export function PromptTestClient() {
             ))}
           </ul>
         </details>
+      </section>
+
+      <section aria-labelledby="pt-prompt" className="mt-12 space-y-5">
+        <h2 id="pt-prompt" className="text-2xl font-bold tracking-tight text-zinc-100">
+          2. Your system prompt
+        </h2>
+        <div>
+          <label htmlFor="pt-prompt-text" className="block font-medium text-zinc-100">
+            System prompt
+          </label>
+          <p id="pt-prompt-help" className="mt-1 text-sm text-zinc-400">
+            Sent as the system message. Up to {MAX_PROMPT_CHARS} characters. Do not include secrets or personal data.
+          </p>
+          <textarea
+            ref={promptRef}
+            id="pt-prompt-text"
+            value={prompt}
+            readOnly={!hydrated}
+            maxLength={MAX_PROMPT_CHARS}
+            rows={10}
+            autoComplete="off"
+            spellCheck={false}
+            aria-describedby="pt-prompt-help pt-prompt-count"
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="You are the assistant for…"
+            className={`mt-2 w-full rounded-md border border-zinc-500 bg-zinc-900 p-3 font-mono text-sm text-zinc-100 ${FOCUS}`}
+          />
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-sm">
+            <p id="pt-prompt-count" className="text-zinc-400">
+              {prompt.length} / {MAX_PROMPT_CHARS} characters
+            </p>
+            <button type="button" className={button.secondary} onClick={() => setPrompt(EXAMPLE_PROMPTS[suite.id] ?? EXAMPLE_PROMPTS.healthcare)} disabled={running}>
+              Use an example {suite.shortLabel} prompt
+            </button>
+          </div>
+        </div>
       </section>
 
       <section aria-labelledby="pt-source" className="mt-12 space-y-4">
