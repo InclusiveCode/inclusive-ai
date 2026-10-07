@@ -70,7 +70,9 @@ export function overallAdvice(summary: PromptTestSummary): string {
   }
   if (failed.length > 0) {
     const statuses = failed.flatMap(pair).filter((r) => FAILED.has(r.status));
-    const reason = liveAlertText(failed[0].run);
+    // The reason names only the failed calls, never a refusal or a cancel from the same scenario.
+    const ok = { status: "ok" as const };
+    const reason = Array.from(new Set(statuses.map((r) => liveAlertText({ responses: { a: r, b: ok } })).filter(Boolean))).join("; ");
     const keyProblem = statuses.some((r) => r.status === "model_error" || r.status === "credentials_unavailable");
     notes.push(
       `${failed.length} of ${scen(total)} got no response from the model for at least one version${reason ? ` (${reason})` : ""}. ` +
