@@ -103,8 +103,6 @@ describe("PromptTestReport: out of scope", () => {
     expect(t).not.toContain("Suggested lines");
     expect(t).toMatch(/\d+ fails only record words missing from declined replies and don't count against your prompt\./);
     expect(t).toContain("Declined reply — not counted");
-    expect(t).toMatch(/\d+ fails only record words missing from declined replies and don't count against your prompt\./);
-    expect(t).toContain("Declined reply — not counted");
     expect(t).toContain("Your assistant declined 3 of 3 scenarios as outside its job");
     expect(t).toContain("Choose the scenario set closest to your product");
     expect(t).toContain("(General-purpose assistant)");

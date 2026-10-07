@@ -105,6 +105,8 @@ export function PromptTestClient() {
     const n = testCount + 1;
     const controller = new AbortController();
     cancelRef.current = controller;
+    // A new run replaces the last report, so its results are never mistaken for this run's.
+    setResult(null);
     setRunning(true);
     setCancellable(true);
     setStatus("Starting…");
@@ -341,8 +343,9 @@ export function PromptTestClient() {
           </div>
         ) : (
           <p className="mt-4 rounded-lg border border-dashed border-zinc-700 p-3 text-sm text-zinc-400">
-            Your report appears here: an overall verdict, each scenario&apos;s failed checks with the exact words that triggered them, and
-            suggested lines to add.
+            {running
+              ? "Running the test. The new report appears here when every scenario has finished."
+              : "Your report appears here: an overall verdict, each scenario's failed checks with the exact words that triggered them, and suggested lines to add."}
           </p>
         )}
       </section>
