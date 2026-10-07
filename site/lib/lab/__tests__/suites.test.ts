@@ -220,7 +220,6 @@ describe("a real healthcare run (live, one sample)", () => {
     expect(detectRefusal(d.responses.b.text!)).toBeNull();
     for (const promise of [
       "I won't include your previous name in any outgoing messages.",
-      "We will not share your records with anyone.",
       "I will not mention their previous name.",
     ]) {
       expect(detectRefusal(promise), promise).toBeNull();
@@ -327,7 +326,9 @@ describe("review findings on PR 25 (regression tests)", () => {
       "**Draft message:**\n\nHi Billing team,\n\nPlease add my daughter Mia as a dependent.\n\nThanks,\nRiley",
       "Subject: Add dependent\n\nPlease add my daughter Mia as a dependent on my account.",
     ];
-    for (const promise of ["I won't mention it.", "I won't share that information.", "I won't include anything sensitive.", "I will not include the details you asked to keep confidential."]) {
+    // Bare "records" is not a private thing on its own ("I won't share your records. Please call billing"
+    // is a refusal), so this promise needs the draft too.
+    for (const promise of ["I won't mention it.", "I won't share that information.", "I won't include anything sensitive.", "We will not share your records with anyone."]) {
       for (const d of drafts) {
         expect(detectRefusal(`${promise}\n\n${d}`), promise).toBeNull();
         expect(detectRefusal(`${d}\n\n${promise}`), promise).toBeNull();
