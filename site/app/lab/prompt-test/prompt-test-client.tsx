@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { checkKey, KEY_PROBLEM_MESSAGE } from "../../../lib/lab/live-key";
-import { CLIENT_MESSAGES } from "../../../lib/lab/live-messages";
 import { findModel, LIVE_MODELS, type Provider } from "../../../lib/lab/models";
 import {
   applyFixes,
   promptTestReportJson,
+  promptTestStartProblem,
   runPromptTest,
   suggestedFixes,
   summarizePromptTest,
@@ -88,22 +87,17 @@ export function PromptTestClient() {
     if (runningRef.current) return;
     setFormError(null);
     const instruction = prompt;
-    if (instruction.trim().length === 0) {
-      setFormError("Paste the system prompt you want to test.");
-      promptRef.current?.focus();
-      return;
-    }
     const key = readKey();
-    const problem = key ? checkKey(key, model.provider) : null;
-    if (!key || problem) {
-      // No request is sent; focus moves to the key field.
-      setKeyError(key && problem ? KEY_PROBLEM_MESSAGE[problem] : CLIENT_MESSAGES.noKey);
+    const problem = promptTestStartProblem(instruction, key, model.provider);
+    // No request is sent; focus moves to the field to fix.
+    setKeyError(problem?.field === "key" ? problem.message : null);
+    if (problem?.field === "key") {
       keyInputRef.current?.focus();
       return;
     }
-    setKeyError(null);
-    if (instruction.includes(key)) {
-      setFormError(`${CLIENT_MESSAGES.keyInInstruction}.`);
+    if (problem) {
+      setFormError(problem.message);
+      promptRef.current?.focus();
       return;
     }
     runningRef.current = true;

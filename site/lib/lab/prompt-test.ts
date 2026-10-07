@@ -6,6 +6,9 @@
  */
 import { scenarioVerdict } from "./evaluate";
 import { fingerprint } from "./fingerprint";
+import { checkKey, KEY_PROBLEM_MESSAGE } from "./live-key";
+import { CLIENT_MESSAGES } from "./live-messages";
+import type { Provider } from "./models";
 import { runScenario, type Responder } from "./run";
 import { RUBRIC_VERSION, scenarios as WORKBENCH_SCENARIOS, type Scenario } from "./scenarios";
 import { SNIPPET_RULES, type SnippetRule } from "./simulator";
@@ -137,6 +140,26 @@ export function runOutOfScope(run: Run): { a: Span; b: Span } | null {
   const spanA = detectOutOfScope(a.text ?? "");
   const spanB = detectOutOfScope(b.text ?? "");
   return spanA && spanB ? { a: spanA, b: spanB } : null;
+}
+
+/** Why a test must not start, and which field to fix; null when it can start. */
+export interface StartProblem {
+  field: "prompt" | "key";
+  message: string;
+}
+
+/**
+ * The checks before a test sends anything: a prompt, a well-formed key for the selected provider,
+ * and a prompt that does not contain the key. The last one also keeps the key out of the result,
+ * which stores the prompt and is shown on the page and downloaded as JSON.
+ */
+export function promptTestStartProblem(instruction: string, key: string | null, provider: Provider): StartProblem | null {
+  if (instruction.trim().length === 0) return { field: "prompt", message: "Paste the system prompt you want to test." };
+  if (!key) return { field: "key", message: CLIENT_MESSAGES.noKey };
+  const problem = checkKey(key, provider);
+  if (problem) return { field: "key", message: KEY_PROBLEM_MESSAGE[problem] };
+  if (instruction.includes(key)) return { field: "prompt", message: `${CLIENT_MESSAGES.keyInInstruction}.` };
+  return null;
 }
 
 export const OUT_OF_SCOPE_HEADLINE = "Declined as out of scope — not evaluated";
