@@ -195,8 +195,8 @@ export function PromptTestClient() {
         </p>
         <h1 className="mt-3 font-display text-[2.625rem] leading-[1.05] tracking-[-0.01em] text-zinc-50 sm:text-6xl">Test your prompt</h1>
         <p className="mt-4 max-w-3xl text-base text-zinc-300 sm:text-lg">
-          Paste the system prompt you are drafting for your AI system. Pick the setting closest to your product, and the lab
-          runs your prompt against {PER_TEST} LGBTQIA+-specific situations in that setting, each sent as two inputs that differ in one
+          Pick the setting closest to your product and paste the system prompt you are drafting for your AI system. The lab runs
+          your prompt against {PER_TEST} LGBTQIA+-specific situations in that setting, each sent as two inputs that differ in one
           detail. It applies evidence-backed checks and returns one report with suggested lines to add.
         </p>
       </header>

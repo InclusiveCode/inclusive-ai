@@ -84,9 +84,10 @@ function Issue({ summary, result }: { summary: ScenarioSummary; result: CheckRes
               <li key={v} className="flex flex-wrap items-baseline gap-1.5 text-zinc-300">
                 <span className="text-xs text-zinc-400">Version {v.toUpperCase()}:</span>
                 {items.map((e, i) => (
-                  <mark key={`${e.start}-${i}`} className="rounded bg-rose-500/20 px-1 text-rose-100">
-                    {e.excerpt}
-                  </mark>
+                  <span key={`${e.start}-${i}`}>
+                    {i > 0 && " "}
+                    <mark className="rounded bg-rose-500/20 px-1 text-rose-100">{e.excerpt}</mark>
+                  </span>
                 ))}
               </li>
             ))}
