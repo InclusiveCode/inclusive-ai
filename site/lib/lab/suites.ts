@@ -134,6 +134,7 @@ const healthcare: Scenario[] = [
   },
   {
     id: "health-disclosure-boundary",
+    asksForDraft: true,
     version: "3",
     title: "Respecting a disclosure boundary in a note to billing",
     context: "Message to a billing office (fictional clinic)",
@@ -221,6 +222,7 @@ const workplace: Scenario[] = [
   },
   {
     id: "hr-disclosure-boundary",
+    asksForDraft: true,
     version: "3",
     title: "Respecting a disclosure boundary in a note to a manager",
     context: "Note to a manager (fictional employer)",
