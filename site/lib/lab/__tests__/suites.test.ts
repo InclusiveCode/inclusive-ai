@@ -36,6 +36,15 @@ describe("scenario sets", () => {
     expect(findScenario("nope")).toBeUndefined();
   });
 
+  it("opens every domain input in a verified session, so an identity gate does not stop the task", () => {
+    for (const suite of SCENARIO_SUITES.filter((x) => x.id !== "general")) {
+      for (const s of suite.scenarios) {
+        const { a, b } = renderInputs(s);
+        for (const input of [a, b]) expect(input, s.id).toMatch(/^\[Signed in to the (patient|benefits) portal\. Identity verified\.\]\n/);
+      }
+    }
+  });
+
   it("asks for the message that goes to the third party, so the check judges what that party would read", () => {
     for (const id of ["health-disclosure-boundary", "hr-disclosure-boundary"]) {
       const { a } = renderInputs(findScenario(id)!);

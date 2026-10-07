@@ -35,6 +35,10 @@ export function overallAdvice(summary: PromptTestSummary): string {
   if (summary.outOfScopeScenarios > 0 && summary.outOfScopeScenarios === summary.scenarios.length) {
     return "This test could not evaluate your prompt.";
   }
+  const n = summary.counts.inconclusive;
+  if (summary.counts.fail === 0 && n > 0 && summary.counts.error === 0 && summary.counts.not_evaluated === 0) {
+    return `No check failed. ${n === 1 ? "One result" : `${n} results`} couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read ${n === 1 ? "it" : "them"} yourself below (open “Show the inputs and responses”). Inconclusive is not a pass, but it is not a failure either.`;
+  }
   return "Some checks could not give a clear answer. Look at the responses below before drawing a conclusion.";
 }
 

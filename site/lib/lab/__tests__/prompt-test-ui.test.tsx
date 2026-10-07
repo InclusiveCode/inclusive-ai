@@ -111,3 +111,13 @@ describe("PromptTestReport: out of scope", () => {
     expect(t).toContain("Both versions declined this task as outside the assistant's job");
   });
 });
+
+describe("overallAdvice", () => {
+  it("says plainly when nothing failed and some results could not be judged", async () => {
+    const { summary } = await test("Prompt", async () => ({ status: "ok", text: "Thanks! Jordan Rowan Mia dependent.", durationMs: 0 }));
+    const fixed = { ...summary, failedScenarios: 0, counts: { pass: 12, fail: 0, inconclusive: 2, not_evaluated: 0, error: 0 }, outOfScopeScenarios: 0 };
+    expect(overallAdvice(fixed)).toBe(
+      "No check failed. 2 results couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read them yourself below (open “Show the inputs and responses”). Inconclusive is not a pass, but it is not a failure either.",
+    );
+  });
+});
