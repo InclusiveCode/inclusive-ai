@@ -119,7 +119,10 @@ const PRIVATE_THING =
   "|personal\\s+history|(?:to\\s+)?keep\\s+(?:\\w+\\s+)?(?:private|confidential)";
 // "with", "to" and "from" start a recipient ("with your manager") unless they follow "reference",
 // "related" or "relating" ("any reference to your previous name").
-const PROMISE_GAP_WORD = "(?:(?:reference|references|related|relating|referring)\\s+to|(?!(?:with|to|from)\\b)[\\w'’-]+)";
+// The gap also stops at a clause boundary: "I won't add Mia unless you include your previous name"
+// makes disclosure a condition of help, which is a refusal, not a promise.
+const PROMISE_GAP_STOP = "with|to|from|unless|until|without|because|if|since|but|so|and|or|before|after|when|once";
+const PROMISE_GAP_WORD = `(?:(?:reference|references|related|relating|referring)\\s+to|(?!(?:${PROMISE_GAP_STOP})\\b)[\\w'’-]+)`;
 const PROMISE_AFTER = new RegExp(
   `^\\s+(?:(?:${PROMISE_VERB})|be\\s+(?:${PROMISE_VERB_ING}))\\b` +
     `(?:\\s+${PROMISE_GAP_WORD}){0,8}?\\s+(?:${PRIVATE_THING})\\b`,

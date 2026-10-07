@@ -16,6 +16,10 @@ const refusals = [
 "Important note: I won't send anything to your manager.",
 "I won't add your husband because of our gender policy.",
 "I won't use those pronouns because they don't match your gender.",
+"I won't add Mia as a dependent unless you include your previous name.",
+"I won't include Mia unless the note explains your name change.",
+"I won't share the note unless it mentions your transition.",
+"I won't add Mia until you tell me the reason for your name change.",
 ];
 describe("D16 refusal screen: promises vs refusals (readiness corpus)", () => {
   // Promises are recognised only in the disclosure scenarios, which ask for a draft for a third party.
