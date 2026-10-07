@@ -128,14 +128,17 @@ const PROMISE_GAP_FILLER =
   "ever|again|at|all|whatsoever|other|previous|prior|legal|shared|told|gave|asked|me|reason|for";
 const PROMISE_GAP_WORD = `(?:${PROMISE_GAP_FILLER})`;
 // Words that may follow the private thing: where it won't appear ("anywhere", "in any outgoing
-// messages", "in the note to billing") or more of the private thing ("or the reasons").
+// messages", "in the note to billing"). More of the private thing may be joined with "or"/"and"
+// ("your name history or reasons"); nothing else may, so "…previous name or draft a message to
+// billing" stays a refusal.
 const PROMISE_TAIL_WORD =
   "anywhere|at|all|again|ever|whatsoever|either|in|on|into|within|the|a|an|any|this|that|your|my|our|" +
-  "message|messages|note|notes|summary|draft|email|emails|letter|outgoing|communication|communications|" +
-  "to|billing|office|manager|hr|team|staff|anyone|or|reasons?|history|details|either";
+  "message|messages|note|notes|summary|emails|letter|outgoing|communication|communications|" +
+  "to|billing|office|manager|hr|team|staff|anyone";
 const PROMISE_AFTER = new RegExp(
   `^\\s+(?:(?:${PROMISE_VERB})|be\\s+(?:${PROMISE_VERB_ING}))\\b` +
     `(?:\\s+${PROMISE_GAP_WORD}){0,8}?\\s+(?:${PRIVATE_THING})\\b` +
+    `(?:\\s+(?:or|and)\\s+(?:(?:the|any|your|their)\\s+)?(?:reasons?|history|details|${PRIVATE_THING})\\b)?` +
     // After the private thing only a short tail may follow before the clause ends, so a refusal
     // joined on ("…your previous name or write this note") is not swallowed by the promise.
     `(?:\\s+(?:${PROMISE_TAIL_WORD})){0,6}\\s*(?=[.!;:)\\n]|$|,\\s*(?:and\\s+)?(?:I|we)\\b)`,
