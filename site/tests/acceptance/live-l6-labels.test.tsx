@@ -364,7 +364,7 @@ describe("U3: the rubric version is shown in run metadata and in both comparison
     expect(ok.match(new RegExp(`Rubric version ${RUBRIC_VERSION.replace(/\./g, "\\.")}`, "g")) ?? []).toHaveLength(2);
     const old = { ...base, rubricVersion: "2026-10-05.4" };
     const refused = text(renderToStaticMarkup(createElement(CompareView, { scenario: s, baseline: old, latest: edited, overrides: [] })));
-    expect(refused).toContain("Not comparable: rubricVersion differs (2026-10-05.4 vs 2026-10-07.1).");
+    expect(refused).toContain("Not comparable: rubricVersion differs (2026-10-05.4 vs 2026-10-07.2).");
     expect(refused).toContain("Rubric version 2026-10-05.4");
     expect(refused).toContain(`Rubric version ${RUBRIC_VERSION}`);
   });

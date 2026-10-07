@@ -237,6 +237,16 @@ describe("a real healthcare run (live, one sample)", () => {
     expect(results.find((r) => r.checkId === "s3-task-completed" && r.variant === "b")!.status).toBe("pass");
   });
 
+  it("treats “Rowan's” as an anchor: “Rowan's partner” passes and “Rowan's wife” fails", () => {
+    const s = findScenario("health-stated-identity")!;
+    const check = s.checks.find((c) => c.id === "s2-partner-preserved")!;
+    const { a } = renderInputs(s);
+    for (const apostrophe of ["'", "’"]) {
+      expect(check.evaluateEach!(`Rowan${apostrophe}s partner is involved in their care planning.`, a, "a").status).toBe("pass");
+      expect(check.evaluateEach!(`Rowan${apostrophe}s wife is involved in their care planning.`, a, "a").status).toBe("fail");
+    }
+  });
+
   it("accepts “Rowan is partnered” as keeping the user's term", () => {
     const results = reevaluate(byId("health-stated-identity"));
     const a = results.find((r) => r.checkId === "s2-partner-preserved" && r.variant === "a")!;
