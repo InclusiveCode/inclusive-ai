@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { countsAsFail, type PromptTestSummary, type ScenarioSummary, type SuggestedFix } from "../../../lib/lab/prompt-test";
-import { isRefusalInconclusive } from "../../../lib/lab/evaluate";
+import { isEmptyInconclusive, isRefusalInconclusive } from "../../../lib/lab/evaluate";
 import type { CheckResult } from "../../../lib/lab/types";
 import { providerLabel, returnedModelText } from "../components/banner";
 import { countLine } from "../components/result-card";
@@ -62,14 +62,17 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
       `The provider's safety system declined both versions in ${refusedBoth} of ${scen(total)}. ${REFUSAL_MATTERS}`,
     );
   }
-  for (const s of refusedOne) {
-    const v = s.run.responses.a.status === "provider_refused" ? "a" : "b";
-    const other = s.run.responses[v === "a" ? "b" : "a"];
-    notes.push(
-      other.status === "ok"
-        ? `In “${s.scenario.title}”, the provider's safety system declined only ${variantLabel(s.scenario, v)} and answered the other version. That asymmetry may itself be the harm under test (one sample).`
-        : `In “${s.scenario.title}”, the provider's safety system declined ${variantLabel(s.scenario, v)}.`,
-    );
+  // Scenarios where the other version answered come first, so the asymmetry sentence follows them.
+  const declinedVersion = (s: ScenarioSummary) => (s.run.responses.a.status === "provider_refused" ? "a" : "b");
+  const answered = (s: ScenarioSummary) => s.run.responses[declinedVersion(s) === "a" ? "b" : "a"].status === "ok";
+  const asymmetric = refusedOne.filter(answered);
+  for (const s of asymmetric) {
+    notes.push(`In “${s.scenario.title}”, the provider's safety system declined only ${variantLabel(s.scenario, declinedVersion(s))} and answered the other version.`);
+  }
+  if (asymmetric.length === 1) notes.push("That asymmetry may itself be the harm under test (one sample).");
+  if (asymmetric.length > 1) notes.push("These asymmetries may themselves be the harm under test (one sample each).");
+  for (const s of refusedOne.filter((s) => !answered(s))) {
+    notes.push(`In “${s.scenario.title}”, the provider's safety system declined ${variantLabel(s.scenario, declinedVersion(s))}.`);
   }
   if (failed.length > 0) {
     const statuses = failed.flatMap(pair).filter((r) => FAILED.has(r.status));
@@ -78,7 +81,7 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
     const reason = Array.from(new Set(statuses.map((r) => liveAlertText({ responses: { a: r, b: ok } })).filter(Boolean))).join("; ");
     const keyProblem = statuses.some((r) => r.status === "model_error" || r.status === "credentials_unavailable");
     notes.push(
-      `${failed.length} of ${scen(total)} got no response from the model for at least one version${reason ? ` (${reason})` : ""}. ` +
+      `${failed.length} of ${scen(total)} got no response from the model for at least one version${reason ? `: ${reason}` : ""}. ` +
         (keyProblem ? "Check your API key, the model you picked, and your provider account, then run the test again." : "Run the test again."),
     );
   }
@@ -89,17 +92,23 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
     if (refusedBoth === total) {
       return `The provider's safety system declined every request, so nothing was evaluated. ${REFUSAL_MATTERS} Try another model, or check how your provider handles this content.`;
     }
-    return [`Nothing was evaluated.`, ...notes, cancelled > 0 ? "Run it again when you're ready." : ""].filter(Boolean).join(" ");
+    return [`Nothing was evaluated.`, ...notes, cancelled > 0 && failed.length === 0 ? "Run it again when you're ready." : ""].filter(Boolean).join(" ");
   }
 
   const tail = notes.length > 0 ? ` ${notes.join(" ")}` : "";
+  // The provider-refusal note already says these are ordinary requests; don't say it twice.
+  const sayOrdinary = !tail.includes(REFUSAL_MATTERS);
   if (summary.failedScenarios > 0) {
     const n = summary.failedScenarios;
+    // The failed-call note already asks for a rerun.
+    const rerun = failed.length === 0;
     const next =
       fixes.length > 0
-        ? "Review the evidence below, add the suggested lines, and test again."
-        : "The lab's suggested lines for these checks are already in your prompt, or none apply, so review the evidence below, adjust your own wording, and test again.";
-    return `Your prompt produced a failing response in ${n} of ${scen(total)}. ${next}${tail}`;
+        ? `Review the evidence below${rerun ? ", add the suggested lines, and test again." : " and add the suggested lines."}`
+        : `The lab's suggested lines for these checks are already in your prompt, or none apply, so review the evidence below${rerun ? ", adjust your own wording, and test again." : " and adjust your own wording."}`;
+    // The assistant's own refusals and empty replies are worth naming even next to a failure.
+    const unjudged = unjudgedExplanations(summary, scen(total), { sayOrdinary, sayRerun: false });
+    return [`Your prompt produced a failing response in ${n} of ${scen(total)}. ${next}${tail}`, unjudged.refusal, unjudged.empty].filter(Boolean).join(" ");
   }
   if (summary.headline === "All displayed checks passed") {
     return "No displayed check failed in this sample. That is evidence, not proof: run it again, and test with your own real traffic too.";
@@ -107,27 +116,66 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
   if (summary.outOfScopeScenarios > 0 && summary.outOfScopeScenarios === ran) {
     return `This test could not evaluate your prompt.${tail}`;
   }
+  // Don't ask for a rerun twice when the failed-call note already does.
+  const unjudged = unjudgedExplanations(summary, scen(total), { sayOrdinary, sayRerun: failed.length === 0 });
   if (notes.length > 0) {
-    return `This result is incomplete.${tail}`;
+    return [`This result is incomplete.${tail}`, ...unjudged.parts].join(" ");
   }
-  const n = summary.counts.inconclusive;
-  if (summary.counts.fail === 0 && n > 0 && summary.counts.error === 0 && summary.counts.not_evaluated === 0) {
-    // A refusal by the assistant itself (not the provider's safety system) leaves checks too empty to judge.
-    const refusalIn = summary.scenarios.filter((s) => s.outOfScope === null).map((s) => s.issues.filter(isRefusalInconclusive).length);
-    const refusals = refusalIn.reduce((a, b) => a + b, 0);
-    if (refusals > 0) {
-      const declined = refusalIn.filter((k) => k > 0).length;
-      const rest = n - refusals;
-      return (
-        `No check failed, but your assistant declined the request in ${declined} of ${scen(total)}, so ${refusals === 1 ? "one result" : `${refusals} results`} could not be judged. A refusal never passes. ${ORDINARY_REQUESTS} Read the responses below (open “Show the inputs and responses”) and check whether your prompt should let your assistant help.` +
-        (rest > 0
-          ? ` ${rest === 1 ? "One other result" : `${rest} other results`} couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read ${rest === 1 ? "it" : "them"} yourself too.`
-          : "")
-      );
-    }
-    return `No check failed. ${n === 1 ? "One result" : `${n} results`} couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read ${n === 1 ? "it" : "them"} yourself below (open “Show the inputs and responses”). Inconclusive is not a pass, but it is not a failure either.`;
+  // Fails that only record words missing from a reply declined as out of scope don't count against the prompt.
+  const countedFails = summary.counts.fail - summary.uncountedFails;
+  if (countedFails === 0 && summary.counts.error === 0 && summary.counts.not_evaluated === 0 && unjudged.parts.length > 0) {
+    const noFail = summary.uncountedFails > 0 ? "No counted check failed." : "No check failed.";
+    const close = unjudged.onlyWordMatching ? " Inconclusive is not a pass, but it is not a failure either." : "";
+    return `${noFail} ${unjudged.parts.join(" ")}${close}`;
   }
   return "Some checks could not give a clear answer. Look at the responses below before drawing a conclusion.";
+}
+
+/**
+ * Why results could not be judged, one sentence per cause. The D16 screen leaves a check too empty
+ * to judge when the assistant itself refused (not the provider's safety system) or returned no text.
+ * Results in scenarios declined as out of scope (inconclusives and the fails that don't count) are
+ * explained by the out-of-scope note; only the rest are word-matching inconclusives.
+ */
+function unjudgedExplanations(
+  summary: PromptTestSummary,
+  ofTotal: string,
+  { sayOrdinary, sayRerun }: { sayOrdinary: boolean; sayRerun: boolean },
+): { refusal?: string; empty?: string; parts: string[]; onlyWordMatching: boolean } {
+  const inScope = summary.scenarios.filter((s) => s.outOfScope === null);
+  const oosInconclusive = summary.scenarios.reduce((k, s) => k + (s.outOfScope === null ? 0 : s.counts.inconclusive), 0);
+  const inDeclined = oosInconclusive + summary.uncountedFails;
+  const refusalIn = inScope.map((s) => s.issues.filter(isRefusalInconclusive).length);
+  const refusals = refusalIn.reduce((a, b) => a + b, 0);
+  const empties = inScope.reduce((k, s) => k + s.issues.filter(isEmptyInconclusive).length, 0);
+  const rest = summary.counts.inconclusive - oosInconclusive - refusals - empties;
+  const results = (k: number) => (k === 1 ? "One result" : `${k} results`);
+  const parts: string[] = [];
+  let refusal: string | undefined;
+  let empty: string | undefined;
+  if (refusals > 0) {
+    const declined = refusalIn.filter((k) => k > 0).length;
+    refusal = `Your assistant declined the request in ${declined} of ${ofTotal}, so ${results(refusals).toLowerCase()} could not be judged. A refusal never passes.${sayOrdinary ? ` ${ORDINARY_REQUESTS}` : ""} Read the responses below (open “Show the inputs and responses”) and check whether your prompt should let your assistant help.`;
+    parts.push(refusal);
+  }
+  if (empties > 0) {
+    empty = `${results(empties)} could not be judged because the model returned an empty response. ${sayRerun ? "Run the test again; an empty response" : "An empty response"} is not a pass.`;
+    parts.push(empty);
+  }
+  if (inDeclined > 0) {
+    parts.push(
+      `${results(inDeclined)} ${inDeclined === 1 ? "is" : "are"} in scenarios your assistant declined as outside its job, so ${inDeclined === 1 ? "it" : "they"} could not be judged (see the note below).`,
+    );
+  } else if (summary.outOfScopeScenarios > 0) {
+    // The note below gives the count; repeating it here could disagree with it after a cancel.
+    parts.push(`Your assistant declined ${summary.outOfScopeScenarios === 1 ? "a scenario" : "some scenarios"} as outside its job (see the note below).`);
+  }
+  if (rest > 0) {
+    parts.push(
+      `${results(rest)} couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read ${rest === 1 ? "it" : "them"} yourself below (open “Show the inputs and responses”).`,
+    );
+  }
+  return { refusal, empty, parts, onlyWordMatching: rest > 0 && parts.length === 1 };
 }
 
 function Issue({ summary, result }: { summary: ScenarioSummary; result: CheckResult }) {
