@@ -78,7 +78,7 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
     const reason = Array.from(new Set(statuses.map((r) => liveAlertText({ responses: { a: r, b: ok } })).filter(Boolean))).join("; ");
     const keyProblem = statuses.some((r) => r.status === "model_error" || r.status === "credentials_unavailable");
     notes.push(
-      `${failed.length} of ${scen(total)} got no response from the model for at least one version${reason ? ` (${reason})` : ""}. ` +
+      `${failed.length} of ${scen(total)} got no response from the model for at least one version${reason ? `: ${reason}` : ""}. ` +
         (keyProblem ? "Check your API key, the model you picked, and your provider account, then run the test again." : "Run the test again."),
     );
   }

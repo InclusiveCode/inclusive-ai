@@ -228,10 +228,10 @@ describe("UX pass (post-launch)", () => {
       [
         "a timeout in one scenario and a key error in another name both reasons",
         [T, E, OK],
-        [/2 of 3 scenarios got no response from the model for at least one version \(Live request timed out — not evaluated; Live request failed — not evaluated \(The provider rejected the API key\)\)/, /Check your API key/],
+        [/2 of 3 scenarios got no response from the model for at least one version: Live request timed out — not evaluated; Live request failed — not evaluated \(The provider rejected the API key\)\./, /Check your API key/],
         [],
       ],
-      ["a cancel and a timeout in the same scenario", [{ a: C, b: T }, OK, OK], [/got no response from the model for at least one version \(Live request timed out — not evaluated\)/, /cancelled before 1 of 3/], []],
+      ["a cancel and a timeout in the same scenario", [{ a: C, b: T }, OK, OK], [/got no response from the model for at least one version: Live request timed out — not evaluated\./, /cancelled before 1 of 3/], []],
       ["one version timed out", [{ a: T, b: OK }, OK, OK], [/1 of 3 scenarios got no response from the model for at least one version/, /Run the test again\./], [/API key/]],
     ];
     for (const [name, plan, must, mustNot] of cases) {
@@ -242,7 +242,7 @@ describe("UX pass (post-launch)", () => {
         expect(advice.match(/incomplete/g)?.length ?? 0, advice).toBeLessThanOrEqual(1);
         // A refusal is named once, and never as the reason for a failed call; a cancel never appears in the failed-call sentence.
         expect(advice.match(/declined/g)?.length ?? 0, advice).toBeLessThanOrEqual(1);
-        expect(advice, advice).not.toMatch(/no response from the model[^.]*\((?:[^)]*(?:Provider declined|cancelled))/);
+        expect(advice, advice).not.toMatch(/no response from the model[^.]*(?:Provider declined|cancelled)/i);
       });
     }
 
