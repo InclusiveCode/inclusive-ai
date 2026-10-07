@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PROVIDER_LABEL } from "../../../lib/lab/models";
 import type { Run, RunMode } from "../../../lib/lab/types";
 
@@ -31,9 +32,20 @@ export function RunBanner({ run }: { run: Run }) {
   return (
     <div role="note" className="mb-8 rounded-xl border-2 border-amber-300/70 bg-amber-950/40 p-4 text-amber-100">
       <p>
-        <strong>Simulated demo — no AI model is called.</strong> Responses come from a scripted simulator (lab-simulator-rules-v1) built to
-        show known failure modes. An improvement here demonstrates the workflow, not real model behavior. All people, organizations, and
-        data are fictional.
+        <strong>Showing a simulated run — no AI model was called.</strong> These responses come from a scripted simulator
+        (lab-simulator-rules-v1) built to show known failure modes, so an improvement here demonstrates the workflow, not real model
+        behavior. All people, organizations, and data are fictional.
+      </p>
+      <p className="mt-2">
+        <strong>Live mode is available.</strong> Choose “Live model (your API key)” in{" "}
+        <a href="#edit" className="underline decoration-amber-300/60 underline-offset-4 hover:decoration-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
+          4. Edit the instruction and rerun
+        </a>{" "}
+        to get real responses from a model with your own API key, or{" "}
+        <Link href="/lab/prompt-test" className="underline decoration-amber-300/60 underline-offset-4 hover:decoration-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
+          test your own system prompt
+        </Link>{" "}
+        against scenarios written for your product.
       </p>
     </div>
   );

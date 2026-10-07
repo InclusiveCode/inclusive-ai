@@ -420,3 +420,17 @@ describe("source hygiene for the lab library, server modules, and route", () => 
     }
   });
 });
+
+describe("live route: scenario sets for Test your prompt", () => {
+  it("accepts every set's scenarios and renders their input on the server", async () => {
+    const { findScenario, SCENARIO_SUITES } = await import("../suites");
+    for (const suite of SCENARIO_SUITES) {
+      for (const s of suite.scenarios) {
+        const { clients, seen } = fakeClients();
+        const r = await send(request({ ...VALID, scenarioId: s.id, scenarioVersion: s.version, variant: "a" }), clients);
+        expect(r.res.status, s.id).toBe(200);
+        expect(JSON.stringify(seen[0].body)).toContain(JSON.stringify(renderInputs(findScenario(s.id)!).a).slice(1, -1));
+      }
+    }
+  });
+});

@@ -399,7 +399,7 @@ await step("B. live baseline then rerun (L2, L3, L6)", async () => {
   // L6: the banner follows the displayed run, not the radio.
   await page.locator("input[name=view-run][value=baseline]").check();
   const b1 = await bannerText(page);
-  check("L6 showing the precomputed simulated baseline while 'Live' is selected → simulated banner", b1.startsWith("Simulated demo — no AI model is called") && /Mode\s+Simulated/.test(await inspectText(page)), b1.slice(0, 80));
+  check("L6 showing the precomputed simulated baseline while 'Live' is selected → simulated banner", b1.startsWith("Showing a simulated run — no AI model was called") && /Mode\s+Simulated/.test(await inspectText(page)), b1.slice(0, 80));
   await page.locator("input[name=view-run][value=latest]").check();
   check("L6 back to the latest live run → live banner", (await bannerText(page)).startsWith("Live run: responses from Anthropic"));
   await setSource(page, "simulated");
@@ -450,7 +450,7 @@ await step("B. live vs simulated never compare (L2)", async () => {
   await waitRun(page, 8);
   const cmp = await compareText(page);
   check("L2 a simulated rerun compares with the simulated baseline (both Simulated)", (cmp.match(/Mode\s+Simulated/g) ?? []).length === 2 && !/Mode\s+Live/.test(cmp), cmp.slice(0, 200));
-  check("L6 simulated run → simulated banner", (await bannerText(page)).startsWith("Simulated demo — no AI model is called"));
+  check("L6 simulated run → simulated banner", (await bannerText(page)).startsWith("Showing a simulated run — no AI model was called"));
   await setSource(page, "live");
   await page.locator("#lab-live-key").fill(ANT_KEY);
   await rerun(page);
@@ -635,7 +635,7 @@ await step("U1–U3 copy, placement, and accessibility", async () => {
   const info = await noteInfo();
   check("U1 Live selected + simulated run on screen: the note appears right under the banner", !!info && info.afterBanner && info.visible, JSON.stringify(info));
   check("U1 the note is static: no role, not inside a live region, not focusable", !!info && !info.liveAncestor && info.role === null && !info.focusable, JSON.stringify(info));
-  check("U1 the banner text is unchanged (still the simulated banner)", (await bannerText(p)).startsWith("Simulated demo — no AI model is called"));
+  check("U1 the banner text is unchanged (still the simulated banner)", (await bannerText(p)).startsWith("Showing a simulated run — no AI model was called"));
   // U2: helper text tied to "Run baseline live".
   const btn = p.getByRole("button", { name: "Run baseline live" });
   const describedBy = await btn.getAttribute("aria-describedby");

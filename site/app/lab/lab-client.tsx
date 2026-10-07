@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { scenarioVerdict } from "../../lib/lab/evaluate";
 import { planLiveComparison } from "../../lib/lab/history";
@@ -355,6 +356,13 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
           Inspect how an assistant handles LGBTQIA+-specific situations, change its system instruction, rerun, and compare. Each scenario
           sends two inputs that differ in exactly one detail. Checks are deterministic word-matching rules; every failure shows its evidence: the exact words that triggered it,
           or what was missing.
+        </p>
+        <p className="mt-4 max-w-3xl text-base text-zinc-300">
+          Drafting a system prompt for your own AI system?{" "}
+          <Link href="/lab/prompt-test" className={`font-medium text-zinc-100 underline decoration-zinc-500 underline-offset-4 hover:decoration-zinc-200 ${FOCUS}`}>
+            Test your prompt against scenarios for your product
+          </Link>{" "}
+          and get one report.
         </p>
       </header>
 
