@@ -366,7 +366,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
         </p>
       </header>
 
-      {shown && <RunBanner run={shown} />}
+      {shown && <RunBanner run={shown} source={source} />}
       <LiveSelectedNote source={source} run={shown} />
 
       {/* D49: one row that scrolls sideways on phones (six stacked rows before), wrapping from md up. */}

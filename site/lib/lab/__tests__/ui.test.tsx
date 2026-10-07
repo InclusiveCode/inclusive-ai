@@ -741,7 +741,7 @@ describe("U1: a note under the banner when Live is selected but the displayed ru
 
   it("the lab renders the note right after the banner, from the selected source and the displayed run", () => {
     const src = readFileSync(join(SITE, "app/lab/lab-client.tsx"), "utf8");
-    expect(src).toMatch(/\{shown && <RunBanner run=\{shown\} \/>\}\s*<LiveSelectedNote source=\{source\} run=\{shown\} \/>/);
+    expect(src).toMatch(/\{shown && <RunBanner run=\{shown\} source=\{source\} \/>\}\s*<LiveSelectedNote source=\{source\} run=\{shown\} \/>/);
     // Simulated mode is the default, so the first render (and the static markup) has no note.
     expect(textContent(renderToStaticMarkup(<LabClient baselineRuns={[]} />))).not.toContain("Live mode is selected");
   });

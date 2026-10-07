@@ -326,6 +326,18 @@ describe("U1: a static note says when Live is selected but the displayed run is 
     const t = text(renderToStaticMarkup(createElement(RunBanner, { run: sim })));
     expect(t).toMatch(/^Showing a simulated run — no AI model was called\./);
     expect(t).not.toContain("Live mode is selected");
+    expect(t).toContain("Live mode is available.");
+  });
+
+  it("with Live selected, the simulated banner no longer tells the user to choose Live", async () => {
+    const sim = await simRun(s.id);
+    const html = renderToStaticMarkup(createElement(RunBanner, { run: sim, source: "live" }));
+    const t = text(html);
+    expect(t).toMatch(/^Showing a simulated run — no AI model was called\./);
+    expect(t).not.toContain("Live mode is available");
+    expect(t).not.toContain("Choose “Live model (your API key)”");
+    expect(t).toContain("You can also test your own system prompt against scenarios written for your product.");
+    expect(html).toContain('href="/lab/prompt-test"');
   });
 
   it("the initial page (Simulated selected) shows no note", async () => {

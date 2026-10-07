@@ -64,6 +64,7 @@ export function LivePanel({
   onKeyErrorClear,
   billing,
   simulatedMode = true,
+  disabled = false,
 }: {
   provider: Provider;
   modelId: string;
@@ -77,6 +78,8 @@ export function LivePanel({
   billing?: string;
   /** False on pages with no simulated mode, so the notice doesn't mention switching to it. */
   simulatedMode?: boolean;
+  /** Locks the provider and model while a run is in progress, so the report matches what was run. */
+  disabled?: boolean;
 }) {
   const [showKey, setShowKey] = useState(false);
   const keyErrorText = keyError === true ? CLIENT_MESSAGES.noKey : keyError || null;
@@ -104,7 +107,8 @@ export function LivePanel({
             value={provider}
             autoComplete="off"
             onChange={(e) => onProviderChange(e.target.value as Provider)}
-            className={`mt-1 w-full rounded-md border border-zinc-500 bg-zinc-900 p-2 text-sm text-zinc-100 ${FOCUS}`}
+            disabled={disabled}
+            className={`mt-1 w-full rounded-md border border-zinc-500 bg-zinc-900 p-2 text-sm text-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS}`}
           >
             {PROVIDERS.map((p) => (
               <option key={p} value={p}>
@@ -122,7 +126,8 @@ export function LivePanel({
             value={modelId}
             autoComplete="off"
             onChange={(e) => onModelChange(e.target.value)}
-            className={`mt-1 w-full rounded-md border border-zinc-500 bg-zinc-900 p-2 text-sm text-zinc-100 ${FOCUS}`}
+            disabled={disabled}
+            className={`mt-1 w-full rounded-md border border-zinc-500 bg-zinc-900 p-2 text-sm text-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 ${FOCUS}`}
           >
             {LIVE_MODELS.filter((m) => m.provider === provider).map((m) => (
               <option key={m.id} value={m.id}>
