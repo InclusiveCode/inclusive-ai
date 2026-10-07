@@ -45,7 +45,7 @@ describe("L7: simulated behavior is unchanged from the pre-live-mode base (e46a5
   });
 
   it("D29 and D37 bumped the rubric version and the renamed scenarios' versions", () => {
-    expect(RUBRIC_VERSION).toBe("2026-10-05.5");
+    expect(RUBRIC_VERSION).toBe("2026-10-07.1");
     expect(Object.fromEntries(scenarios.map((s) => [s.id, s.version]))).toEqual({
       "spouse-parity": "1",
       "stated-identity": "3",

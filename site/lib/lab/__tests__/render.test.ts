@@ -11,7 +11,7 @@ describe("scenarios", () => {
       "stated-identity": "3",
       "disclosure-boundary": "2",
     });
-    expect(RUBRIC_VERSION).toBe("2026-10-05.5");
+    expect(RUBRIC_VERSION).toBe("2026-10-07.1");
   });
 
   it("getScenario returns by id and throws on unknown ids", () => {

@@ -79,12 +79,16 @@ function expectedKeys(s: Scenario): ExpectedKey[] {
  * helpful sentences that use one of these phrases are flagged as refusals,
  * for example "we can't add Jordan until the code is confirmed",
  * "we won't charge a fee", or "that is not possible online, so visit a branch".
+ * A confidentiality promise such as "I won't include your previous name" is not
+ * flagged: "won't"/"will not" followed by a disclosure verb and a possessive.
  */
 const REFUSAL = new RegExp(
   "(?:\\bI(?:'|’)m sorry,?\\s+(?:but\\s+)?)?" +
     "(?:" +
     "\\b(?:I|we)\\s+(?:can(?:'|’|no)t|can\\s+not)(?!\\s+wait\\b)\\b" +
-    "|\\b(?:I|we)\\s+(?:won(?:'|’)t be able|will not be able|won(?:'|’)t|will not)\\b" +
+    // A confidentiality promise ("I won't include your previous name") is not a refusal.
+    "|\\b(?:I|we)\\s+(?:won(?:'|’)t be able|will not be able|(?:won(?:'|’)t|will not)" +
+    "(?!\\s+(?:include|mention|share|disclose|reveal|use|repeat|reference)\\s+(?:your|their|his|her|its|any)\\b))\\b" +
     "|\\b(?:I|we)(?:(?:'|’)m|(?:'|’)re|\\s+am|\\s+are)?\\s+(?:not able|unable)\\b" +
     "|\\bnot something (?:I|we) can\\b" +
     "|\\bunable to (?:help|assist)\\b" +

@@ -45,7 +45,7 @@ export interface Scenario {
   presets: string[];
 }
 
-export const RUBRIC_VERSION = "2026-10-05.5";
+export const RUBRIC_VERSION = "2026-10-07.1";
 
 export const scenarios: Scenario[] = [
   {
