@@ -143,7 +143,7 @@ await step("load", async () => {
   const res = await page.goto(URL, { waitUntil: "networkidle" });
   check("REQ1 /lab returns 200 with no login", res?.status() === 200 && (await page.locator("input[type=password]").count()) === 0);
   const body = await page.locator("body").innerText();
-  check("REQ1 demo banner 'Simulated demo — no AI model is called' visible", await page.getByText("Simulated demo — no AI model is called").isVisible());
+  check("REQ1 demo banner 'Showing a simulated run — no AI model was called' visible", await page.getByText("Showing a simulated run — no AI model was called").isVisible());
   check("REQ1 'Fictional data' label visible", body.includes("Fictional data"));
   check("REQ1 responses labeled 'Simulated response'", (await page.getByText("Simulated response", { exact: true }).count()) === 2);
   check("REQ1 mode badge 'Simulated' shown, no live badge", body.includes("Simulated") && !body.includes("Live (unavailable)"));
@@ -538,7 +538,7 @@ await step("live mode", async () => {
     docWide: [...document.querySelectorAll("[role=alert]")].map((a) => a.textContent),
   }));
   check("ALERT cleared after a simulated run", remaining.lab.length === 0 && remaining.docWide.length === 0, JSON.stringify(remaining));
-  check("L6 simulated run -> simulated banner again", (await page.locator("[role=note]").first().innerText()).startsWith("Simulated demo — no AI model is called"));
+  check("L6 simulated run -> simulated banner again", (await page.locator("[role=note]").first().innerText()).startsWith("Showing a simulated run — no AI model was called"));
 });
 
 // ---------- 9. Download review log ----------

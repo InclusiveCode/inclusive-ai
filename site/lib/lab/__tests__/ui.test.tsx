@@ -233,7 +233,7 @@ describe("labels follow the displayed run", () => {
   it("the banner is the simulated banner for a simulated run", async () => {
     const [sim] = await baselines();
     const text = textContent(renderToStaticMarkup(<RunBanner run={sim} />));
-    expect(text).toContain("Simulated demo — no AI model is called.");
+    expect(text).toContain("Showing a simulated run — no AI model was called.");
   });
 
   it("the banner names the provider and the returned model for a live run", async () => {
@@ -242,7 +242,7 @@ describe("labels follow the displayed run", () => {
     expect(text).toBe(
       "Live run: responses from Anthropic claude-haiku-4-5-20251001. One sample per run; differences between runs can be nondeterministic. A pass means only that the displayed checks passed.",
     );
-    expect(text).not.toContain("Simulated demo");
+    expect(text).not.toContain("Showing a simulated run");
   });
 
   it("the live banner lets a long single-token returned-model id wrap (no horizontal scroll at 320px)", async () => {
@@ -320,7 +320,7 @@ describe("LabClient", () => {
   it("renders the simulated-demo banner, the fictional-data label, and three scenario radios", async () => {
     const html = renderToStaticMarkup(<LabClient baselineRuns={await baselines()} />);
     const text = textContent(html);
-    expect(text).toContain("Simulated demo — no AI model is called.");
+    expect(text).toContain("Showing a simulated run — no AI model was called.");
     expect(text).toContain("All people, organizations, and data are fictional.");
     expect(text).toContain(
       "Checks are deterministic word-matching rules; every failure shows its evidence: the exact words that triggered it, or what was missing.",

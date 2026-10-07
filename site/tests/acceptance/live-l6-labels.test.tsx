@@ -70,7 +70,7 @@ describe("L6: the banner follows the run's mode and shows the returned model and
   it("a simulated run keeps the simulated banner, with no live wording", async () => {
     const run = await simRun(s.id);
     const t = text(renderToStaticMarkup(createElement(RunBanner, { run })));
-    expect(t).toMatch(/^Simulated demo — no AI model is called\./);
+    expect(t).toMatch(/^Showing a simulated run — no AI model was called\./);
     expect(t).not.toMatch(/Live run/);
   });
 });
@@ -135,7 +135,7 @@ describe("L6: page-level labels", () => {
       scenarios.map((sc) => runScenario(sc, sc.baselineInstruction, simulatedResponder, SIMULATED_CONFIG, opts({ id: `${sc.id}-baseline` }))),
     );
     const t = text(renderToStaticMarkup(createElement(LabClient, { baselineRuns })));
-    expect(t).toMatch(/Simulated demo — no AI model is called/);
+    expect(t).toMatch(/Showing a simulated run — no AI model was called/);
     expect(t).not.toMatch(/Live run:/);
     expect(t).toContain("Simulated (scripted demo)");
     expect(t).toContain("Live model (your API key)");
@@ -324,7 +324,7 @@ describe("U1: a static note says when Live is selected but the displayed run is 
   it("the banner itself is unchanged: it still describes the displayed (simulated) run", async () => {
     const sim = await simRun(s.id);
     const t = text(renderToStaticMarkup(createElement(RunBanner, { run: sim })));
-    expect(t).toMatch(/^Simulated demo — no AI model is called\./);
+    expect(t).toMatch(/^Showing a simulated run — no AI model was called\./);
     expect(t).not.toContain("Live mode is selected");
   });
 

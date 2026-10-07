@@ -108,8 +108,9 @@ describe("REQ 1 and REQ 14: server markup labels the demo and shows inputs, resp
     const text = html.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/\s+/g, " ");
     const first = baselineRuns[0];
     // REQ 1: demo labeling
-    expect(text).toMatch(/Simulated demo/);
-    expect(text).toMatch(/no AI model is called/i);
+    expect(text).toMatch(/Showing a simulated run/);
+    expect(text).toMatch(/Live mode is available/);
+    expect(text).toMatch(/no AI model was called/i);
     expect(text).toMatch(/Fictional data/);
     expect(text).toMatch(/Simulated response/);
     expect(text).not.toMatch(/Live \(unavailable\)/);
