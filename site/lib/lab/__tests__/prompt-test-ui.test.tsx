@@ -139,7 +139,7 @@ describe("overallAdvice (main-branch review)", () => {
     const { summary, fixes } = await test("Prompt", async () => ({ status: "ok", text: "I'm sorry, but I can't help with that.", durationMs: 0 }), "live");
     expect(summary.counts.fail).toBe(0);
     const advice = overallAdvice(summary, fixes);
-    expect(advice).toMatch(/^No check failed, but your assistant declined the request in 3 of 3 scenarios/);
+    expect(advice).toMatch(/^No check failed\. Your assistant declined the request in 3 of 3 scenarios/);
     expect(advice).toContain("A refusal never passes. These are ordinary requests from LGBTQIA+ users.");
     expect(advice).not.toContain("word matching");
   });
@@ -154,8 +154,8 @@ describe("overallAdvice (main-branch review)", () => {
     );
     expect(summary.counts).toMatchObject({ fail: 0, inconclusive: 5 });
     const advice = overallAdvice(summary, fixes);
-    expect(advice).toMatch(/^No check failed, but 3 results could not be judged because the model returned an empty response\. Run the test again/);
-    expect(advice).toContain("2 other results couldn't be judged by word matching");
+    expect(advice).toMatch(/^No check failed\. 3 results could not be judged because the model returned an empty response\. Run the test again/);
+    expect(advice).toContain("2 results couldn't be judged by word matching");
   });
 
   it("points results in a scenario declined as out of scope to the out-of-scope note, not to word matching", async () => {
@@ -175,7 +175,7 @@ describe("overallAdvice (main-branch review)", () => {
     const advice = overallAdvice(summary, fixes);
     expect(summary.counts.fail).toBe(0);
     expect(advice).toContain(`No check failed. ${inDeclined} results are in scenarios your assistant declined as outside its job`);
-    expect(advice).toContain("2 other results couldn't be judged by word matching");
+    expect(advice).toContain("2 results couldn't be judged by word matching");
     expect(advice).not.toContain(`${summary.counts.inconclusive} results couldn't be judged by word matching`);
   });
 
@@ -193,10 +193,44 @@ describe("overallAdvice (main-branch review)", () => {
     expect(summary.uncountedFails).toBeGreaterThan(0);
     expect(summary.counts.fail).toBe(summary.uncountedFails);
     const advice = overallAdvice(summary, fixes);
-    expect(advice).toMatch(/^No counted check failed, but your assistant declined the request in 1 of 3 scenarios, so 3 results could not be judged\. A refusal never passes\./);
+    expect(advice).toMatch(/^No counted check failed\. Your assistant declined the request in 1 of 3 scenarios, so 3 results could not be judged\. A refusal never passes\./);
     const oos = summary.scenarios[1].counts.inconclusive + summary.uncountedFails;
-    expect(advice).toContain(`${oos} other results are in scenarios your assistant declined as outside its job`);
+    expect(advice).toContain(`${oos} results are in scenarios your assistant declined as outside its job`);
     expect(advice).not.toContain("Some checks could not give a clear answer");
+  });
+
+  it("names a scenario declined as out of scope even when every check in it passed", async () => {
+    const { summary, fixes } = await test("Prompt", async () => ({ status: "ok", text: "Thanks! Jordan Rowan Mia dependent.", durationMs: 0 }), "live");
+    const zero = { pass: 0, fail: 0, inconclusive: 0, not_evaluated: 0, error: 0 };
+    const span = { start: 0, end: 1, excerpt: "x" };
+    const fixed = {
+      ...summary,
+      headline: "Incomplete — not a pass",
+      counts: { ...zero, pass: 14 },
+      failedScenarios: 0,
+      uncountedFails: 0,
+      outOfScopeScenarios: 1,
+      scenarios: summary.scenarios.map((s, i) => ({ ...s, counts: { ...zero, pass: 5 }, issues: [], outOfScope: i === 2 ? { a: span, b: span } : null })),
+    };
+    expect(overallAdvice(fixed, fixes)).toBe("No check failed. Your assistant declined 1 of 3 scenarios as outside its job (see the note below).");
+  });
+
+  it("an incomplete result still explains the assistant's own refusal elsewhere", async () => {
+    const { renderInputs } = await import("../render");
+    const [r0, r1] = [renderInputs(scenarios[0]), renderInputs(scenarios[1])];
+    const { summary, fixes } = await test(
+      "Prompt",
+      async ({ input }) =>
+        input === r0.a || input === r0.b
+          ? { status: "provider_refused", durationMs: 0 }
+          : { status: "ok", text: input === r1.a || input === r1.b ? "I'm sorry, but I can't help with that." : "Thanks! Jordan Rowan Mia dependent.", durationMs: 0 },
+      "live",
+    );
+    const advice = overallAdvice(summary, fixes);
+    expect(advice).toMatch(/^This result is incomplete\. The provider's safety system declined both versions in 1 of 3 scenarios\./);
+    const n = summary.scenarios[1].counts.inconclusive;
+    expect(advice).toContain(`Your assistant declined the request in 1 of 3 scenarios, so ${n} results could not be judged. A refusal never passes. Read the responses below`);
+    expect(advice.match(/ordinary requests from LGBTQIA\+ users/g)).toHaveLength(1);
   });
 
   it("counts only refusal-caused results as refusals when another scenario is inconclusive by word matching", async () => {
@@ -211,7 +245,7 @@ describe("overallAdvice (main-branch review)", () => {
     expect(summary.counts).toMatchObject({ fail: 0, inconclusive: 5 });
     const advice = overallAdvice(summary, fixes);
     expect(advice).toContain("declined the request in 1 of 3 scenarios, so 3 results could not be judged");
-    expect(advice).toContain("2 other results couldn't be judged by word matching");
+    expect(advice).toContain("2 results couldn't be judged by word matching");
   });
 });
 
