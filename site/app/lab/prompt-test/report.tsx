@@ -15,7 +15,11 @@ function tone(headline: string): string {
   return TONE.find(([re]) => re.test(headline))?.[1] ?? "border-amber-300/60";
 }
 
-/** One sentence that says what the overall headline means for the engineer's prompt. */
+/** Neither version got a response (a rejected key, a provider error, a timeout), so no check ran. */
+export function noResponses(summary: ScenarioSummary): boolean {
+  return summary.run.responses.a.status !== "ok" && summary.run.responses.b.status !== "ok";
+}
+
 /** Said when the assistant declined scenarios as outside its job; null when none were. */
 export function outOfScopeAdvice(summary: PromptTestSummary): string | null {
   const n = summary.outOfScopeScenarios;
@@ -24,6 +28,7 @@ export function outOfScopeAdvice(summary: PromptTestSummary): string | null {
   return `Your assistant declined ${n} of ${total} scenario${total === 1 ? "" : "s"} as outside its job, so the checks had little to judge there. That is usually a sign the scenarios don't match what your assistant does, not a problem with your prompt. Choose the scenario set closest to your product and test again.`;
 }
 
+/** One sentence that says what the overall headline means for the engineer's prompt. */
 export function overallAdvice(summary: PromptTestSummary): string {
   if (summary.failedScenarios > 0) {
     const n = summary.failedScenarios;
@@ -32,8 +37,16 @@ export function overallAdvice(summary: PromptTestSummary): string {
   if (summary.headline === "All displayed checks passed") {
     return "No displayed check failed in this sample. That is evidence, not proof: run it again, and test with your own real traffic too.";
   }
+  const silent = summary.scenarios.filter(noResponses);
+  if (silent.length > 0 && silent.length === summary.scenarios.length) {
+    const reason = liveAlertText(silent[0].run);
+    return `No response came back from the model, so nothing was evaluated.${reason ? ` ${reason}.` : ""} Check your API key, the model you picked, and your provider account, then run the test again.`;
+  }
   if (summary.outOfScopeScenarios > 0 && summary.outOfScopeScenarios === summary.scenarios.length) {
     return "This test could not evaluate your prompt.";
+  }
+  if (silent.length > 0) {
+    return `${silent.length} of ${summary.scenarios.length} scenarios got no response from the model, so this result is incomplete. Run the test again.`;
   }
   const n = summary.counts.inconclusive;
   if (summary.counts.fail === 0 && n > 0 && summary.counts.error === 0 && summary.counts.not_evaluated === 0) {
@@ -56,12 +69,19 @@ function Issue({ summary, result }: { summary: ScenarioSummary; result: CheckRes
       <p className="mt-1 text-sm text-zinc-300">{result.rationale}</p>
       {result.evidence.length > 0 && (
         <ul className="mt-2 space-y-1 text-sm">
-          {result.evidence.map((e, i) => (
-            <li key={`${e.variant}-${e.start}-${i}`} className="text-zinc-300">
-              <span className="text-xs text-zinc-400">Version {e.variant.toUpperCase()}: </span>
-              <mark className="rounded bg-rose-500/20 px-1 text-rose-100">{e.excerpt}</mark>
-            </li>
-          ))}
+          {(["a", "b"] as const)
+            .map((v) => [v, result.evidence.filter((e) => e.variant === v)] as const)
+            .filter(([, items]) => items.length > 0)
+            .map(([v, items]) => (
+              <li key={v} className="flex flex-wrap items-baseline gap-1.5 text-zinc-300">
+                <span className="text-xs text-zinc-400">Version {v.toUpperCase()}:</span>
+                {items.map((e, i) => (
+                  <mark key={`${e.start}-${i}`} className="rounded bg-rose-500/20 px-1 text-rose-100">
+                    {e.excerpt}
+                  </mark>
+                ))}
+              </li>
+            ))}
         </ul>
       )}
       {result.status === "fail" && !uncounted && check && <p className="mt-2 text-sm text-zinc-400">Why it matters: {check.whyItMatters}</p>}
@@ -88,7 +108,9 @@ function ScenarioCard({ summary }: { summary: ScenarioSummary }) {
           little to judge.
         </p>
       )}
-      {summary.issues.length > 0 ? (
+      {noResponses(summary) ? (
+        <p className="mt-3 text-sm text-zinc-300">No response came back for either version, so this scenario&apos;s checks didn&apos;t run.</p>
+      ) : summary.issues.length > 0 ? (
         <ul className="mt-3 space-y-2">
           {summary.issues.map((r) => (
             <Issue key={`${r.checkId}-${r.variant}`} summary={summary} result={r} />
@@ -123,7 +145,8 @@ export function PromptTestReport({
   const scopeAdvice = outOfScopeAdvice(summary);
   const first = summary.scenarios[0]?.run;
   const live = first?.mode === "live";
-  const models = live ? Array.from(new Set(summary.scenarios.map((s) => returnedModelText(s.run)))) : [];
+  const reported = summary.scenarios.filter((s) => s.run.responses.a.returnedModel || s.run.responses.b.returnedModel);
+  const models = live ? Array.from(new Set(reported.map((s) => returnedModelText(s.run)))) : [];
   return (
     <div className="space-y-6">
       <div className={`rounded-xl border-2 ${tone(summary.headline)} bg-zinc-900/60 p-4`}>
@@ -131,7 +154,8 @@ export function PromptTestReport({
           {first && <ModeBadge mode={first.mode} />}
           {live && first ? (
             <span className="wrap-anywhere">
-              {providerLabel(first.config.provider)} · returned model {models.join(", ")}
+              {providerLabel(first.config.provider)} ·{" "}
+              {models.length > 0 ? `returned model ${models.join(", ")}` : `requested model ${first.config.model}`}
             </span>
           ) : (
             <span>Scripted simulator. No AI model was called.</span>

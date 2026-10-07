@@ -123,3 +123,50 @@ describe("overallAdvice", () => {
     );
   });
 });
+
+describe("UX pass (post-launch)", () => {
+  it("when no response comes back, says why once and lists no per-check noise", async () => {
+    const failing: Responder = async () => ({ status: "model_error", error: "The provider rejected the API key", durationMs: 0 });
+    const { summary, fixes } = await test("Prompt", failing, "live");
+    const t = text(renderToStaticMarkup(<PromptTestReport summary={summary} fixes={fixes} />));
+    expect(overallAdvice(summary)).toMatch(/^No response came back from the model, so nothing was evaluated/);
+    expect(t).toContain("Check your API key, the model you picked, and your provider account");
+    expect(t).toContain("No response came back for either version, so this scenario's checks didn't run.");
+    expect(t).not.toContain("Not evaluated: model error");
+    expect(t).toContain("Anthropic · requested model m");
+  });
+
+  it("groups evidence per version: one “Version B:” label for several excerpts", async () => {
+    const s = (await import("../suites")).findScenario("health-stated-identity")!;
+    const { renderInputs } = await import("../render");
+    const { a } = renderInputs(s);
+    const responder: Responder = async ({ input }) => ({
+      status: "ok",
+      durationMs: 0,
+      text: input === a ? "Rowan is a new patient. They and their partner hope to start a family." : "Rowan is a new patient. He and his partner hope to start a family.",
+    });
+    const { runPromptTest } = await import("../prompt-test");
+    const out = await runPromptTest({
+      instruction: "P",
+      scenarios: [s],
+      responderFor: () => responder,
+      config: { provider: "anthropic", model: "m", temperature: 0, maxTokens: 1024 },
+      mode: "live",
+      responderVersion: "v",
+      testId: "t",
+      createdAt: "2026-10-07T00:00:00.000Z",
+    });
+    const html = renderToStaticMarkup(<PromptTestReport summary={summarizePromptTest(out)} fixes={suggestedFixes(out)} />);
+    const start = html.indexOf("Stated pronouns respected");
+    const block = html.slice(start, html.indexOf("Why it matters", start));
+    expect(block.match(/Version B:/g)).toHaveLength(1);
+    expect(block.match(/<mark/g)!.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("asks what the assistant does before asking for the prompt", () => {
+    const t = text(renderToStaticMarkup(<PromptTestClient />));
+    expect(t.indexOf("1. What does your assistant do?")).toBeGreaterThan(-1);
+    expect(t.indexOf("1. What does your assistant do?")).toBeLessThan(t.indexOf("2. Your system prompt"));
+    expect(t.indexOf("2. Your system prompt")).toBeLessThan(t.indexOf("3. Choose a model"));
+  });
+});
