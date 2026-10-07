@@ -15,7 +15,6 @@ import {
 } from "../../../lib/lab/prompt-test";
 import { LIVE_RESPONDER_VERSION, liveConfig, makeLiveResponder } from "../../../lib/lab/run";
 import { scenarios } from "../../../lib/lab/scenarios";
-import { SIMULATED_CONFIG, SIMULATOR_VERSION, simulatedResponder } from "../../../lib/lab/simulator";
 import { button } from "../../ui";
 import { clearKeyForProviderSwitch, LivePanel } from "../components/live-panel";
 import { FOCUS } from "../components/status";
@@ -32,12 +31,8 @@ const BILLING = `A prompt test makes ${CALLS} billed calls (2 per scenario, ${sc
 export const EXAMPLE_PROMPT =
   "You are the virtual assistant for Brightpath Health's patient portal. Help patients with appointments, billing questions, and updating their records. Be warm and concise. Verify identity before changing account details.";
 
-const SOURCE_OPTION =
-  "flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 has-[:checked]:border-sky-400 has-[:checked]:bg-sky-950/30 lg:min-h-9";
-
 export function PromptTestClient() {
   const [prompt, setPrompt] = useState("");
-  const [source, setSource] = useState<"simulated" | "live">("live");
   const [provider, setProvider] = useState<Provider>(LIVE_MODELS[0].provider);
   const [modelId, setModelId] = useState(LIVE_MODELS[0].id);
   const [keyError, setKeyError] = useState<string | boolean | null>(null);
@@ -81,43 +76,38 @@ export function PromptTestClient() {
       promptRef.current?.focus();
       return;
     }
-    const live = source === "live";
-    if (live) {
-      const key = readKey();
-      const problem = key ? checkKey(key, model.provider) : null;
-      if (!key || problem) {
-        // No request is sent; focus moves to the key field.
-        setKeyError(key && problem ? KEY_PROBLEM_MESSAGE[problem] : CLIENT_MESSAGES.noKey);
-        keyInputRef.current?.focus();
-        return;
-      }
-      setKeyError(null);
-      if (instruction.includes(key)) {
-        setFormError(`${CLIENT_MESSAGES.keyInInstruction}.`);
-        return;
-      }
+    const key = readKey();
+    const problem = key ? checkKey(key, model.provider) : null;
+    if (!key || problem) {
+      // No request is sent; focus moves to the key field.
+      setKeyError(key && problem ? KEY_PROBLEM_MESSAGE[problem] : CLIENT_MESSAGES.noKey);
+      keyInputRef.current?.focus();
+      return;
+    }
+    setKeyError(null);
+    if (instruction.includes(key)) {
+      setFormError(`${CLIENT_MESSAGES.keyInInstruction}.`);
+      return;
     }
     runningRef.current = true;
     const n = testCount + 1;
-    const controller = live ? new AbortController() : null;
+    const controller = new AbortController();
     cancelRef.current = controller;
     setRunning(true);
-    setCancellable(live);
+    setCancellable(true);
     setStatus("Starting…");
     try {
       await afterNextPaint();
       const out = await runPromptTest({
         instruction,
         responderFor: (s) =>
-          live && controller
-            ? makeLiveResponder({ scenario: s, provider: model.provider, model, key: { get: readKey }, signal: controller.signal })
-            : simulatedResponder,
-        config: live ? liveConfig(model) : SIMULATED_CONFIG,
-        mode: live ? "live" : "simulated",
-        responderVersion: live ? LIVE_RESPONDER_VERSION : SIMULATOR_VERSION,
+          makeLiveResponder({ scenario: s, provider: model.provider, model, key: { get: readKey }, signal: controller.signal }),
+        config: liveConfig(model),
+        mode: "live",
+        responderVersion: LIVE_RESPONDER_VERSION,
         testId: `test-${n}`,
         createdAt: new Date().toISOString(),
-        signal: controller?.signal,
+        signal: controller.signal,
         onProgress: (p) => {
           if (p.next) setStatus(`Running scenario ${p.done + 1} of ${p.total}: ${p.next.title}…`);
         },
@@ -225,64 +215,33 @@ export function PromptTestClient() {
 
       <section aria-labelledby="pt-source" className="mt-12 space-y-4">
         <h2 id="pt-source" className="text-2xl font-bold tracking-tight text-zinc-100">
-          2. Where the responses come from
+          2. Choose a model
         </h2>
-        <fieldset className="min-w-0">
-          <legend className="sr-only">Response source</legend>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label className={SOURCE_OPTION}>
-              <input
-                type="radio"
-                name="pt-source"
-                value="live"
-                checked={source === "live"}
-                onChange={() => setSource("live")}
-                autoComplete="off"
-                className={FOCUS}
-              />
-              Live model (your API key)
-            </label>
-            <label className={SOURCE_OPTION}>
-              <input
-                type="radio"
-                name="pt-source"
-                value="simulated"
-                checked={source === "simulated"}
-                onChange={() => {
-                  setSource("simulated");
-                  setKeyError(null);
-                }}
-                autoComplete="off"
-                className={FOCUS}
-              />
-              Simulated (scripted demo, no key)
-            </label>
-          </div>
-        </fieldset>
-        {source === "live" ? (
-          <div className="@container">
-            <LivePanel
-              provider={provider}
-              modelId={model.id}
-              onProviderChange={chooseProvider}
-              onModelChange={setModelId}
-              keyInputRef={keyInputRef}
-              keyError={keyError}
-              onKeyErrorClear={() => setKeyError(null)}
-              billing={BILLING}
-            />
-          </div>
-        ) : (
-          <p className="rounded-lg border border-amber-300/60 bg-amber-950/30 p-3 text-sm text-amber-100">
-            Simulated demo: no AI model is called. The scripted simulator only reacts to the lab&apos;s known fix snippets, so it shows the
-            workflow, not how a real model follows your prompt.
-          </p>
-        )}
+        <p className="text-sm text-zinc-400">
+          This test calls a real model with your own API key. No key?{" "}
+          <Link href="/lab" className={`underline decoration-zinc-600 underline-offset-4 hover:decoration-zinc-200 ${FOCUS}`}>
+            Try the simulated demo in the Evaluation Lab
+          </Link>{" "}
+          to see how the checks work.
+        </p>
+        <div className="@container">
+          <LivePanel
+            provider={provider}
+            modelId={model.id}
+            onProviderChange={chooseProvider}
+            onModelChange={setModelId}
+            keyInputRef={keyInputRef}
+            keyError={keyError}
+            onKeyErrorClear={() => setKeyError(null)}
+            billing={BILLING}
+            simulatedMode={false}
+          />
+        </div>
       </section>
 
       <div className="mt-8 flex flex-wrap items-center gap-4">
         <button type="button" onClick={startTest} disabled={running} className={button.primary}>
-          {source === "live" ? "Run live test" : "Run simulated test"}
+          Run live test
         </button>
         {running && cancellable && (
           <button type="button" onClick={() => abortInFlight(cancelRef)} className={button.secondary}>

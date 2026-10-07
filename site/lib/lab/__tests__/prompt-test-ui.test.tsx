@@ -73,5 +73,11 @@ describe("PromptTestClient (initial render)", () => {
     expect(t).toContain("Your report appears here");
     expect(html).toContain('type="password"');
     expect(html).toContain('maxLength="4000"');
+    // Live-only: the simulator ignores arbitrary wording, so it is not offered here; /lab has the demo.
+    expect(html).not.toContain('type="radio"');
+    expect(t).not.toContain("Run simulated test");
+    expect(t).toContain("Try the simulated demo in the Evaluation Lab");
+    expect(t).toContain("Your key stays in this field until you clear it, switch provider, reload, or leave the page.");
+    expect(t).not.toContain("switch to simulated mode");
   });
 });

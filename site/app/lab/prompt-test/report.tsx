@@ -121,8 +121,7 @@ export function PromptTestReport({
         <p className="mt-2 text-sm text-zinc-300">{overallAdvice(summary)}</p>
         {!live && (
           <p className="mt-2 text-sm text-amber-200">
-            Simulated: the scripted simulator only reacts to the lab&apos;s known snippets, not to the rest of your wording. Switch to
-            Live model to see how a real model follows your prompt.
+            Simulated: the scripted simulator only reacts to the lab&apos;s known snippets, not to the rest of your wording.
           </p>
         )}
       </div>

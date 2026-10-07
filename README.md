@@ -156,7 +156,7 @@ The Evaluation Lab at [`/lab`](https://inclusive-ai.vercel.app/lab) shows the ev
 
 **Live mode (bring your own key).** Choose an allowlisted Anthropic or OpenAI model and enter your own API key. Each run sends your key, the instruction, and the fictional scenario text over HTTPS to this site's server (hosted on Vercel) and on to the provider (2 billed calls per run). The site doesn't store or log the key, and the provider's own data-retention policies apply to what you send. Use a low-limit key you can revoke.
 
-**Test your prompt.** At [`/lab/prompt-test`](https://inclusive-ai.vercel.app/lab/prompt-test), paste the system prompt you are drafting for your own AI system. It runs against every lab scenario (live with your key, or simulated) and returns one report with evidence for each failed check and suggested lines to add.
+**Test your prompt.** At [`/lab/prompt-test`](https://inclusive-ai.vercel.app/lab/prompt-test), paste the system prompt you are drafting for your own AI system. It runs against every lab scenario with your own API key and returns one report with evidence for each failed check and suggested lines to add.
 
 Lab results are independent of the `inclusive-eval` CLI. All people and data are fictional. Details: [`docs/eval-lab/README.md`](docs/eval-lab/README.md).
 
