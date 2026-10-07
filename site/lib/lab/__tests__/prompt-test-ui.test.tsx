@@ -89,6 +89,9 @@ describe("PromptTestClient (initial render)", () => {
     // before React owns the page can differ from what the test runs.
     for (const radio of html.match(/<input[^>]*name="pt-suite"[^>]*>/g) ?? []) expect(radio).toContain("disabled");
     expect(html).toMatch(/<textarea[^>]*readOnly/);
+    // The provider and model are locked too: a choice made before hydration would show one model and run another.
+    expect(html).toMatch(/<select[^>]*id="lab-live-provider"[^>]*\sdisabled=""/);
+    expect(html).toMatch(/<select[^>]*id="lab-live-model"[^>]*\sdisabled=""/);
   });
 });
 
