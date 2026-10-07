@@ -129,7 +129,7 @@ describe("UX pass (post-launch)", () => {
     const failing: Responder = async () => ({ status: "model_error", error: "The provider rejected the API key", durationMs: 0 });
     const { summary, fixes } = await test("Prompt", failing, "live");
     const t = text(renderToStaticMarkup(<PromptTestReport summary={summary} fixes={fixes} />));
-    expect(overallAdvice(summary)).toMatch(/^No response came back from the model, so nothing was evaluated/);
+    expect(overallAdvice(summary)).toMatch(/^No usable response came back from the model, so nothing was evaluated/);
     expect(t).toContain("Check your API key, the model you picked, and your provider account");
     expect(t).toContain("Neither version returned a usable response (see above), so this scenario's checks didn't run.");
     expect(t).not.toContain("Not evaluated: model error");
@@ -149,6 +149,28 @@ describe("UX pass (post-launch)", () => {
     const m = await test("Prompt", timeoutThenCancel, "live");
     expect(overallAdvice(m.summary)).toMatch(/^The test was cancelled/);
     for (const x of [c, r, m]) expect(overallAdvice(x.summary)).not.toContain("API key");
+  });
+
+  it("names a partial or mixed safety refusal instead of calling it a missing response", async () => {
+    const { renderInputs } = await import("../render");
+    const { scenarios: wb } = await import("../scenarios");
+    const disclosure = renderInputs(wb[2]);
+    const spouse = renderInputs(wb[0]);
+    // Refuses only the disclosure scenario; the others answer.
+    const partial: Responder = async ({ input }) =>
+      input === disclosure.a || input === disclosure.b
+        ? { status: "provider_refused", durationMs: 0 }
+        : { status: "ok", text: "Rowan Thistlecombe and their partner. Jordan.", durationMs: 0 };
+    const p = await test("Prompt", partial, "live");
+    expect(overallAdvice(p.summary)).toContain("The provider's safety system declined 1 of 3 scenarios, so it was not evaluated.");
+    expect(overallAdvice(p.summary)).not.toContain("got no response");
+    // Nothing usable anywhere: one scenario refused, the others timed out. No key advice for that mix.
+    const mixed: Responder = async ({ input }) =>
+      input === spouse.a || input === spouse.b ? { status: "provider_refused", durationMs: 0 } : { status: "timeout", durationMs: 0 };
+    const m = await test("Prompt", mixed, "live");
+    expect(overallAdvice(m.summary)).toContain("The provider's safety system declined 1 of 3 scenarios.");
+    expect(overallAdvice(m.summary)).not.toContain("API key");
+    expect(overallAdvice(m.summary)).toMatch(/Run the test again\.$/);
   });
 
   it("groups evidence per version: one “Version B:” label for several excerpts", async () => {

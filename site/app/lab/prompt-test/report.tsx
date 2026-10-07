@@ -28,33 +28,66 @@ export function outOfScopeAdvice(summary: PromptTestSummary): string | null {
   return `Your assistant declined ${n} of ${total} scenario${total === 1 ? "" : "s"} as outside its job, so the checks had little to judge there. That is usually a sign the scenarios don't match what your assistant does, not a problem with your prompt. Choose the scenario set closest to your product and test again.`;
 }
 
-/** One sentence that says what the overall headline means for the engineer's prompt. */
+const REFUSAL_MATTERS = "That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users.";
+
+/** Scenarios where the provider's safety system declined at least one version and neither version answered. */
+function refusedScenarios(summary: PromptTestSummary): ScenarioSummary[] {
+  return summary.scenarios.filter(
+    (s) => noResponses(s) && (s.run.responses.a.status === "provider_refused" || s.run.responses.b.status === "provider_refused"),
+  );
+}
+
+/**
+ * What the overall headline means for the engineer's prompt. A provider safety refusal is always
+ * named (it is repeatable and is itself a finding), and key or account advice is given only when a
+ * call failed in a way a key or account could explain.
+ */
 export function overallAdvice(summary: PromptTestSummary): string {
-  if (summary.failedScenarios > 0) {
-    const n = summary.failedScenarios;
-    return `Your prompt produced a failing response in ${n} of ${summary.scenarios.length} scenario${summary.scenarios.length === 1 ? "" : "s"}. Review the evidence below, add the suggested lines, and test again.`;
-  }
-  if (summary.headline === "All displayed checks passed") {
-    return "No displayed check failed in this sample. That is evidence, not proof: run it again, and test with your own real traffic too.";
-  }
+  const total = summary.scenarios.length;
   const silent = summary.scenarios.filter(noResponses);
-  if (silent.length > 0 && silent.length === summary.scenarios.length) {
-    const statuses = silent.flatMap((s) => [s.run.responses.a, s.run.responses.b]);
+  const refused = refusedScenarios(summary);
+  const statuses = silent.flatMap((s) => [s.run.responses.a, s.run.responses.b]);
+
+  if (silent.length > 0 && silent.length === total) {
     // Cancelling is the user's own action: it explains the empty report even if an earlier call failed.
     if (statuses.some((r) => r.status === "not_run")) {
       return "The test was cancelled before any response came back, so nothing was evaluated. Run it again when you're ready.";
     }
     if (statuses.every((r) => r.status === "provider_refused")) {
-      return "The provider's safety system declined every request, so nothing was evaluated. That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users. Try another model, or check how your provider handles this content.";
+      return `The provider's safety system declined every request, so nothing was evaluated. ${REFUSAL_MATTERS} Try another model, or check how your provider handles this content.`;
     }
-    const reason = liveAlertText(silent[0].run);
-    return `No response came back from the model, so nothing was evaluated.${reason ? ` ${reason}.` : ""} Check your API key, the model you picked, and your provider account, then run the test again.`;
+    const keyProblem = statuses.some((r) => r.status === "model_error" || r.status === "credentials_unavailable");
+    const failed = silent.find((s) => !refused.includes(s)) ?? silent[0];
+    const reason = liveAlertText(failed.run);
+    return [
+      "No usable response came back from the model, so nothing was evaluated.",
+      reason ? `${reason}.` : "",
+      refused.length > 0 ? `The provider's safety system declined ${refused.length} of ${total} scenarios. ${REFUSAL_MATTERS}` : "",
+      keyProblem ? "Check your API key, the model you picked, and your provider account, then run the test again." : "Run the test again.",
+    ]
+      .filter(Boolean)
+      .join(" ");
   }
-  if (summary.outOfScopeScenarios > 0 && summary.outOfScopeScenarios === summary.scenarios.length) {
+
+  const refusalNote =
+    refused.length > 0
+      ? ` The provider's safety system declined ${refused.length} of ${total} scenario${total === 1 ? "" : "s"}, so ${refused.length === 1 ? "it was" : "they were"} not evaluated. ${REFUSAL_MATTERS}`
+      : "";
+  const otherSilent = silent.length - refused.length;
+
+  if (summary.failedScenarios > 0) {
+    const n = summary.failedScenarios;
+    return `Your prompt produced a failing response in ${n} of ${total} scenario${total === 1 ? "" : "s"}. Review the evidence below, add the suggested lines, and test again.${refusalNote}`;
+  }
+  if (summary.headline === "All displayed checks passed") {
+    return "No displayed check failed in this sample. That is evidence, not proof: run it again, and test with your own real traffic too.";
+  }
+  if (summary.outOfScopeScenarios > 0 && summary.outOfScopeScenarios === total) {
     return "This test could not evaluate your prompt.";
   }
   if (silent.length > 0) {
-    return `${silent.length} of ${summary.scenarios.length} scenarios got no response from the model, so this result is incomplete. Run the test again.`;
+    const gap = otherSilent > 0 ? `${otherSilent} of ${total} scenarios got no response from the model, so this result is incomplete. Run the test again.` : "";
+    return `${gap}${refusalNote}`.trim();
   }
   const n = summary.counts.inconclusive;
   if (summary.counts.fail === 0 && n > 0 && summary.counts.error === 0 && summary.counts.not_evaluated === 0) {
