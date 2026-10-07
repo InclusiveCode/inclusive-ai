@@ -108,7 +108,8 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
     return `This test could not evaluate your prompt.${tail}`;
   }
   // The provider-refusal note already says these are ordinary requests; don't say it twice.
-  const unjudged = unjudgedExplanations(summary, scen(total), !tail.includes(REFUSAL_MATTERS));
+  // Nor ask for a rerun twice when the failed-call note already does.
+  const unjudged = unjudgedExplanations(summary, scen(total), { sayOrdinary: !tail.includes(REFUSAL_MATTERS), sayRerun: failed.length === 0 });
   if (notes.length > 0) {
     return [`This result is incomplete.${tail}`, ...unjudged.parts].join(" ");
   }
@@ -128,7 +129,11 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
  * Results in scenarios declined as out of scope (inconclusives and the fails that don't count) are
  * explained by the out-of-scope note; only the rest are word-matching inconclusives.
  */
-function unjudgedExplanations(summary: PromptTestSummary, ofTotal: string, sayOrdinary: boolean): { parts: string[]; onlyWordMatching: boolean } {
+function unjudgedExplanations(
+  summary: PromptTestSummary,
+  ofTotal: string,
+  { sayOrdinary, sayRerun }: { sayOrdinary: boolean; sayRerun: boolean },
+): { parts: string[]; onlyWordMatching: boolean } {
   const inScope = summary.scenarios.filter((s) => s.outOfScope === null);
   const oosInconclusive = summary.scenarios.reduce((k, s) => k + (s.outOfScope === null ? 0 : s.counts.inconclusive), 0);
   const inDeclined = oosInconclusive + summary.uncountedFails;
@@ -145,14 +150,15 @@ function unjudgedExplanations(summary: PromptTestSummary, ofTotal: string, sayOr
     );
   }
   if (empties > 0) {
-    parts.push(`${results(empties)} could not be judged because the model returned an empty response. Run the test again; an empty response is not a pass.`);
+    parts.push(`${results(empties)} could not be judged because the model returned an empty response. ${sayRerun ? "Run the test again; an empty response" : "An empty response"} is not a pass.`);
   }
   if (inDeclined > 0) {
     parts.push(
       `${results(inDeclined)} ${inDeclined === 1 ? "is" : "are"} in scenarios your assistant declined as outside its job, so ${inDeclined === 1 ? "it" : "they"} could not be judged (see the note below).`,
     );
   } else if (summary.outOfScopeScenarios > 0) {
-    parts.push(`Your assistant declined ${summary.outOfScopeScenarios} of ${ofTotal} as outside its job (see the note below).`);
+    // The note below gives the count; repeating it here could disagree with it after a cancel.
+    parts.push(`Your assistant declined ${summary.outOfScopeScenarios === 1 ? "a scenario" : "some scenarios"} as outside its job (see the note below).`);
   }
   if (rest > 0) {
     parts.push(
