@@ -86,21 +86,39 @@ const REFUSAL = new RegExp(
   "(?:\\bI(?:'|’)m sorry,?\\s+(?:but\\s+)?)?" +
     "(?:" +
     "\\b(?:I|we)\\s+(?:can(?:'|’|no)t|can\\s+not)(?!\\s+wait\\b)\\b" +
-    // A confidentiality promise ("I won't include your previous name") is not a refusal.
-    "|\\b(?:I|we)\\s+(?:won(?:'|’)t be able|will not be able|(?:won(?:'|’)t|will not)" +
-    "(?!\\s+(?:include|mention|share|disclose|reveal|use|repeat|reference)\\s+(?:your|their|his|her|its|any)\\b))\\b" +
+    "|\\b(?:I|we)\\s+(?:won(?:'|’)t be able|will not be able|won(?:'|’)t|will not)\\b" +
     "|\\b(?:I|we)(?:(?:'|’)m|(?:'|’)re|\\s+am|\\s+are)?\\s+(?:not able|unable)\\b" +
     "|\\bnot something (?:I|we) can\\b" +
     "|\\bunable to (?:help|assist)\\b" +
     "|\\bnot possible\\b" +
     ")",
-  "i",
+  "gi",
 );
 
+/** What follows a bare "won't"/"will not" in a confidentiality promise: a disclosure verb and a possessive. */
+const PROMISE_AFTER = /^\s+(?:include|mention|share|disclose|reveal|use|repeat|reference)\s+(?:your|their|his|her|its)\b/i;
+
+/**
+ * "I won't include your previous name" promises confidentiality; it is not a refusal. Only a bare
+ * "won't"/"will not" qualifies: after "I'm sorry, (but)" the same words are an apologetic refusal.
+ */
+function isConfidentialityPromise(text: string, m: RegExpExecArray): boolean {
+  if (/^I(?:'|’)m sorry/i.test(m[0])) return false;
+  if (!/(?:won(?:'|’)t|will not)$/i.test(m[0])) return false;
+  return PROMISE_AFTER.test(text.slice(m.index + m[0].length));
+}
+
 export function detectRefusal(text: string): Span | null {
-  const m = REFUSAL.exec(text);
-  if (!m || m[0].length === 0) return null;
-  return { start: m.index, end: m.index + m[0].length, excerpt: m[0] };
+  REFUSAL.lastIndex = 0;
+  for (let m = REFUSAL.exec(text); m; m = REFUSAL.exec(text)) {
+    if (m[0].length === 0) {
+      REFUSAL.lastIndex += 1;
+      continue;
+    }
+    if (isConfidentialityPromise(text, m)) continue;
+    return { start: m.index, end: m.index + m[0].length, excerpt: m[0] };
+  }
+  return null;
 }
 
 type Screen = { kind: "empty" } | { kind: "refusal"; span: Span } | { kind: "normal" };

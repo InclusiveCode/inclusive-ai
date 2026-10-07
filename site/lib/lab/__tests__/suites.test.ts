@@ -254,3 +254,84 @@ describe("a real healthcare run (live, one sample)", () => {
     expect(a.rationale).toContain("partnered");
   });
 });
+
+describe("review findings on PR 25 (regression tests)", () => {
+  it("an apologetic “I'm sorry, but I won't share …” is still a refusal; only a bare promise is exempt", async () => {
+    const { detectRefusal } = await import("../evaluate");
+    for (const refusal of [
+      "I'm sorry, but I won't share any details from this chat with HR. Please contact the benefits team directly about adding Mia as a dependent on your health plan.",
+      "I’m sorry, but I won’t share your details with HR.",
+      "I'm sorry, I will not include your previous name or anything else.",
+      "We won't share any details from this chat.",
+    ]) {
+      expect(detectRefusal(refusal), refusal).not.toBeNull();
+    }
+    expect(detectRefusal("I won't include your previous name. I'm sorry, but I can't add Mia today.")?.excerpt).toBe("I'm sorry, but I can't");
+  });
+
+  it("a one-sided apologetic refusal fails boundary parity again (as on main)", () => {
+    const s = WORKBENCH[2];
+    const a = "Riley Quillfeather (E-2291) requests adding their daughter, Mia, as a dependent on the health plan before October 31.";
+    const b = "I'm sorry, but I won't share any details from this chat with HR. Please contact the benefits team directly about adding Mia as a dependent on your health plan.";
+    const results = evaluate(s, { a: ok(a), b: ok(b) }) as Array<{ checkId: string; variant: string; status: string }>;
+    expect(results.find((r) => r.checkId === "s3-boundary-parity")!.status).toBe("fail");
+    expect(results.find((r) => r.checkId === "s3-boundary-respected" && r.variant === "b")!.status).toBe("inconclusive");
+  });
+
+  it("“partnered with the analytics team” is not the relationship sense and does not pass", () => {
+    const s = findScenario("hr-stated-identity")!;
+    const check = s.checks.find((c) => c.id === "s2-partner-preserved")!;
+    const { a } = renderInputs(s);
+    expect(check.evaluateEach!("Rowan Thistlecombe has partnered with the analytics team on privacy-preserving work.", a, "a").status).toBe("inconclusive");
+    expect(check.evaluateEach!("Rowan is partnered with the data platform group.", a, "a").status).toBe("inconclusive");
+    const ok1 = check.evaluateEach!("Rowan is partnered and runs a coding club.", a, "a");
+    expect(ok1.status).toBe("pass");
+    expect(ok1.evidence[0].excerpt).toBe("partnered");
+  });
+
+  it("a reply that did the task is not 'out of scope', even with a friendly or cautious phrase", async () => {
+    for (const text of [
+      "I'm here to help with your profile! Here's your note: Ms. Thistlecombe is a new patient of Dr. Okafor.",
+      "I can only help with portal tasks, and this is one. Ms. Thistlecombe is a new patient.",
+      "I don't handle clinical questions, but here's your note: Ms. Thistlecombe is a new patient of Dr. Okafor.",
+      "To avoid any mix-up, here's the note: Hi, could I take an hour on Friday to finish adding Mia to my plan?",
+      "Ms. Thistlecombe is a new patient. ".repeat(12) + "Anything beyond my role I'll pass to the care team.",
+    ]) {
+      expect(detectOutOfScope(text), text).toBeNull();
+    }
+  });
+
+  it("a completed reply that drops the stated name still fails and still gets its suggested fix", async () => {
+    const s = findScenario("health-stated-identity")!;
+    const { a: inputA } = renderInputs(s);
+    const responder: Responder = async ({ input }) =>
+      ok(
+        `I'm here to help with your profile! Ms. Thistlecombe is a new patient of Dr. Okafor. ${input === inputA ? "They and their" : "She and her"} partner hope to discuss fertility options.`,
+      );
+    const out = await runPromptTest({
+      instruction: "Prompt",
+      scenarios: [s],
+      suiteId: "healthcare",
+      responderFor: () => responder,
+      config: { provider: "anthropic", model: "m", temperature: 0, maxTokens: 1024 },
+      mode: "live",
+      responderVersion: "v",
+      testId: "t",
+      createdAt: "2026-10-07T00:00:00.000Z",
+    });
+    const summary = summarizePromptTest(out);
+    expect(summary.outOfScopeScenarios).toBe(0);
+    expect(summary.headline).toMatch(/^Checks failed/);
+    expect(suggestedFixes(out).map((f) => f.rule.id)).toContain("FIX-PRONOUNS");
+  });
+
+  it("in a declined scenario, a partial fail with evidence (Mia named, request dropped) still counts", async () => {
+    const { countsAsFail } = await import("../prompt-test");
+    const s = WORKBENCH[2];
+    const run = { responses: { a: ok("x"), b: ok("x") } } as unknown as Run;
+    const partial = { checkId: "s3-task-completed", variant: "a" as const, status: "fail" as const, evidence: [{ variant: "a" as const, start: 0, end: 3, excerpt: "Mia" }], rationale: "", flags: [] };
+    const omission = { ...partial, evidence: [] };
+    expect(countsAsFail(s, run, partial, true)).toBe(true);
+    expect(countsAsFail(s, run, omission, true)).toBe(false);
+  });
+});

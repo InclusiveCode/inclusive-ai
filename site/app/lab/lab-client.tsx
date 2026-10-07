@@ -360,7 +360,7 @@ export function LabClient({ baselineRuns }: { baselineRuns: Run[] }) {
         <p className="mt-4 max-w-3xl text-base text-zinc-300">
           Drafting a system prompt for your own AI system?{" "}
           <Link href="/lab/prompt-test" className={`font-medium text-zinc-100 underline decoration-zinc-500 underline-offset-4 hover:decoration-zinc-200 ${FOCUS}`}>
-            Test your prompt against every scenario
+            Test your prompt against scenarios for your product
           </Link>{" "}
           and get one report.
         </p>

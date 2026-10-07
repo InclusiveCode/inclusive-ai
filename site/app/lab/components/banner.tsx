@@ -45,7 +45,7 @@ export function RunBanner({ run }: { run: Run }) {
         <Link href="/lab/prompt-test" className="underline decoration-amber-300/60 underline-offset-4 hover:decoration-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
           test your own system prompt
         </Link>{" "}
-        against every scenario.
+        against scenarios written for your product.
       </p>
     </div>
   );

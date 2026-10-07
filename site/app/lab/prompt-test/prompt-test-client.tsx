@@ -66,6 +66,11 @@ export function PromptTestClient() {
   // Leaving the page (including client-side navigation) aborts any in-flight live calls.
   useEffect(() => () => abortInFlight(cancelRef), []);
 
+  // F1 (docs/eval-lab/README.md): a control changed before hydration would show a choice the
+  // test does not use. The set radios and the prompt stay locked until React owns them.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+
   function readKey(): string | null {
     const value = keyInputRef.current?.value.trim();
     return value ? value : null;
@@ -146,11 +151,17 @@ export function PromptTestClient() {
   function addFixes() {
     if (!result) return;
     const next = applyFixes(prompt, suggestedFixes(result));
+    if (next === prompt) {
+      setFormError(null);
+      setStatus("These lines are already in your prompt.");
+      return;
+    }
     if (next.length > MAX_PROMPT_CHARS) {
       setFormError(`Adding the suggested lines would take your prompt over ${MAX_PROMPT_CHARS} characters. Add them by hand where they fit.`);
       return;
     }
     setPrompt(next);
+    setFormError(null);
     setStatus("Suggested lines added to your prompt. Run the test again to check them.");
     promptRef.current?.focus();
   }
@@ -205,6 +216,7 @@ export function PromptTestClient() {
             ref={promptRef}
             id="pt-prompt-text"
             value={prompt}
+            readOnly={!hydrated}
             maxLength={MAX_PROMPT_CHARS}
             rows={10}
             autoComplete="off"
@@ -246,7 +258,7 @@ export function PromptTestClient() {
                     value={x.id}
                     checked={x.id === suite.id}
                     onChange={() => setSuiteId(x.id)}
-                    disabled={running}
+                    disabled={running || !hydrated}
                     autoComplete="off"
                     className={`mt-1 ${FOCUS}`}
                   />

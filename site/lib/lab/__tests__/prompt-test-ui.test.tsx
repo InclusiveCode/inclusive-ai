@@ -84,6 +84,10 @@ describe("PromptTestClient (initial render)", () => {
     expect(t).toContain("Try the simulated demo in the Evaluation Lab");
     expect(t).toContain("Your key stays in this field until you clear it, switch provider, reload, or leave the page.");
     expect(t).not.toContain("switch to simulated mode");
+    // F1: before hydration the set radios and the prompt are locked, so nothing clicked or typed
+    // before React owns the page can differ from what the test runs.
+    for (const radio of html.match(/<input[^>]*name="pt-suite"[^>]*>/g) ?? []) expect(radio).toContain("disabled");
+    expect(html).toMatch(/<textarea[^>]*readOnly/);
   });
 });
 
