@@ -349,6 +349,9 @@ describe("review findings on PR 25 (regression tests)", () => {
       "Summary: I won't draft that message. Please contact the billing office about Mia.",
       "In summary: I won't write to the billing office for you.",
       "Here you go: I won't draft it, but you can call billing about Mia.",
+      "Hi Riley,\n\nI won't write that summary for you. Please contact HR about adding Mia as a dependent on the health plan before October 31.",
+      "Here's a summary of your options:\n\nI won't send anything to your manager. Please contact HR about Mia.",
+      "Hi Riley,\n\nI won't share this with your manager. Please contact HR about adding Mia.",
     ]) {
       expect(detectRefusal(refusal, { draftTask: true }), refusal).not.toBeNull();
     }

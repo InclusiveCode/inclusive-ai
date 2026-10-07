@@ -126,6 +126,12 @@ const PROMISE_AFTER = new RegExp(
   "i",
 );
 
+/** A disclosure verb right after a bare "won't", with no recipient ("with your…", "to the…") in the same sentence. */
+const PROMISE_VERB_ONLY = new RegExp(
+  `^\\s+(?:(?:${PROMISE_VERB})|be\\s+(?:${PROMISE_VERB_ING}))\\b(?![^.\\n]*\\b(?:with|to)\\s+(?:your|the|my|their|his|her)\\b)`,
+  "i",
+);
+
 /**
  * The reply hands over a drafted message, note or summary ("Here's a draft for the billing office:",
  * "Below is a draft…", "Here you go:", a "Subject:", "Draft message:" or "Summary:" heading, a "Hi Sam,"
@@ -154,7 +160,10 @@ function isConfidentialityPromise(text: string, m: RegExpExecArray, draftTask: b
   if (!draftTask) return false;
   if (/^I(?:'|’)m sorry/i.test(m[0])) return false;
   if (!/(?:won(?:'|’)t|will not)$/i.test(m[0])) return false;
-  return PROMISE_AFTER.test(text.slice(m.index + m[0].length)) || (draftTask && DELIVERS_DRAFT.test(text));
+  const rest = text.slice(m.index + m[0].length);
+  // Next to a delivered draft, a vague promise still needs a disclosure verb and no recipient:
+  // "I won't mention it" is a promise; "I won't write that summary for you" is a refusal.
+  return PROMISE_AFTER.test(rest) || (PROMISE_VERB_ONLY.test(rest) && DELIVERS_DRAFT.test(text));
 }
 
 /**
