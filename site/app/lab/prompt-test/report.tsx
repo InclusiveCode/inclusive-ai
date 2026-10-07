@@ -113,11 +113,14 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
   const n = summary.counts.inconclusive;
   if (summary.counts.fail === 0 && n > 0 && summary.counts.error === 0 && summary.counts.not_evaluated === 0) {
     // The D16 screen leaves a check too empty to judge when the assistant itself refused (not the
-    // provider's safety system) or returned no text; only the rest are word-matching inconclusives.
-    const refusalIn = summary.scenarios.filter((s) => s.outOfScope === null).map((s) => s.issues.filter(isRefusalInconclusive).length);
+    // provider's safety system) or returned no text. Results in scenarios declined as out of scope
+    // are explained by the out-of-scope note; only the rest are word-matching inconclusives.
+    const inScope = summary.scenarios.filter((s) => s.outOfScope === null);
+    const declinedOutOfScope = summary.scenarios.reduce((k, s) => k + (s.outOfScope === null ? 0 : s.counts.inconclusive), 0);
+    const refusalIn = inScope.map((s) => s.issues.filter(isRefusalInconclusive).length);
     const refusals = refusalIn.reduce((a, b) => a + b, 0);
-    const empties = summary.scenarios.reduce((k, s) => k + s.issues.filter(isEmptyInconclusive).length, 0);
-    const rest = n - refusals - empties;
+    const empties = inScope.reduce((k, s) => k + s.issues.filter(isEmptyInconclusive).length, 0);
+    const rest = n - declinedOutOfScope - refusals - empties;
     const results = (k: number, other: boolean) => (k === 1 ? `${other ? "One other" : "One"} result` : `${k} ${other ? "other " : ""}results`);
     const parts: string[] = [];
     if (refusals > 0) {
@@ -127,8 +130,12 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
       );
     }
     if (empties > 0) {
-      const lead = refusals > 0 ? `${results(empties, true)} could not be judged` : `No check failed, but ${results(empties, false).toLowerCase()} could not be judged`;
+      const lead = parts.length > 0 ? `${results(empties, true)} could not be judged` : `No check failed, but ${results(empties, false).toLowerCase()} could not be judged`;
       parts.push(`${lead} because the model returned an empty response. Run the test again; an empty response is not a pass.`);
+    }
+    if (declinedOutOfScope > 0) {
+      const lead = parts.length > 0 ? results(declinedOutOfScope, true) : `No check failed. ${results(declinedOutOfScope, false)}`;
+      parts.push(`${lead} ${declinedOutOfScope === 1 ? "is" : "are"} in scenarios your assistant declined as outside its job, so ${declinedOutOfScope === 1 ? "it" : "they"} could not be judged (see the note below).`);
     }
     if (rest > 0) {
       parts.push(
