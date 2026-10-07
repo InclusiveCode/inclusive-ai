@@ -28,6 +28,9 @@ const refusals = [
 "Hi Riley,\n\nI won't add Mia as a dependent. Please call the billing office.",
 "I won't include Mia in the note.",
 "I won't put together a note that mentions your transition.",
+"I won't put your coverage request in a note about your transition. Please call billing about Mia.",
+"I won't include your daughter in a message about your name change.",
+"I won't share the health plan request regarding your transition.",
 ];
 describe("D16 refusal screen: promises vs refusals (readiness corpus)", () => {
   // Promises are recognised only in the disclosure scenarios, which ask for a draft for a third party.
