@@ -400,7 +400,8 @@ describe("lab source hygiene", () => {
     for (const f of all) {
       const src = readFileSync(f, "utf8");
       expect(src, f).not.toMatch(/Date\.now\(|Math\.random\(/);
-      if (!f.endsWith("lab-client.tsx")) expect(src, f).not.toMatch(/new Date\(/);
+      // Client event handlers that stamp a run's createdAt.
+      if (!f.endsWith("lab-client.tsx") && !f.endsWith("prompt-test-client.tsx")) expect(src, f).not.toMatch(/new Date\(/);
     }
   });
 });
