@@ -39,6 +39,14 @@ export function overallAdvice(summary: PromptTestSummary): string {
   }
   const silent = summary.scenarios.filter(noResponses);
   if (silent.length > 0 && silent.length === summary.scenarios.length) {
+    const statuses = silent.flatMap((s) => [s.run.responses.a, s.run.responses.b]);
+    // Cancelling is the user's own action: it explains the empty report even if an earlier call failed.
+    if (statuses.some((r) => r.status === "not_run")) {
+      return "The test was cancelled before any response came back, so nothing was evaluated. Run it again when you're ready.";
+    }
+    if (statuses.every((r) => r.status === "provider_refused")) {
+      return "The provider's safety system declined every request, so nothing was evaluated. That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users. Try another model, or check how your provider handles this content.";
+    }
     const reason = liveAlertText(silent[0].run);
     return `No response came back from the model, so nothing was evaluated.${reason ? ` ${reason}.` : ""} Check your API key, the model you picked, and your provider account, then run the test again.`;
   }
@@ -109,7 +117,7 @@ function ScenarioCard({ summary }: { summary: ScenarioSummary }) {
         </p>
       )}
       {noResponses(summary) ? (
-        <p className="mt-3 text-sm text-zinc-300">No response came back for either version, so this scenario&apos;s checks didn&apos;t run.</p>
+        <p className="mt-3 text-sm text-zinc-300">Neither version returned a usable response (see above), so this scenario&apos;s checks didn&apos;t run.</p>
       ) : summary.issues.length > 0 ? (
         <ul className="mt-3 space-y-2">
           {summary.issues.map((r) => (

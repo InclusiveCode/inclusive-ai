@@ -131,9 +131,24 @@ describe("UX pass (post-launch)", () => {
     const t = text(renderToStaticMarkup(<PromptTestReport summary={summary} fixes={fixes} />));
     expect(overallAdvice(summary)).toMatch(/^No response came back from the model, so nothing was evaluated/);
     expect(t).toContain("Check your API key, the model you picked, and your provider account");
-    expect(t).toContain("No response came back for either version, so this scenario's checks didn't run.");
+    expect(t).toContain("Neither version returned a usable response (see above), so this scenario's checks didn't run.");
     expect(t).not.toContain("Not evaluated: model error");
     expect(t).toContain("Anthropic · requested model m");
+  });
+
+  it("a cancelled test and a provider safety refusal get their own advice, not the key advice", async () => {
+    const cancelled: Responder = async () => ({ status: "not_run", error: "Cancelled", durationMs: 0 });
+    const c = await test("Prompt", cancelled, "live");
+    expect(overallAdvice(c.summary)).toBe("The test was cancelled before any response came back, so nothing was evaluated. Run it again when you're ready.");
+    const refused: Responder = async () => ({ status: "provider_refused", durationMs: 0 });
+    const r = await test("Prompt", refused, "live");
+    expect(overallAdvice(r.summary)).toMatch(/^The provider's safety system declined every request, so nothing was evaluated\./);
+    let call = 0;
+    const timeoutThenCancel: Responder = async () =>
+      call++ < 2 ? { status: "timeout", durationMs: 0 } : { status: "not_run", error: "Cancelled", durationMs: 0 };
+    const m = await test("Prompt", timeoutThenCancel, "live");
+    expect(overallAdvice(m.summary)).toMatch(/^The test was cancelled/);
+    for (const x of [c, r, m]) expect(overallAdvice(x.summary)).not.toContain("API key");
   });
 
   it("groups evidence per version: one “Version B:” label for several excerpts", async () => {
