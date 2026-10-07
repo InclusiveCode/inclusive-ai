@@ -179,6 +179,37 @@ describe("UX pass (post-launch)", () => {
     expect(overallAdvice(rc.summary)).toMatch(/^The provider's safety system declined 1 of 3 scenarios, and the test was cancelled before the rest ran/);
   });
 
+  it("a real cancel (skipped scenarios) is reported as a cancel, with skipped scenarios counted", async () => {
+    const { runPromptTest: run } = await import("../prompt-test");
+    const cfg = { provider: "anthropic", model: "m", temperature: 0, maxTokens: 1024 };
+    const go = async (first: Responder) => {
+      const controller = new AbortController();
+      let calls = 0;
+      const out = await run({
+        instruction: "P",
+        responderFor: () => async (req) => {
+          const r = await first(req);
+          if (++calls === 2) controller.abort(); // both versions of scenario 1 done, then the user cancels
+          return r;
+        },
+        config: cfg,
+        mode: "live",
+        responderVersion: "v",
+        testId: "t",
+        createdAt: "2026-10-07T00:00:00.000Z",
+        signal: controller.signal,
+      });
+      expect(out.skipped).toHaveLength(2);
+      return summarizePromptTest(out);
+    };
+    const refusedThenCancel = await go(async () => ({ status: "provider_refused", durationMs: 0 }));
+    expect(overallAdvice(refusedThenCancel)).toBe(
+      "The provider's safety system declined 1 of 3 scenarios, and the test was cancelled before the rest ran, so nothing was evaluated. That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users. Run it again when you're ready.",
+    );
+    const answeredThenCancel = await go(async () => ({ status: "ok", text: "Happy to help, Sam. Jordan can be added as an authorized user.", durationMs: 0 }));
+    expect(overallAdvice(answeredThenCancel)).toContain("The test was cancelled before 2 of 3 scenarios ran, so the result is incomplete.");
+  });
+
   it("groups evidence per version: one “Version B:” label for several excerpts", async () => {
     const s = (await import("../suites")).findScenario("health-stated-identity")!;
     const { renderInputs } = await import("../render");
