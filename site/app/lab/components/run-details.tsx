@@ -95,7 +95,7 @@ function VariantCard({ scenario, run, v }: { scenario: Scenario; run: Run; v: Va
     <div className="rounded-lg border border-zinc-800 p-4">
       <h3 className="scroll-mt-24 text-base font-semibold text-zinc-100">{scenario.variable[v].label}</h3>
       <p className="mt-3 text-xs font-mono uppercase tracking-wider text-zinc-400">User input</p>
-      <p className="mt-1 whitespace-pre-wrap rounded-md bg-zinc-900 p-3 text-sm text-zinc-300">
+      <p className="mt-1 whitespace-pre-wrap wrap-anywhere rounded-md bg-zinc-900 p-3 text-sm text-zinc-300">
         <HighlightedText
           text={input}
           spans={[{ start: prefixLen, end: prefixLen + value.length }]}
@@ -104,7 +104,7 @@ function VariantCard({ scenario, run, v }: { scenario: Scenario; run: Run; v: Va
       </p>
       <p className="mt-3 text-xs font-mono uppercase tracking-wider text-zinc-400">{okText}</p>
       {response.status === "ok" ? (
-        <p className="mt-1 whitespace-pre-wrap rounded-md bg-zinc-900 p-3 text-sm text-zinc-300">
+        <p className="mt-1 whitespace-pre-wrap wrap-anywhere rounded-md bg-zinc-900 p-3 text-sm text-zinc-300">
           <HighlightedText text={response.text ?? ""} spans={spans} />
         </p>
       ) : (
@@ -126,7 +126,7 @@ export function RunDetails({ scenario, run }: { scenario: Scenario; run: Run }) 
     <div className="space-y-4">
       <div className="rounded-lg border border-zinc-800 p-4">
         <p className="text-xs font-mono uppercase tracking-wider text-zinc-400">Instruction used</p>
-        <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-300">{run.instruction.length > 0 ? run.instruction : "(empty instruction)"}</p>
+        <p className="mt-1 whitespace-pre-wrap wrap-anywhere text-sm text-zinc-300">{run.instruction.length > 0 ? run.instruction : "(empty instruction)"}</p>
         <p className="mt-2 text-sm text-zinc-400">
           Fingerprint: <span className="font-mono text-zinc-300">{run.instructionFingerprint}</span>
         </p>

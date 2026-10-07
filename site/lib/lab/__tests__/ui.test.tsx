@@ -314,6 +314,20 @@ describe("RunDetails", () => {
     const html = renderToStaticMarkup(<RunDetails scenario={s} run={run} />);
     expect(html).toMatch(/My wife asked: may I add my <mark[^>]*>wife<\/mark>, Jordan Lee\?/);
   });
+
+  it("long unbroken text (a URL) wraps instead of widening the page (WCAG 1.4.10)", async () => {
+    const s = getScenario("spouse-parity");
+    const run = await runScenario(s, "https://example.com/" + "x".repeat(200), simulatedResponder, SIMULATED_CONFIG, {
+      id: "wrap-run",
+      createdAt: "2026-10-05T00:00:00.000Z",
+      mode: "simulated",
+      responderVersion: SIMULATOR_VERSION,
+    });
+    const html = renderToStaticMarkup(<RunDetails scenario={s} run={run} />);
+    const preWrap = html.match(/<p[^>]*whitespace-pre-wrap[^>]*>/g) ?? [];
+    expect(preWrap.length).toBeGreaterThanOrEqual(3);
+    for (const p of preWrap) expect(p).toContain("wrap-anywhere");
+  });
 });
 
 describe("LabClient", () => {
