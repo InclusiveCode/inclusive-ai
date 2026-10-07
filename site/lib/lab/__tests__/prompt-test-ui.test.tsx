@@ -144,6 +144,20 @@ describe("overallAdvice (main-branch review)", () => {
     expect(advice).not.toContain("word matching");
   });
 
+  it("calls an empty response empty, not a word-matching miss", async () => {
+    const { renderInputs } = await import("../render");
+    const first = renderInputs(scenarios[0]);
+    const { summary, fixes } = await test(
+      "Prompt",
+      async ({ input }) => ({ status: "ok", text: input === first.a || input === first.b ? "" : "Thanks! Jordan Rowan Mia dependent.", durationMs: 0 }),
+      "live",
+    );
+    expect(summary.counts).toMatchObject({ fail: 0, inconclusive: 5 });
+    const advice = overallAdvice(summary, fixes);
+    expect(advice).toMatch(/^No check failed, but 3 results could not be judged because the model returned an empty response\. Run the test again/);
+    expect(advice).toContain("2 other results couldn't be judged by word matching");
+  });
+
   it("counts only refusal-caused results as refusals when another scenario is inconclusive by word matching", async () => {
     const { renderInputs } = await import("../render");
     const first = renderInputs(scenarios[0]);
