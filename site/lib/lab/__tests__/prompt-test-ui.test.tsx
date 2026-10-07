@@ -4,6 +4,7 @@ import { PromptTestClient } from "../../../app/lab/prompt-test/prompt-test-clien
 import { overallAdvice, PromptTestReport } from "../../../app/lab/prompt-test/report";
 import { runPromptTest, suggestedFixes, summarizePromptTest } from "../prompt-test";
 import type { Responder } from "../run";
+import { renderInputs as renderInputsTop } from "../render";
 import { scenarios } from "../scenarios";
 import { SIMULATED_CONFIG, SIMULATOR_VERSION, simulatedResponder, SNIPPET_RULES } from "../simulator";
 
@@ -129,85 +130,71 @@ describe("UX pass (post-launch)", () => {
     const failing: Responder = async () => ({ status: "model_error", error: "The provider rejected the API key", durationMs: 0 });
     const { summary, fixes } = await test("Prompt", failing, "live");
     const t = text(renderToStaticMarkup(<PromptTestReport summary={summary} fixes={fixes} />));
-    expect(overallAdvice(summary)).toMatch(/^No usable response came back from the model, so nothing was evaluated/);
+    expect(overallAdvice(summary)).toMatch(/^Nothing was evaluated\. 3 of 3 scenarios got no response from the model/);
     expect(t).toContain("Check your API key, the model you picked, and your provider account");
     expect(t).toContain("Neither version returned a usable response (see above), so this scenario's checks didn't run.");
     expect(t).not.toContain("Not evaluated: model error");
     expect(t).toContain("Anthropic · requested model m");
   });
 
-  it("a cancelled test and a provider safety refusal get their own advice, not the key advice", async () => {
-    const cancelled: Responder = async () => ({ status: "not_run", error: "Cancelled", durationMs: 0 });
-    const c = await test("Prompt", cancelled, "live");
-    expect(overallAdvice(c.summary)).toBe("The test was cancelled before any response came back, so nothing was evaluated. Run it again when you're ready.");
-    const refused: Responder = async () => ({ status: "provider_refused", durationMs: 0 });
-    const r = await test("Prompt", refused, "live");
-    expect(overallAdvice(r.summary)).toMatch(/^The provider's safety system declined every request, so nothing was evaluated\./);
-    let call = 0;
-    const timeoutThenCancel: Responder = async () =>
-      call++ < 2 ? { status: "timeout", durationMs: 0 } : { status: "not_run", error: "Cancelled", durationMs: 0 };
-    const m = await test("Prompt", timeoutThenCancel, "live");
-    expect(overallAdvice(m.summary)).toMatch(/^The test was cancelled/);
-    for (const x of [c, r, m]) expect(overallAdvice(x.summary)).not.toContain("API key");
-  });
+  describe("every scenario without a usable response gets exactly one cause", () => {
+    const inputs = scenarios.map((s) => renderInputsTop(s));
+    const idx = (input: string) => inputs.findIndex((x) => x.a === input || x.b === input);
+    const OK = { status: "ok" as const, text: "Rowan Thistlecombe and their partner. Jordan, an authorized user. Mia, a dependent.", durationMs: 0 };
+    const R = { status: "provider_refused" as const, durationMs: 0 };
+    const T = { status: "timeout" as const, durationMs: 0 };
+    const E = { status: "model_error" as const, error: "The provider rejected the API key", durationMs: 0 };
+    const C = { status: "not_run" as const, error: "Cancelled", durationMs: 0 };
+    type R = typeof OK | typeof R | typeof T | typeof E | typeof C;
+    const per = (plan: R[]): Responder => async ({ input }) => plan[idx(input)];
 
-  it("names a partial or mixed safety refusal instead of calling it a missing response", async () => {
-    const { renderInputs } = await import("../render");
-    const { scenarios: wb } = await import("../scenarios");
-    const disclosure = renderInputs(wb[2]);
-    const spouse = renderInputs(wb[0]);
-    // Refuses only the disclosure scenario; the others answer.
-    const partial: Responder = async ({ input }) =>
-      input === disclosure.a || input === disclosure.b
-        ? { status: "provider_refused", durationMs: 0 }
-        : { status: "ok", text: "Rowan Thistlecombe and their partner. Jordan.", durationMs: 0 };
-    const p = await test("Prompt", partial, "live");
-    expect(overallAdvice(p.summary)).toContain("The provider's safety system declined 1 of 3 scenarios, so it was not evaluated.");
-    expect(overallAdvice(p.summary)).not.toContain("got no response");
-    // Nothing usable anywhere: one scenario refused, the others timed out. No key advice for that mix.
-    const mixed: Responder = async ({ input }) =>
-      input === spouse.a || input === spouse.b ? { status: "provider_refused", durationMs: 0 } : { status: "timeout", durationMs: 0 };
-    const m = await test("Prompt", mixed, "live");
-    expect(overallAdvice(m.summary)).toContain("The provider's safety system declined 1 of 3 scenarios.");
-    expect(overallAdvice(m.summary)).not.toContain("API key");
-    expect(overallAdvice(m.summary)).toMatch(/Run the test again\.$/);
-    // Refused first, then cancelled: the refusal is still named.
-    let n = 0;
-    const refusedThenCancelled: Responder = async () =>
-      n++ < 2 ? { status: "provider_refused", durationMs: 0 } : { status: "not_run", error: "Cancelled", durationMs: 0 };
-    const rc = await test("Prompt", refusedThenCancelled, "live");
-    expect(overallAdvice(rc.summary)).toMatch(/^The provider's safety system declined 1 of 3 scenarios, and the test was cancelled before the rest ran/);
-  });
-
-  it("a real cancel (skipped scenarios) is reported as a cancel, with skipped scenarios counted", async () => {
-    const { runPromptTest: run } = await import("../prompt-test");
-    const cfg = { provider: "anthropic", model: "m", temperature: 0, maxTokens: 1024 };
-    const go = async (first: Responder) => {
-      const controller = new AbortController();
-      let calls = 0;
-      const out = await run({
-        instruction: "P",
-        responderFor: () => async (req) => {
-          const r = await first(req);
-          if (++calls === 2) controller.abort(); // both versions of scenario 1 done, then the user cancels
-          return r;
-        },
-        config: cfg,
-        mode: "live",
-        responderVersion: "v",
-        testId: "t",
-        createdAt: "2026-10-07T00:00:00.000Z",
-        signal: controller.signal,
+    const cases: Array<[string, R[], RegExp[], RegExp[]]> = [
+      ["all refused", [R, R, R], [/^The provider's safety system declined every request/], [/API key/, /cancel/i]],
+      ["all cancelled", [C, C, C], [/^Nothing was evaluated\. The test was cancelled before 3 of 3 scenarios finished\. Run it again/], [/API key/, /no response/]],
+      ["refused then cancelled", [R, C, C], [/declined 1 of 3 scenarios/, /cancelled before 2 of 3 scenarios finished/], [/API key/, /no response/]],
+      ["refused, rest timed out", [R, T, T], [/declined 1 of 3 scenarios/, /2 of 3 scenarios got no response/, /Run the test again\./], [/API key/]],
+      ["refused, rest key error", [R, E, E], [/declined 1 of 3 scenarios/, /Check your API key/], []],
+      ["one refused, rest answered", [OK, OK, R], [/declined 1 of 3 scenarios/], [/no response/, /cancel/i]],
+      ["cancelled mid-request in the middle", [OK, C, C], [/cancelled before 2 of 3 scenarios finished/], [/no response/, /API key/]],
+      ["cancelled mid-request in the last scenario", [OK, OK, C], [/cancelled before 1 of 3 scenarios finished/], [/no response/, /API key/]],
+    ];
+    for (const [name, plan, must, mustNot] of cases) {
+      it(name, async () => {
+        const advice = overallAdvice((await test("Prompt", per(plan), "live")).summary);
+        for (const re of must) expect(advice, `${name}: ${advice}`).toMatch(re);
+        for (const re of mustNot) expect(advice, `${name}: ${advice}`).not.toMatch(re);
+        expect(advice.match(/incomplete/g)?.length ?? 0, advice).toBeLessThanOrEqual(1);
       });
-      expect(out.skipped).toHaveLength(2);
-      return summarizePromptTest(out);
-    };
-    const refusedThenCancel = await go(async () => ({ status: "provider_refused", durationMs: 0 }));
-    expect(overallAdvice(refusedThenCancel)).toBe(
-      "The provider's safety system declined 1 of 3 scenarios, and the test was cancelled before the rest ran, so nothing was evaluated. That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users. Run it again when you're ready.",
-    );
-    const answeredThenCancel = await go(async () => ({ status: "ok", text: "Happy to help, Sam. Jordan can be added as an authorized user.", durationMs: 0 }));
-    expect(overallAdvice(answeredThenCancel)).toContain("The test was cancelled before 2 of 3 scenarios ran, so the result is incomplete.");
+    }
+
+    it("a real abort while a request is in flight (and skipped scenarios after it) counts as cancelled", async () => {
+      const { runPromptTest: run } = await import("../prompt-test");
+      for (const abortAtCall of [3, 5]) {
+        const controller = new AbortController();
+        let calls = 0;
+        const out = await run({
+          instruction: "P",
+          responderFor: () => async () => {
+            calls += 1;
+            if (calls >= abortAtCall) {
+              controller.abort(); // the user presses Cancel while this request is in flight
+              return C;
+            }
+            return OK;
+          },
+          config: { provider: "anthropic", model: "m", temperature: 0, maxTokens: 1024 },
+          mode: "live",
+          responderVersion: "v",
+          testId: "t",
+          createdAt: "2026-10-07T00:00:00.000Z",
+          signal: controller.signal,
+        });
+        const advice = overallAdvice(summarizePromptTest(out));
+        const expected = abortAtCall === 3 ? 2 : 1;
+        expect(advice, advice).toContain(`The test was cancelled before ${expected} of 3 scenarios finished.`);
+        expect(advice).not.toMatch(/no response/);
+      }
+    });
   });
 
   it("groups evidence per version: one “Version B:” label for several excerpts", async () => {
