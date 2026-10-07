@@ -111,37 +111,42 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
     return `This result is incomplete.${tail}`;
   }
   const n = summary.counts.inconclusive;
-  if (summary.counts.fail === 0 && n > 0 && summary.counts.error === 0 && summary.counts.not_evaluated === 0) {
+  // Fails that only record words missing from a reply declined as out of scope don't count against the prompt.
+  const countedFails = summary.counts.fail - summary.uncountedFails;
+  if (countedFails === 0 && n + summary.uncountedFails > 0 && summary.counts.error === 0 && summary.counts.not_evaluated === 0) {
+    const noFail = summary.uncountedFails > 0 ? "No counted check failed" : "No check failed";
     // The D16 screen leaves a check too empty to judge when the assistant itself refused (not the
     // provider's safety system) or returned no text. Results in scenarios declined as out of scope
     // are explained by the out-of-scope note; only the rest are word-matching inconclusives.
     const inScope = summary.scenarios.filter((s) => s.outOfScope === null);
-    const declinedOutOfScope = summary.scenarios.reduce((k, s) => k + (s.outOfScope === null ? 0 : s.counts.inconclusive), 0);
+    const oosInconclusive = summary.scenarios.reduce((k, s) => k + (s.outOfScope === null ? 0 : s.counts.inconclusive), 0);
+    // Every fail left here is uncounted, and only a declined scenario has those.
+    const declinedOutOfScope = oosInconclusive + summary.uncountedFails;
     const refusalIn = inScope.map((s) => s.issues.filter(isRefusalInconclusive).length);
     const refusals = refusalIn.reduce((a, b) => a + b, 0);
     const empties = inScope.reduce((k, s) => k + s.issues.filter(isEmptyInconclusive).length, 0);
-    const rest = n - declinedOutOfScope - refusals - empties;
+    const rest = n - oosInconclusive - refusals - empties;
     const results = (k: number, other: boolean) => (k === 1 ? `${other ? "One other" : "One"} result` : `${k} ${other ? "other " : ""}results`);
     const parts: string[] = [];
     if (refusals > 0) {
       const declined = refusalIn.filter((k) => k > 0).length;
       parts.push(
-        `No check failed, but your assistant declined the request in ${declined} of ${scen(total)}, so ${results(refusals, false).toLowerCase()} could not be judged. A refusal never passes. ${ORDINARY_REQUESTS} Read the responses below (open “Show the inputs and responses”) and check whether your prompt should let your assistant help.`,
+        `${noFail}, but your assistant declined the request in ${declined} of ${scen(total)}, so ${results(refusals, false).toLowerCase()} could not be judged. A refusal never passes. ${ORDINARY_REQUESTS} Read the responses below (open “Show the inputs and responses”) and check whether your prompt should let your assistant help.`,
       );
     }
     if (empties > 0) {
-      const lead = parts.length > 0 ? `${results(empties, true)} could not be judged` : `No check failed, but ${results(empties, false).toLowerCase()} could not be judged`;
+      const lead = parts.length > 0 ? `${results(empties, true)} could not be judged` : `${noFail}, but ${results(empties, false).toLowerCase()} could not be judged`;
       parts.push(`${lead} because the model returned an empty response. Run the test again; an empty response is not a pass.`);
     }
     if (declinedOutOfScope > 0) {
-      const lead = parts.length > 0 ? results(declinedOutOfScope, true) : `No check failed. ${results(declinedOutOfScope, false)}`;
+      const lead = parts.length > 0 ? results(declinedOutOfScope, true) : `${noFail}. ${results(declinedOutOfScope, false)}`;
       parts.push(`${lead} ${declinedOutOfScope === 1 ? "is" : "are"} in scenarios your assistant declined as outside its job, so ${declinedOutOfScope === 1 ? "it" : "they"} could not be judged (see the note below).`);
     }
     if (rest > 0) {
       parts.push(
         parts.length > 0
           ? `${results(rest, true)} couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read ${rest === 1 ? "it" : "them"} yourself too.`
-          : `No check failed. ${results(rest, false)} couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read ${rest === 1 ? "it" : "them"} yourself below (open “Show the inputs and responses”). Inconclusive is not a pass, but it is not a failure either.`,
+          : `${noFail}. ${results(rest, false)} couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read ${rest === 1 ? "it" : "them"} yourself below (open “Show the inputs and responses”). Inconclusive is not a pass, but it is not a failure either.`,
       );
     }
     return parts.join(" ");
