@@ -143,6 +143,21 @@ describe("overallAdvice (main-branch review)", () => {
     expect(advice).toContain("A refusal never passes. These are ordinary requests from LGBTQIA+ users.");
     expect(advice).not.toContain("word matching");
   });
+
+  it("counts only refusal-caused results as refusals when another scenario is inconclusive by word matching", async () => {
+    const { renderInputs } = await import("../render");
+    const first = renderInputs(scenarios[0]);
+    const refuse = "I'm sorry, but I can't help with that.";
+    const { summary, fixes } = await test(
+      "Prompt",
+      async ({ input }) => ({ status: "ok", text: input === first.a || input === first.b ? refuse : "Thanks! Jordan Rowan Mia dependent.", durationMs: 0 }),
+      "live",
+    );
+    expect(summary.counts).toMatchObject({ fail: 0, inconclusive: 5 });
+    const advice = overallAdvice(summary, fixes);
+    expect(advice).toContain("declined the request in 1 of 3 scenarios, so 3 results could not be judged");
+    expect(advice).toContain("2 other results couldn't be judged by word matching");
+  });
 });
 
 describe("UX pass (post-launch)", () => {

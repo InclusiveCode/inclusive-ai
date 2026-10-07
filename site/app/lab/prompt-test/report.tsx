@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { countsAsFail, type PromptTestSummary, type ScenarioSummary, type SuggestedFix } from "../../../lib/lab/prompt-test";
-import { detectRefusal } from "../../../lib/lab/evaluate";
+import { isRefusalInconclusive } from "../../../lib/lab/evaluate";
 import type { CheckResult } from "../../../lib/lab/types";
 import { providerLabel, returnedModelText } from "../components/banner";
 import { countLine } from "../components/result-card";
@@ -113,11 +113,17 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
   const n = summary.counts.inconclusive;
   if (summary.counts.fail === 0 && n > 0 && summary.counts.error === 0 && summary.counts.not_evaluated === 0) {
     // A refusal by the assistant itself (not the provider's safety system) leaves checks too empty to judge.
-    const declined = summary.scenarios.filter(
-      (s) => s.outOfScope === null && s.counts.inconclusive > 0 && pair(s).some((r) => r.status === "ok" && detectRefusal(r.text ?? "") !== null),
-    ).length;
-    if (declined > 0) {
-      return `No check failed, but your assistant declined the request in ${declined} of ${scen(total)}, so ${n === 1 ? "one result" : `${n} results`} could not be judged. A refusal never passes. ${ORDINARY_REQUESTS} Read the responses below (open “Show the inputs and responses”) and check whether your prompt should let your assistant help.`;
+    const refusalIn = summary.scenarios.filter((s) => s.outOfScope === null).map((s) => s.issues.filter(isRefusalInconclusive).length);
+    const refusals = refusalIn.reduce((a, b) => a + b, 0);
+    if (refusals > 0) {
+      const declined = refusalIn.filter((k) => k > 0).length;
+      const rest = n - refusals;
+      return (
+        `No check failed, but your assistant declined the request in ${declined} of ${scen(total)}, so ${refusals === 1 ? "one result" : `${refusals} results`} could not be judged. A refusal never passes. ${ORDINARY_REQUESTS} Read the responses below (open “Show the inputs and responses”) and check whether your prompt should let your assistant help.` +
+        (rest > 0
+          ? ` ${rest === 1 ? "One other result" : `${rest} other results`} couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read ${rest === 1 ? "it" : "them"} yourself too.`
+          : "")
+      );
     }
     return `No check failed. ${n === 1 ? "One result" : `${n} results`} couldn't be judged by word matching: the response didn't use the exact words the check looks for, so read ${n === 1 ? "it" : "them"} yourself below (open “Show the inputs and responses”). Inconclusive is not a pass, but it is not a failure either.`;
   }

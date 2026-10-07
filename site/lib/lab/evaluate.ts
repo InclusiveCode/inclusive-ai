@@ -133,6 +133,12 @@ function screen(text: string): Screen {
 export const EMPTY_RATIONALE = "Response is empty — too empty to judge";
 const REFUSAL_RATIONALE = "Response is a refusal — too empty to judge. A refusal never passes.";
 
+/** True for an inconclusive result the D16 screen produced because a response was a refusal. */
+export function isRefusalInconclusive(r: CheckResult): boolean {
+  if (r.status !== "inconclusive" || !r.flags?.includes("vacuous")) return false;
+  return r.rationale === REFUSAL_RATIONALE || r.rationale.startsWith("Both versions refused") || /^Version [AB] refused, but /.test(r.rationale);
+}
+
 function vacuous(checkId: string, variant: ResultVariant, rationale: string, evidence: Evidence[] = []): CheckResult {
   return { checkId, variant, status: "inconclusive", evidence, rationale, flags: ["vacuous"] };
 }
