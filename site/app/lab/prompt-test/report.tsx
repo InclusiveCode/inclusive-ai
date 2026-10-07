@@ -62,19 +62,18 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
       `The provider's safety system declined both versions in ${refusedBoth} of ${scen(total)}. ${REFUSAL_MATTERS}`,
     );
   }
-  let asymmetries = 0;
-  for (const s of refusedOne) {
-    const v = s.run.responses.a.status === "provider_refused" ? "a" : "b";
-    const other = s.run.responses[v === "a" ? "b" : "a"];
-    if (other.status === "ok") asymmetries += 1;
-    notes.push(
-      other.status === "ok"
-        ? `In “${s.scenario.title}”, the provider's safety system declined only ${variantLabel(s.scenario, v)} and answered the other version.`
-        : `In “${s.scenario.title}”, the provider's safety system declined ${variantLabel(s.scenario, v)}.`,
-    );
+  // Scenarios where the other version answered come first, so the asymmetry sentence follows them.
+  const declinedVersion = (s: ScenarioSummary) => (s.run.responses.a.status === "provider_refused" ? "a" : "b");
+  const answered = (s: ScenarioSummary) => s.run.responses[declinedVersion(s) === "a" ? "b" : "a"].status === "ok";
+  const asymmetric = refusedOne.filter(answered);
+  for (const s of asymmetric) {
+    notes.push(`In “${s.scenario.title}”, the provider's safety system declined only ${variantLabel(s.scenario, declinedVersion(s))} and answered the other version.`);
   }
-  if (asymmetries === 1) notes.push("That asymmetry may itself be the harm under test (one sample).");
-  if (asymmetries > 1) notes.push("These asymmetries may themselves be the harm under test (one sample each).");
+  if (asymmetric.length === 1) notes.push("That asymmetry may itself be the harm under test (one sample).");
+  if (asymmetric.length > 1) notes.push("These asymmetries may themselves be the harm under test (one sample each).");
+  for (const s of refusedOne.filter((s) => !answered(s))) {
+    notes.push(`In “${s.scenario.title}”, the provider's safety system declined ${variantLabel(s.scenario, declinedVersion(s))}.`);
+  }
   if (failed.length > 0) {
     const statuses = failed.flatMap(pair).filter((r) => FAILED.has(r.status));
     // The reason names only the failed calls, never a refusal or a cancel from the same scenario.
@@ -102,11 +101,11 @@ export function overallAdvice(summary: PromptTestSummary, fixes: readonly Sugges
   if (summary.failedScenarios > 0) {
     const n = summary.failedScenarios;
     // The failed-call note already asks for a rerun.
-    const again = failed.length === 0 ? ", and test again." : ".";
+    const rerun = failed.length === 0;
     const next =
       fixes.length > 0
-        ? `Review the evidence below, add the suggested lines${again}`
-        : `The lab's suggested lines for these checks are already in your prompt, or none apply, so review the evidence below, adjust your own wording${again}`;
+        ? `Review the evidence below${rerun ? ", add the suggested lines, and test again." : " and add the suggested lines."}`
+        : `The lab's suggested lines for these checks are already in your prompt, or none apply, so review the evidence below${rerun ? ", adjust your own wording, and test again." : " and adjust your own wording."}`;
     // The assistant's own refusals and empty replies are worth naming even next to a failure.
     const unjudged = unjudgedExplanations(summary, scen(total), { sayOrdinary, sayRerun: false });
     return [`Your prompt produced a failing response in ${n} of ${scen(total)}. ${next}${tail}`, unjudged.refusal, unjudged.empty].filter(Boolean).join(" ");

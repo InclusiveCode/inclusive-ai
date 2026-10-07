@@ -295,6 +295,24 @@ describe("overallAdvice (main-branch review)", () => {
       expect(advice.match(/(?:run the test|test) again/gi)).toHaveLength(1);
     });
 
+    it("the asymmetry sentence follows the asymmetric scenario, not a refusal whose other version failed", async () => {
+      const { summary, fixes } = await run([
+        pass,
+        (v) => (v === "a" ? { status: "provider_refused", durationMs: 0 } : pass()),
+        (v) => (v === "a" ? { status: "provider_refused", durationMs: 0 } : { status: "timeout", durationMs: 0 }),
+      ]);
+      const advice = overallAdvice(summary, fixes);
+      expect(advice).toMatch(/declined only Version A[^.]* and answered the other version\. That asymmetry may itself be the harm under test \(one sample\)\./);
+      expect(advice.indexOf("That asymmetry")).toBeLessThan(advice.indexOf(`In “${scenarios[2].title}”`));
+    });
+
+    it("a failing test with a failed call keeps a complete sentence", async () => {
+      const thanks = () => ({ status: "ok" as const, text: "Thanks!", durationMs: 0 });
+      const { summary, fixes } = await run([thanks, () => ({ status: "timeout", durationMs: 0 }), thanks]);
+      const advice = overallAdvice(summary, fixes);
+      expect(advice).toMatch(/Review the evidence below and add the suggested lines\.|review the evidence below and adjust your own wording\./);
+    });
+
     it("two one-sided safety refusals state the asymmetry point once", async () => {
       const { summary, fixes } = await run([
         (v) => (v === "b" ? { status: "provider_refused", durationMs: 0 } : pass()),
