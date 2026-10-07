@@ -146,9 +146,14 @@ describe("UX pass (post-launch)", () => {
     const E = { status: "model_error" as const, error: "The provider rejected the API key", durationMs: 0 };
     const C = { status: "not_run" as const, error: "Cancelled", durationMs: 0 };
     type R = typeof OK | typeof R | typeof T | typeof E | typeof C;
-    const per = (plan: R[]): Responder => async ({ input }) => plan[idx(input)];
+    type Plan = R | { a: R; b: R };
+    const per = (plan: Plan[]): Responder => async ({ input }) => {
+      const i = idx(input);
+      const p = plan[i];
+      return "a" in p ? (inputs[i].a === input ? p.a : p.b) : p;
+    };
 
-    const cases: Array<[string, R[], RegExp[], RegExp[]]> = [
+    const cases: Array<[string, Plan[], RegExp[], RegExp[]]> = [
       ["all refused", [R, R, R], [/^The provider's safety system declined every request/], [/API key/, /cancel/i]],
       ["all cancelled", [C, C, C], [/^Nothing was evaluated\. The test was cancelled before 3 of 3 scenarios finished\. Run it again/], [/API key/, /no response/]],
       ["refused then cancelled", [R, C, C], [/declined 1 of 3 scenarios/, /cancelled before 2 of 3 scenarios finished/], [/API key/, /no response/]],
@@ -157,6 +162,14 @@ describe("UX pass (post-launch)", () => {
       ["one refused, rest answered", [OK, OK, R], [/declined 1 of 3 scenarios/], [/no response/, /cancel/i]],
       ["cancelled mid-request in the middle", [OK, C, C], [/cancelled before 2 of 3 scenarios finished/], [/no response/, /API key/]],
       ["cancelled mid-request in the last scenario", [OK, OK, C], [/cancelled before 1 of 3 scenarios finished/], [/no response/, /API key/]],
+      ["cancelled after Version A of the last scenario answered", [OK, OK, { a: OK, b: C }], [/cancelled before 1 of 3 scenarios finished/], [/no response/, /Some checks could not/]],
+      [
+        "safety system declined only Version B (the trans version) in one scenario",
+        [OK, OK, { a: OK, b: R }],
+        [/declined only Version B — because they are trans and answered the other version\. That asymmetry may itself be the harm under test/],
+        [/no response/, /Some checks could not/],
+      ],
+      ["one version timed out", [{ a: T, b: OK }, OK, OK], [/1 of 3 scenarios got no response from the model for at least one version/, /Run the test again\./], [/API key/]],
     ];
     for (const [name, plan, must, mustNot] of cases) {
       it(name, async () => {
@@ -166,6 +179,12 @@ describe("UX pass (post-launch)", () => {
         expect(advice.match(/incomplete/g)?.length ?? 0, advice).toBeLessThanOrEqual(1);
       });
     }
+
+    it("the scenario card also flags a one-sided safety refusal", async () => {
+      const { summary, fixes } = await test("Prompt", per([OK, OK, { a: OK, b: R }]), "live");
+      const t = text(renderToStaticMarkup(<PromptTestReport summary={summary} fixes={fixes} />));
+      expect(t).toContain("Only Version B was declined by the provider's safety system (one sample). This asymmetry may itself be the harm under test.");
+    });
 
     it("a real abort while a request is in flight (and skipped scenarios after it) counts as cancelled", async () => {
       const { runPromptTest: run } = await import("../prompt-test");

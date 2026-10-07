@@ -4,7 +4,7 @@ import type { CheckResult } from "../../../lib/lab/types";
 import { providerLabel, returnedModelText } from "../components/banner";
 import { countLine } from "../components/result-card";
 import { RunDetails } from "../components/run-details";
-import { liveAlertText, ModeBadge, StatusBadge, variantLabel } from "../components/status";
+import { liveAlertText, ModeBadge, providerRefusalAsymmetryNote, StatusBadge, variantLabel } from "../components/status";
 
 const TONE: Array<[RegExp, string]> = [
   [/^Checks failed/, "border-rose-400/60"],
@@ -30,25 +30,30 @@ export function outOfScopeAdvice(summary: PromptTestSummary): string | null {
 
 const REFUSAL_MATTERS = "That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users.";
 
-type SilentCause = "cancelled" | "refused" | "failed";
+type Cause = "cancelled" | "refused" | "refused_one" | "failed";
 
 /**
- * Why a scenario with no usable response has none. Cancelling is the user's own action, so it
- * wins; then a provider safety refusal (repeatable, and itself a finding); otherwise the call failed.
+ * Why a scenario is missing a usable response for at least one version, or null when both
+ * versions answered. Cancelling is the user's own action, so it wins. A safety refusal of only one
+ * version, while the other answered, is kept apart: that asymmetry may itself be the harm under test.
  */
-function silentCause(s: ScenarioSummary): SilentCause {
-  const rs = [s.run.responses.a, s.run.responses.b];
-  if (rs.some((r) => r.status === "not_run")) return "cancelled";
-  if (rs.some((r) => r.status === "provider_refused")) return "refused";
+function cause(s: ScenarioSummary): Cause | null {
+  const { a, b } = s.run.responses;
+  if (a.status === "ok" && b.status === "ok") return null;
+  if (a.status === "not_run" || b.status === "not_run") return "cancelled";
+  if (a.status === "provider_refused" || b.status === "provider_refused") {
+    return a.status === "ok" || b.status === "ok" ? "refused_one" : "refused";
+  }
   return "failed";
 }
 
 /**
- * What the overall headline means for the engineer's prompt. Every scenario without a usable
- * response is given exactly one cause: cancelled (never started, or stopped mid-request), declined
- * by the provider's safety system, or a failed call. Each cause gets one sentence, so a refusal is
- * always named, a cancel is never blamed on the model, and key or account advice appears only when
- * a call failed in a way a key or account could explain.
+ * What the overall headline means for the engineer's prompt. Every scenario missing a response
+ * for either version gets exactly one cause: cancelled (never started, or stopped mid-request),
+ * declined by the provider's safety system (for both versions, or for only one), or a failed call.
+ * Each cause gets one sentence, so a refusal and a cancel are always named, a cancel is never
+ * blamed on the model, and key or account advice appears only when a call failed in a way a key
+ * or account could explain.
  */
 export function overallAdvice(summary: PromptTestSummary): string {
   // Scenarios that never started because the test was cancelled are in `skipped`, not in `scenarios`.
@@ -56,21 +61,28 @@ export function overallAdvice(summary: PromptTestSummary): string {
   const total = ran + summary.skipped.length;
   const scen = (n: number) => `${n} scenario${n === 1 ? "" : "s"}`;
   const silent = summary.scenarios.filter(noResponses);
-  const by = (c: SilentCause) => silent.filter((s) => silentCause(s) === c);
+  const by = (c: Cause) => summary.scenarios.filter((s) => cause(s) === c);
   const cancelled = summary.skipped.length + by("cancelled").length;
   const refused = by("refused").length;
+  const refusedOne = by("refused_one");
   const failed = by("failed");
 
   const notes: string[] = [];
   if (refused > 0) {
     notes.push(`The provider's safety system declined ${refused} of ${scen(total)}. That is worth knowing in itself: these are ordinary requests from LGBTQIA+ users.`);
   }
+  for (const s of refusedOne) {
+    const v = s.run.responses.a.status === "provider_refused" ? "a" : "b";
+    notes.push(
+      `In “${s.scenario.title}”, the provider's safety system declined only ${variantLabel(s.scenario, v)} and answered the other version. That asymmetry may itself be the harm under test (one sample).`,
+    );
+  }
   if (failed.length > 0) {
     const statuses = failed.flatMap((s) => [s.run.responses.a, s.run.responses.b]);
     const reason = liveAlertText(failed[0].run);
     const keyProblem = statuses.some((r) => r.status === "model_error" || r.status === "credentials_unavailable");
     notes.push(
-      `${failed.length} of ${scen(total)} got no response from the model${reason ? ` (${reason})` : ""}. ` +
+      `${failed.length} of ${scen(total)} got no response from the model for at least one version${reason ? ` (${reason})` : ""}. ` +
         (keyProblem ? "Check your API key, the model you picked, and your provider account, then run the test again." : "Run the test again."),
     );
   }
@@ -153,6 +165,7 @@ function ScenarioCard({ summary }: { summary: ScenarioSummary }) {
       <p className="mt-2 font-semibold text-zinc-50">{summary.headline}</p>
       <p className="text-sm text-zinc-300">{countLine(summary.counts)}</p>
       {run.mode === "live" && alert && <p className="mt-2 text-sm text-amber-200">{alert}.</p>}
+      {providerRefusalAsymmetryNote(run) && <p className="mt-2 text-sm text-amber-200">{providerRefusalAsymmetryNote(run)}</p>}
       {summary.outOfScope && (
         <p className="mt-2 text-sm text-amber-200">
           Both versions declined this task as outside the assistant&apos;s job (“{summary.outOfScope.a.excerpt}”), so the checks below had
